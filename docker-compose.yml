@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: agro
+      POSTGRES_USER: agro
+      POSTGRES_PASSWORD: agro
+    ports:
+      - "5432:5432"
+    volumes:
+      - agro_db:/var/lib/postgresql/data
+
+volumes:
+  agro_db:

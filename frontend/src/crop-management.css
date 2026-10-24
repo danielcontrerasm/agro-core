@@ -1,0 +1,640 @@
+.crop-app-shell{--sidebar:236px}
+.crop-app-shell .sidebar{width:236px;padding:19px 12px 16px;background:linear-gradient(180deg,#f3fbf7 0%,#fbfdfc 55%,#f0faf5 100%);border-right:1px solid #e4eee9}
+.crop-app-shell .sidebar-top{padding:0 8px 15px}
+.crop-app-shell .brand{gap:7px}
+.crop-app-shell .brand strong{font-size:23px;letter-spacing:-.8px}
+.crop-app-shell .brand small{font-size:9px;letter-spacing:1px}
+.crop-app-shell .brand-mark{width:37px;height:43px}
+.crop-app-shell .sidebar nav{padding-top:4px}
+.crop-app-shell .nav-group{display:none}
+.crop-app-shell .nav-item{gap:11px;padding:11px 12px;margin-bottom:1px;border-radius:9px;font-size:12px;color:#536b60}
+.crop-app-shell .nav-item svg{width:19px;color:#536e63}
+.crop-app-shell .nav-item.active{background:#d9efe1;color:#087b50;font-weight:700}
+.crop-app-shell .nav-item.active:before{height:18px;background:#079b60}
+.crop-app-shell .sidebar-bottom{padding:0 7px}
+.crop-app-shell .sidebar-message{margin:14px 2px;padding:14px 10px 12px;border-radius:10px}
+.crop-app-shell .sidebar-message p{font-size:15px}
+.crop-app-shell .sidebar-message>span{font-size:8px}
+.crop-app-shell .sidebar-user{padding-top:12px}
+.crop-app-shell .sidebar-user strong{font-size:10px}
+.crop-app-shell .sidebar-user small{font-size:9px}
+.crop-app-shell .logout{font-size:10px;margin-top:13px}
+.crop-app-shell .topbar{height:78px;padding:0 20px;gap:12px;background:#fff;border-bottom:1px solid #e8efeb}
+.crop-app-shell .global-search{height:40px;max-width:335px;border-radius:10px;padding:0 14px;gap:10px;background:#f4f7f7;border-color:#edf1ef}
+.crop-app-shell .global-search input{font-size:11px}
+.crop-app-shell .global-search kbd{display:none}
+.crop-app-shell .topbar-filters{gap:9px;margin-left:0}
+.crop-app-shell .farm-picker,.crop-app-shell .date-picker{height:40px;border-color:#e1e9e4;border-radius:8px;background:#fff}
+.crop-app-shell .farm-picker{width:145px;padding:0 10px;gap:7px}
+.crop-app-shell .farm-picker select{appearance:none;border:0;padding:0;outline:0;background:none;font-size:11px;color:#30443a;min-width:0;flex:1}
+.crop-app-shell .farm-picker>svg:last-child,.crop-app-shell .date-picker>svg:last-of-type{color:#52685b}
+.crop-app-shell .date-picker{position:relative;width:156px;padding:0 10px;gap:7px;cursor:pointer}
+.crop-app-shell .date-picker-value{flex:1;color:#34483e;font-size:11px;line-height:1;white-space:nowrap}
+.crop-app-shell .date-picker input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:2}
+.crop-app-shell .topbar-end{gap:14px;margin-left:auto}
+.crop-app-shell .topbar-weather{gap:8px;padding-right:14px}
+.crop-app-shell .topbar-weather>svg{width:31px;height:31px}
+.crop-app-shell .topbar-weather strong{font-size:13px}
+.crop-app-shell .topbar-weather small{font-size:9px}
+.crop-app-shell .notification-button{width:42px;height:42px;padding:0;border:1px solid #e7eeea;border-radius:50%;background:#fff;box-shadow:0 2px 6px #193c2c0a}
+.crop-app-shell .notification-button svg{width:21px;height:21px;color:#40574a}
+.crop-app-shell .notification-button i{width:18px;height:18px;top:-3px;right:-3px;font-size:9px}
+.crop-app-shell .profile-button{width:42px;height:42px;font-size:12px;background:#dff1e8;color:#087b50}
+.crop-app-shell .environment-bar,.crop-app-shell main .breadcrumbs,.crop-app-shell main .mobile-context,.crop-app-shell main>.footer{display:none}
+.crop-app-shell main{padding:0 16px 24px 8px;max-width:1600px;margin:0;background:#f8fbfa;min-height:calc(100vh - 78px)}
+.crop-app-shell main h1,.crop-app-shell main h2,.crop-app-shell main h3,.crop-app-shell main h4,.crop-app-shell main strong{font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.crop-app-shell main button,.crop-app-shell main p,.crop-app-shell main span,.crop-app-shell main small,.crop-app-shell main select,.crop-app-shell main input,.crop-app-shell main textarea{font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.crop-app-shell .page-stack{padding-bottom:8px}
+.crop-app-shell .page-heading{min-height:82px;margin:0;padding:17px 14px 10px;align-items:center;gap:16px}
+.crop-app-shell .page-heading h1{font-size:27px;line-height:1.2;letter-spacing:-.9px;color:#10233b;font-weight:800;margin:5px 0 4px}
+.crop-app-shell .page-heading p{font-size:11px;line-height:1.4;color:#607386;margin-top:0;max-width:560px}
+.crop-app-shell .page-heading .eyebrow{font-size:8px;letter-spacing:1.5px;color:#6b9372}
+.crop-app-shell .heading-buttons,.crop-app-shell .heading-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.crop-app-shell .page-heading>.badge{margin-left:auto}
+.crop-app-shell .button{border-radius:8px;font-size:11px;min-height:37px;padding:9px 14px}
+.crop-app-shell .button.small{min-height:31px;padding:7px 11px;font-size:10px}
+.crop-app-shell .button.secondary{border-color:#dfe8e2;color:#3f5a4a;background:#fff}
+.crop-app-shell .panel{padding:16px;border-color:#e1eae5;border-radius:10px;box-shadow:0 3px 12px #193c2c08}
+.crop-app-shell .panel-heading{margin-bottom:13px}
+.crop-app-shell .panel-heading h3{font-size:15px;line-height:1.25;color:#243b2e;font-weight:750}
+.crop-app-shell .muted{font-size:11px;color:#7b8d80}
+.crop-app-shell .notice{margin:0 0 13px;border-color:#dce9dc;background:#f4faf3;border-radius:8px;padding:10px 12px;color:#668369;font-size:10px;line-height:1.55}
+.crop-app-shell .toolbar{margin:0 0 12px;padding:5px 0 0;border-bottom:1px solid #e1eae5;gap:10px}
+.crop-app-shell .tabs{gap:5px;overflow-x:auto;scrollbar-width:none}
+.crop-app-shell .tabs>button{height:36px;border:1px solid transparent;border-radius:8px 8px 0 0;padding:0 12px;color:#65776d;background:transparent;font-size:10px;gap:6px}
+.crop-app-shell .tabs>button:hover{color:#087b50;background:#f1f7f3}
+.crop-app-shell .tabs>button.active{border-color:#078b58;background:#e0f3e6;color:#087b50;font-weight:700}
+.crop-app-shell .tabs>button>span:not(.badge){background:#edf3ef;color:#71847a}
+.crop-app-shell .record-filters{display:flex;gap:10px;align-items:flex-end;background:#fff;border:1px solid #e1eae5;border-radius:9px;padding:13px;margin:0 0 12px;box-shadow:0 3px 12px #193c2c08}
+.crop-app-shell .record-filters>label{min-width:130px;color:#718277;font-size:9px;gap:6px}
+.crop-app-shell .record-filters select,.crop-app-shell .record-filters input{min-height:35px;padding:8px 10px;border-color:#e1e9e3;background:#fbfdfb;color:#40594b;font-size:10px}
+.crop-app-shell .record-filters .text-button{margin-top:0;align-self:center}
+.crop-app-shell .table-wrap{overflow-x:auto}
+.crop-app-shell table{width:100%;border-collapse:collapse;min-width:680px}
+.crop-app-shell th{padding:9px 10px;background:#f6faf7;border-bottom:1px solid #e5ede7;color:#74867b;font-size:8px;letter-spacing:.45px;text-align:left;text-transform:uppercase;white-space:nowrap}
+.crop-app-shell td{padding:11px 10px;border-bottom:1px solid #edf2ee;color:#415449;font-size:10px;vertical-align:top;line-height:1.55}
+.crop-app-shell tbody tr:hover{background:#fbfdfb}
+.crop-app-shell tbody tr:last-child td{border-bottom:0}
+.crop-app-shell .table-subtitle{display:block;margin-top:3px;color:#92a098;font-size:8px}
+.crop-app-shell .table-title{display:inline-flex;align-items:center;gap:7px;color:#294437;font-weight:650}
+.crop-app-shell .table-pagination{padding:13px 2px 0;border-top:1px solid #edf2ee;color:#91a098;font-size:9px}
+.crop-app-shell .page-note{margin:12px 2px 0;color:#829289;font-size:10px;line-height:1.6}
+.crop-app-shell .error-banner{margin:0 0 12px}
+.crop-app-shell .operation-banner{margin:0 0 12px;padding:17px;border-color:#dce9df;border-radius:10px;background:linear-gradient(120deg,#eef7f0,#f9fbf9);box-shadow:0 3px 12px #193c2c08}
+.crop-app-shell .operation-banner>.stat-icon{width:50px;height:50px;border-radius:14px}
+.crop-app-shell .operation-banner>div>span{font-size:8px;letter-spacing:1.4px;color:#73937e}
+.crop-app-shell .operation-banner strong{font-size:20px;color:#355c48;margin:5px 0 2px}
+.crop-app-shell .operation-banner p{font-size:10px;color:#819287}
+.crop-app-shell .planned-work{grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
+.crop-app-shell .planned-work>.panel{padding:14px}
+.crop-app-shell .planned-work h3{font-size:13px;color:#315844}
+.crop-app-shell .planned-work p{font-size:10px;color:#819188;margin:8px 0}
+.crop-app-shell .detail-date{font-size:9px;color:#819188;margin:12px 0}
+.crop-app-shell .page-note+.page-note{margin-top:4px}
+.crop-app-shell .stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 12px}
+.crop-app-shell .stat-grid>.panel{min-height:86px;padding:13px 15px;box-shadow:0 2px 8px #193c2c08}
+.crop-app-shell .stat-label{display:block;color:#728379;font-size:10px}
+.crop-app-shell .stat-value{display:block;margin:3px 0 0;color:#213b2d;font-family:Manrope,sans-serif;font-size:24px;line-height:1.25;letter-spacing:-.7px}
+.crop-app-shell .stat-grid small{display:block;margin-top:3px;color:#90a097;font-size:9px}
+.crop-app-shell .content-grid{display:grid;gap:12px;margin-bottom:12px}
+.crop-app-shell .content-grid.two-one{grid-template-columns:minmax(270px,.9fr) minmax(0,1.55fr)}
+.crop-app-shell .stack-list{display:flex;flex-direction:column;gap:7px}
+.crop-app-shell .list-card{display:grid;grid-template-columns:38px minmax(0,1fr) auto;align-items:center;gap:10px;width:100%;padding:10px;border:1px solid #e8efea;border-radius:8px;background:#fff;color:#365244;text-align:left;min-width:0}
+.crop-app-shell button.list-card{cursor:pointer}
+.crop-app-shell .list-card:hover,.crop-app-shell .list-card.selected{border-color:#9acbaa;background:#f4fbf5}
+.crop-app-shell .list-card>span:nth-child(2){min-width:0}
+.crop-app-shell .list-card strong{display:block;overflow:hidden;color:#2e4e3b;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+.crop-app-shell .list-card small{display:block;margin-top:3px;overflow:hidden;color:#87978d;font-size:9px;text-overflow:ellipsis;white-space:nowrap}
+.crop-app-shell .list-card .icon-tile{width:36px;height:36px;border-radius:9px}
+.crop-app-shell .list-card-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.crop-app-shell .catalog-varieties{grid-column:2/-1;display:flex;gap:5px;flex-wrap:wrap;padding-top:2px}
+.crop-app-shell .detail-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 15px;padding-bottom:14px;border-bottom:1px solid #edf2ee}
+.crop-app-shell .detail-grid>div{min-width:0}
+.crop-app-shell .detail-label{display:block;margin-bottom:4px;color:#819188;font-size:9px}
+.crop-app-shell .detail-grid strong{display:block;color:#2a4535;font-size:11px;line-height:1.45}
+.crop-app-shell .button-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:16px}
+.crop-app-shell .workflow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;padding-top:3px}
+.crop-app-shell .workflow-step{display:flex;align-items:flex-start;gap:7px;min-width:0;padding:9px 7px;border:1px solid #e6eee8;border-radius:8px;background:#fafcfb}
+.crop-app-shell .workflow-step>span{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;flex:0 0 22px;border:1px solid #cbdcd0;color:#9aa99e;font-size:12px}
+.crop-app-shell .workflow-step.done{border-color:#c9e4cc;background:#f3faf3}
+.crop-app-shell .workflow-step.done>span{border-color:#75b87c;background:#e3f4e4;color:#398849}
+.crop-app-shell .workflow-step strong{display:block;color:#45614e;font-size:9px;line-height:1.35}
+.crop-app-shell .workflow-step small{display:block;margin-top:3px;color:#91a097;font-size:8px;line-height:1.4}
+.crop-app-shell .irrigation-alert-center{margin:0 0 12px;padding:16px;border-color:#dce7dc;border-radius:10px;box-shadow:0 3px 12px #193c2c08}
+.crop-app-shell .alert-center-heading{padding-bottom:13px}
+.crop-app-shell .alert-center-heading h2{font-size:17px;color:#243b2e}
+.crop-app-shell .alert-center-heading p{font-size:10px;color:#7d8d83}
+.crop-app-shell .alert-counts{gap:7px}
+.crop-app-shell .alert-counts strong{min-width:62px;padding:7px 8px;font-size:16px}
+.crop-app-shell .alert-list{gap:8px;padding-top:12px}
+.crop-app-shell .irrigation-alert{padding:10px;border-radius:8px}
+.crop-app-shell .alert-copy strong{font-size:10px}
+.crop-app-shell .alert-copy p{font-size:9px}
+.crop-app-shell .water-management-content{padding-top:1px}
+.crop-app-shell .water-management-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin:0 0 12px;padding:14px 16px;border:1px solid #e1eae5;border-radius:10px;background:#fff;box-shadow:0 3px 12px #193c2c08}
+.crop-app-shell .water-management-heading h2{font-size:17px;color:#243b2e;margin:5px 0 3px}
+.crop-app-shell .water-management-heading p{font-size:10px;color:#7e8d83}
+.crop-app-shell .water-management-actions{display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap}
+.crop-app-shell .water-management-guide{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:0 0 12px}
+.crop-app-shell .water-management-guide>div{display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid #e3ece6;border-radius:8px;background:#f9fcfa}
+.crop-app-shell .water-management-guide>div>strong{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#e0f2e4;color:#34864a;font-size:11px}
+.crop-app-shell .water-management-guide b{display:block;color:#466354;font-size:10px}
+.crop-app-shell .water-management-guide small{display:block;margin-top:2px;color:#91a097;font-size:8px}
+.crop-app-shell .water-management-summary{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin:0 0 12px}
+.crop-app-shell .water-management-summary>div{padding:10px;border:1px solid #e1eae5;border-radius:8px;background:#fff;text-align:center}
+.crop-app-shell .water-management-summary strong{display:block;color:#244533;font-size:19px;line-height:1.2}
+.crop-app-shell .water-management-summary span{display:block;margin-top:3px;color:#829188;font-size:8px}
+.crop-app-shell .water-management-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.crop-app-shell .water-management-grid>.panel{min-width:0}
+.crop-app-shell .insights-grid{gap:11px;margin:0 0 12px}
+.crop-app-shell .insights-grid>.panel{padding:17px}
+.crop-app-shell .agronomic-hero{margin:0 0 12px;padding:28px 32px;border-radius:10px}
+.crop-app-shell .settings-tabs{margin-bottom:12px}
+.crop-app-shell .settings-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(280px,.75fr);gap:12px}
+.crop-app-shell .reset-demo{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0;padding:14px 16px;border:1px solid #e3eae4;border-radius:10px;background:#fff}
+.crop-app-shell .reset-demo strong{font-size:11px;color:#435b4c}
+.crop-app-shell .reset-demo p{margin-top:3px;color:#87968d;font-size:10px}
+.crop-app-shell .form-grid{gap:13px 15px}
+.crop-app-shell .form-grid>label,.crop-app-shell .form-stack>label,.crop-app-shell .fertilization-form label{color:#63766b;font-size:10px}
+.crop-app-shell .form-grid input,.crop-app-shell .form-grid select,.crop-app-shell .form-grid textarea,.crop-app-shell .form-stack input,.crop-app-shell .form-stack select,.crop-app-shell .form-stack textarea,.crop-app-shell .fertilization-form input,.crop-app-shell .fertilization-form select,.crop-app-shell .fertilization-form textarea{margin-top:6px;border-color:#dfe9e2;border-radius:7px;padding:9px 10px;font-size:11px}
+.crop-app-shell .fertilization-form fieldset[style]{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px 15px}
+.crop-app-shell .fertilization-form fieldset[style]>p,.crop-app-shell .fertilization-form fieldset[style]>.notice,.crop-app-shell .fertilization-form .soil-result-grid,.crop-app-shell .fertilization-form .form-actions{grid-column:1/-1}
+.crop-app-shell .soil-result-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.crop-app-shell .soil-result-grid>fieldset{padding:10px;border:1px solid #e1eae5;border-radius:8px;background:#f9fcfa;min-width:0}
+.crop-app-shell .soil-result-grid legend{padding:0 4px;color:#486450;font-size:10px;font-weight:700}
+.crop-app-shell .form-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:8px}
+.crop-app-shell .modal-backdrop{background:#1a332d55;backdrop-filter:blur(2px)}
+.crop-app-shell .modal{border:1px solid #dfe9e3;border-radius:12px;box-shadow:0 18px 60px #193c2c24}
+.crop-app-shell .modal>header,.crop-app-shell .modal-header{border-bottom:1px solid #edf2ee}
+.crop-app-shell .modal h2{font-size:18px;color:#243b2e}
+
+@media(max-width:1200px){
+  .crop-app-shell .page-heading{align-items:flex-start}
+  .crop-app-shell .stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .crop-app-shell .workflow{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .crop-app-shell .water-management-summary{grid-template-columns:repeat(3,1fr)}
+  .crop-app-shell .water-management-heading{align-items:flex-start;flex-direction:column}
+}
+@media(max-width:800px){
+  .crop-app-shell{--sidebar:0px}
+  .crop-app-shell .sidebar{width:230px}
+  .crop-app-shell .topbar{height:67px;padding:0 15px}
+  .crop-app-shell .topbar-filters{display:none}
+  .crop-app-shell main{padding:0 15px 18px}
+  .crop-app-shell .page-heading{display:block;min-height:0;padding:18px 2px 12px}
+  .crop-app-shell .page-heading h1{font-size:24px}
+  .crop-app-shell .page-heading p{font-size:10px}
+  .crop-app-shell .heading-buttons,.crop-app-shell .heading-actions{margin-top:13px;flex-wrap:wrap}
+  .crop-app-shell .page-heading>.badge{display:inline-flex;margin-top:12px}
+  .crop-app-shell .toolbar{overflow-x:auto}
+  .crop-app-shell .content-grid.two-one,.crop-app-shell .settings-grid,.crop-app-shell .water-management-grid{grid-template-columns:1fr}
+  .crop-app-shell .workflow{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .crop-app-shell .detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .crop-app-shell .planned-work{grid-template-columns:1fr}
+  .crop-app-shell .water-management-guide{grid-template-columns:repeat(2,1fr)}
+  .crop-app-shell .water-management-summary{grid-template-columns:repeat(3,1fr)}
+  .crop-app-shell .alert-center-heading{flex-direction:column}
+  .crop-app-shell .alert-counts{width:100%}
+  .crop-app-shell .alert-counts strong{flex:1}
+  .crop-app-shell .fertilization-form fieldset[style],.crop-app-shell .soil-result-grid{grid-template-columns:1fr}
+  .crop-app-shell .fertilization-form fieldset[style]>.notice,.crop-app-shell .fertilization-form .soil-result-grid,.crop-app-shell .fertilization-form .form-actions{grid-column:auto}
+}
+@media(max-width:600px){
+  .crop-app-shell main{padding:0 12px 16px}
+  .crop-app-shell .topbar{height:63px;padding:0 15px}
+  .crop-app-shell .global-search{height:35px;max-width:none}
+  .crop-app-shell .topbar-weather{display:none}
+  .crop-app-shell .notification-button{width:34px;height:34px}
+  .crop-app-shell .profile-button{width:31px;height:31px}
+  .crop-app-shell .stat-grid,.crop-app-shell .water-management-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .crop-app-shell .detail-grid{grid-template-columns:1fr}
+  .crop-app-shell .workflow,.crop-app-shell .water-management-guide{grid-template-columns:1fr}
+  .crop-app-shell .heading-buttons,.crop-app-shell .heading-actions{width:100%}
+  .crop-app-shell .heading-buttons .button,.crop-app-shell .heading-actions .button{flex:1}
+  .crop-app-shell .record-filters{display:grid;grid-template-columns:1fr 1fr;align-items:stretch}
+  .crop-app-shell .record-filters>label{min-width:0}
+  .crop-app-shell .operation-banner{align-items:flex-start}
+  .crop-app-shell .operation-banner>.button{width:100%}
+  .crop-app-shell .water-management-actions{justify-content:flex-start}
+  .crop-app-shell .water-management-actions .button{flex:1}
+}
+
+.modal-backdrop{background:#19352d66;padding:24px;backdrop-filter:blur(4px)}
+.modal{max-width:620px;max-height:calc(100dvh - 48px);padding:0;overflow-y:auto;border:1px solid #dfe9e3;border-radius:12px;background:#fff;box-shadow:0 20px 70px #193c2c2b;scrollbar-color:#cfe0d4 transparent}
+.modal-wide{max-width:900px}
+.modal>header{height:66px;margin:0;padding:0 22px;border-bottom:1px solid #e7efea;display:flex;align-items:center;gap:12px;background:#fff}
+.modal>header h2{font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:18px;letter-spacing:-.45px;color:#102f22;font-weight:800}
+.modal>header>.icon-button{width:32px;height:32px;margin-left:auto;border:1px solid #e3ece6;border-radius:8px;color:#718279;background:#fff}
+.modal>header>.icon-button:hover{background:#eef7f1;color:#087b50}
+.modal>header~*{padding-right:22px;padding-left:22px}
+.modal>header+*{padding-top:20px}
+.modal>:last-child{padding-bottom:22px}
+.modal form{width:100%}
+.modal .form-stack{display:flex;flex-direction:column;gap:14px}
+.modal .form-stack>label,.modal .form-grid>label,.modal .form-label,.modal .fertilization-form label{display:flex;flex-direction:column;gap:6px;min-width:0;color:#536b5d;font-size:10px;font-weight:650;line-height:1.35}
+.modal input,.modal select,.modal textarea{width:100%;max-width:100%;margin-top:0;border:1px solid #dce8e1;border-radius:7px;background:#fbfdfc;color:#30483a;font-size:11px;padding:10px 11px;box-shadow:inset 0 1px 1px #193c2c05}
+.modal input:hover,.modal select:hover,.modal textarea:hover{border-color:#b9d5c2}
+.modal input:focus,.modal select:focus,.modal textarea:focus{border-color:#43a36a;box-shadow:0 0 0 3px #d9f0df;outline:0}
+.modal input::placeholder,.modal textarea::placeholder{color:#9aa9a0}
+.modal textarea{min-height:84px;line-height:1.55;resize:vertical}
+.modal select{min-height:38px;cursor:pointer}
+.modal input[type=checkbox]{width:15px;height:15px;margin:0;accent-color:#16834f;box-shadow:none}
+.modal input[type=file]{padding:8px;background:#f6faf7}
+.modal .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px 15px}
+.modal .form-grid .full-span,.modal .form-stack .full-span{grid-column:1/-1}
+.modal .form-stack label small,.modal .fertilization-form label small{color:#879991;font-size:9px;font-weight:400;line-height:1.55}
+.modal .notice{margin:0;border-color:#dce9dc;background:#f4faf3;color:#668369;border-radius:8px;padding:10px 12px;font-size:10px;line-height:1.55}
+.modal .form-error{margin:0;display:flex;align-items:flex-start;gap:7px;padding:10px 12px;border:1px solid #f0d8d0;border-radius:8px;background:#fff7f4;color:#b95849;font-size:10px;line-height:1.55}
+.modal .form-success{margin:0;border:1px solid #d8ead9;background:#f3faf3;color:#4e8755;font-size:10px}
+.modal .form-actions{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:4px;padding-top:15px;border-top:1px solid #e8efea}
+.modal .button{min-height:37px;border-radius:8px;font-size:11px;padding:9px 14px}
+.modal .button.small{min-height:31px;padding:7px 11px;font-size:10px}
+.modal .checkbox-label{display:flex;flex-direction:row;align-items:center;gap:8px;color:#536b5d;font-size:10px;font-weight:650}
+.modal fieldset{min-width:0}
+.modal .fertilization-form>fieldset[style]{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px 15px}
+.modal .fertilization-form>fieldset[style]>p,.modal .fertilization-form>fieldset[style]>.notice,.modal .fertilization-form .soil-result-grid,.modal .fertilization-form .form-actions{grid-column:1/-1}
+.modal .soil-result-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.modal .soil-result-grid>fieldset{padding:10px;border:1px solid #e1eae5;border-radius:8px;background:#f8fcf9;min-width:0}
+.modal .soil-result-grid legend{padding:0 4px;color:#486450;font-size:10px;font-weight:750}
+.modal .detail-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px}
+.modal .detail-list>div{padding:10px 11px;border:1px solid #e6eee8;border-radius:8px;background:#f9fcfa}
+.modal .detail-list dt{margin-bottom:4px;color:#829189;font-size:9px}
+.modal .detail-list dd{margin:0;color:#2c4737;font-size:11px;font-weight:650;line-height:1.45;overflow-wrap:anywhere}
+.modal .inline-form{padding:13px;border:1px solid #e2ece5;border-radius:8px;background:#f6faf7}
+.modal .event-detail>h2{margin:12px 0;color:#203c2d;font-size:20px}
+.modal .event-detail .detail-meta{display:flex;gap:12px;flex-wrap:wrap;color:#718279;font-size:10px}
+.modal .event-detail .detail-meta span{display:inline-flex;align-items:center;gap:5px}
+
+@media(max-width:800px){
+  .modal-backdrop{padding:12px}
+  .modal{max-height:calc(100dvh - 24px);border-radius:10px}
+  .modal-wide{max-width:100%}
+  .modal>header{height:60px;padding:0 17px}
+  .modal>header~*{padding-right:17px;padding-left:17px}
+  .modal>header+*{padding-top:17px}
+  .modal>:last-child{padding-bottom:17px}
+  .modal .form-grid,.modal .fertilization-form>fieldset[style],.modal .soil-result-grid{grid-template-columns:1fr}
+  .modal .fertilization-form>fieldset[style]>p,.modal .fertilization-form>fieldset[style]>.notice,.modal .fertilization-form .soil-result-grid,.modal .fertilization-form .form-actions{grid-column:auto}
+}
+
+.crop-app-shell .planting-screen>.notice{display:flex;align-items:center;min-height:38px;margin:0 0 10px;padding:9px 12px;border-color:#dce9e0;background:#f4faf6;color:#6f8578}
+.crop-app-shell .planting-screen>.notice svg{width:15px;height:15px;color:#4d9b63}
+.crop-app-shell .planting-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 12px}
+.crop-app-shell .planting-kpi-card{display:flex;align-items:center;gap:11px;min-height:88px;padding:13px 14px;border-color:#e1eae5;box-shadow:0 2px 8px #193c2c08}
+.crop-app-shell .planting-kpi-icon{display:grid;place-items:center;width:43px;height:43px;border-radius:11px;flex:0 0 43px}
+.crop-app-shell .planting-kpi-icon.green{background:#e5f4e5;color:#429653}
+.crop-app-shell .planting-kpi-icon.blue{background:#eaf2ff;color:#5489df}
+.crop-app-shell .planting-kpi-icon.gold{background:#fff5dc;color:#d3a43d}
+.crop-app-shell .planting-kpi-icon.purple{background:#f2edfb;color:#9673c4}
+.crop-app-shell .planting-kpi-card>div{min-width:0}
+.crop-app-shell .planting-kpi-card>div>span{display:block;color:#64776c;font-size:10px}
+.crop-app-shell .planting-kpi-card strong{display:block;margin-top:2px;color:#193b2b;font-size:23px;line-height:1.25;letter-spacing:-.7px}
+.crop-app-shell .planting-kpi-card small{display:block;margin-top:2px;color:#91a098;font-size:8px}
+.crop-app-shell .planting-workspace-grid{display:grid;grid-template-columns:minmax(295px,.84fr) minmax(0,1.6fr);gap:11px;margin:0 0 12px;align-items:stretch}
+.crop-app-shell .planting-cycles-panel,.crop-app-shell .planting-cycle-detail{min-width:0;min-height:355px}
+.crop-app-shell .planting-cycles-panel{background:linear-gradient(180deg,#fff 0%,#fbfdfb 100%)}
+.crop-app-shell .planting-panel-intro{display:flex;align-items:center;gap:7px;margin:-5px 0 11px;color:#829188;font-size:9px}
+.crop-app-shell .planting-panel-intro .live-dot{width:6px;height:6px;background:#36a164}
+.crop-app-shell .planting-cycle-list{gap:7px}
+.crop-app-shell .planting-cycle-card{grid-template-columns:36px minmax(0,1fr) auto;align-items:start;padding:11px 10px;border-color:#e4ece7;border-radius:8px;transition:border-color .18s,background .18s,box-shadow .18s}
+.crop-app-shell .planting-cycle-card:hover{border-color:#a6d1b2;box-shadow:0 3px 10px #2c8b5312}
+.crop-app-shell .planting-cycle-card.selected{border-color:#4aa369;background:#f1faf3;box-shadow:0 3px 10px #2c8b5315}
+.crop-app-shell .planting-cycle-card .icon-tile{width:36px;height:36px;border-radius:9px}
+.crop-app-shell .planting-cycle-card strong{font-size:11px;color:#203d2e}
+.crop-app-shell .planting-cycle-card small{font-size:8px;line-height:1.45}
+.crop-app-shell .planting-cycle-card .badge{align-self:start;margin-top:1px}
+.crop-app-shell .planting-cycle-detail{background:#fff}
+.crop-app-shell .planting-cycle-detail>.panel-heading{padding-bottom:11px;margin-bottom:0;border-bottom:1px solid #edf2ee}
+.crop-app-shell .planting-detail-intro{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0 11px}
+.crop-app-shell .planting-detail-intro .eyebrow{font-size:8px;color:#789684;letter-spacing:1.3px}
+.crop-app-shell .planting-detail-intro strong{display:block;margin-top:4px;color:#203c2d;font-size:16px;letter-spacing:-.25px}
+.crop-app-shell .planting-detail-status{display:inline-flex;align-items:center;gap:6px;color:#658071;font-size:9px;white-space:nowrap}
+.crop-app-shell .planting-detail-status .live-dot{width:6px;height:6px;background:#3ea469}
+.crop-app-shell .planting-detail-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:0 0 14px}
+.crop-app-shell .planting-detail-metrics>div{min-width:0;padding:10px 9px;border:1px solid #e5eee8;border-radius:8px;background:#f8fbf9}
+.crop-app-shell .planting-detail-metrics span{display:block;color:#7d8e84;font-size:8px;line-height:1.35}
+.crop-app-shell .planting-detail-metrics strong{display:block;margin-top:4px;color:#284936;font-size:10px;line-height:1.4;overflow-wrap:anywhere}
+.crop-app-shell .planting-cycle-detail .button-row{margin-bottom:14px}
+.crop-app-shell .planting-workflow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;padding-top:13px;border-top:1px solid #edf2ee}
+.crop-app-shell .planting-workflow .workflow-step{display:flex;align-items:flex-start;gap:6px;min-width:0;padding:8px 6px;border:1px solid #e6eee8;border-radius:8px;background:#fafcfb}
+.crop-app-shell .planting-workflow .workflow-step>span{width:21px;height:21px;flex:0 0 21px}
+.crop-app-shell .planting-workflow .workflow-step strong{font-size:8px;line-height:1.35}
+.crop-app-shell .planting-workflow .workflow-step small{font-size:7px;line-height:1.35}
+.crop-app-shell .planting-coverage-panel{margin-bottom:8px}
+.crop-app-shell .planting-coverage-intro{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-4px 0 10px;color:#819188;font-size:9px}
+.crop-app-shell .planting-coverage-legend{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.crop-app-shell .planting-coverage-legend i{width:7px;height:7px;border-radius:50%;display:inline-block}
+.crop-app-shell .planting-coverage-legend i.optimal{background:#4da967}
+.crop-app-shell .planting-coverage-legend i.attention{margin-left:5px;background:#e4b345}
+.crop-app-shell .planting-primary-actions{margin-bottom:10px}
+.crop-app-shell .planting-primary-actions .button:disabled{opacity:.48;cursor:not-allowed}
+.crop-app-shell .planting-next-step{display:flex;align-items:center;gap:9px;margin:0 0 13px;padding:9px 11px;border:1px solid #e4eee7;border-radius:8px;background:#f8fcf9;color:#71847a;font-size:9px}
+.crop-app-shell .planting-next-step .live-dot{width:7px;height:7px;flex:0 0 7px;background:#e1ae3f}
+.crop-app-shell .planting-next-step>div{display:grid;gap:2px;min-width:0}
+.crop-app-shell .planting-next-step small{color:#96a49c;font-size:7px;letter-spacing:1px;font-weight:800}
+.crop-app-shell .planting-next-step strong{color:#315742;font-size:10px}
+.crop-app-shell .planting-next-step>span:last-child{margin-left:auto;color:#89988f;font-size:8px;white-space:nowrap}
+.crop-app-shell .planting-records-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:13px;padding-top:13px;border-top:1px solid #edf2ee}
+.crop-app-shell .planting-record-card{min-width:0;padding:12px;border:1px solid #e3ece6;border-radius:9px;background:#fbfdfb}
+.crop-app-shell .planting-record-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px}
+.crop-app-shell .planting-record-heading .eyebrow{display:block;color:#86a092;font-size:7px;letter-spacing:1.15px;font-weight:800}
+.crop-app-shell .planting-record-heading h4{margin-top:3px;color:#294a37;font-size:12px;letter-spacing:-.15px}
+.crop-app-shell .planting-record-heading .badge{font-size:8px;white-space:nowrap}
+.crop-app-shell .planting-record-list{display:grid;gap:6px}
+.crop-app-shell .planting-record-item{padding:9px 10px;border:1px solid #e7eee9;border-radius:7px;background:#fff}
+.crop-app-shell .planting-record-item-top{display:flex;align-items:flex-start;justify-content:space-between;gap:7px}
+.crop-app-shell .planting-record-item-top strong{min-width:0;color:#385744;font-size:9px;line-height:1.35}
+.crop-app-shell .planting-record-item-top .badge{font-size:7px;white-space:nowrap}
+.crop-app-shell .planting-record-item p{margin-top:5px;color:#64796d;font-size:8px;line-height:1.45}
+.crop-app-shell .planting-record-item small{display:block;margin-top:4px;color:#94a199;font-size:7px;line-height:1.45;overflow-wrap:anywhere}
+.crop-app-shell .planting-record-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
+.crop-app-shell .planting-record-item .text-button{display:inline-flex;align-items:center;gap:4px;margin-top:6px;color:#348f59;font-size:8px}
+.crop-app-shell .planting-record-actions .text-button{margin-top:0}
+.crop-app-shell .planting-record-empty{min-height:52px;margin:0;color:#8b9b91;font-size:9px;line-height:1.55}
+
+@media(max-width:1200px){
+  .crop-app-shell .planting-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .crop-app-shell .planting-detail-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .crop-app-shell .planting-workflow{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .crop-app-shell .planting-records-grid{grid-template-columns:1fr}
+}
+@media(max-width:800px){
+  .crop-app-shell .planting-workspace-grid{grid-template-columns:1fr}
+  .crop-app-shell .planting-cycles-panel,.crop-app-shell .planting-cycle-detail{min-height:0}
+  .crop-app-shell .planting-workflow{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:600px){
+  .crop-app-shell .planting-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .crop-app-shell .planting-kpi-card{min-height:78px;padding:11px}
+  .crop-app-shell .planting-kpi-icon{width:36px;height:36px;flex-basis:36px}
+  .crop-app-shell .planting-kpi-card strong{font-size:20px}
+  .crop-app-shell .planting-cycle-card{grid-template-columns:34px minmax(0,1fr);gap:8px}
+  .crop-app-shell .planting-cycle-card>.badge{grid-column:2;justify-self:start;margin-top:-2px}
+  .crop-app-shell .planting-detail-intro,.crop-app-shell .planting-coverage-intro{align-items:flex-start;flex-direction:column}
+  .crop-app-shell .planting-detail-metrics{grid-template-columns:1fr 1fr}
+  .crop-app-shell .planting-workflow{grid-template-columns:1fr}
+  .crop-app-shell .planting-next-step{align-items:flex-start;flex-wrap:wrap}
+  .crop-app-shell .planting-next-step>span:last-child{width:100%;margin-left:16px}
+}
+
+.crop-app-shell .planting-reference-screen{max-width:none;margin:0 auto;padding:0 0 18px;color:#31463a}
+.crop-app-shell .planting-reference-overview{margin:0 0 9px;padding:10px 15px 9px;border:1px solid #e4ece7;border-radius:12px;background:#fff;box-shadow:0 3px 14px #193c2c06}
+.crop-app-shell .planting-breadcrumb{display:flex;align-items:center;gap:7px;height:31px;padding:0;color:#91a097;font-size:10px}
+.crop-app-shell .planting-breadcrumb span{display:inline-flex;align-items:center;gap:5px}
+.crop-app-shell .planting-breadcrumb strong{color:#64766c;font-size:10px;font-weight:600}
+.crop-app-shell .planting-reference-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:9px 0 12px}
+.crop-app-shell .planting-reference-heading h1{margin:0;color:#10233b;font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:30px;font-weight:800;letter-spacing:-1.1px;line-height:1.16}
+.crop-app-shell .planting-reference-heading p{margin:5px 0 0;color:#637486;font-size:11px;line-height:1.45}
+.crop-app-shell .planting-reference-heading .heading-actions{gap:8px}
+.crop-app-shell .planting-reference-heading .button{min-height:42px;padding:10px 18px;font-size:11px;font-weight:650}
+.crop-app-shell .planting-reference-heading .heading-actions .button:first-child{min-width:155px}
+.crop-app-shell .planting-reference-heading .heading-actions .button:nth-child(2){min-width:125px}
+.crop-app-shell .planting-reference-heading .heading-actions .button:last-child{min-width:155px}
+.crop-app-shell .planting-reference-heading .button svg{width:15px;height:15px}
+.crop-app-shell .planting-reference-kpis{grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;margin:0}
+.crop-app-shell .planting-reference-kpis .planting-kpi-card{min-height:90px;padding:13px 14px;border:1px solid #e0e9e4;border-radius:9px;background:#fff;box-shadow:0 3px 12px #193c2c08}
+.crop-app-shell .planting-kpi-icon.teal{background:#e6f5f0;color:#3a9d82}
+.crop-app-shell .planting-reference-kpis .planting-kpi-card>div>span{color:#728177;font-size:9px;font-weight:500}
+.crop-app-shell .planting-reference-kpis .planting-kpi-card strong{margin-top:3px;color:#20392c;font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.65px;line-height:1.3}
+.crop-app-shell .planting-reference-kpis .planting-kpi-card small{margin-top:3px;color:#94a299;font-size:8px}
+.crop-app-shell .planting-reference-workspace{display:grid;grid-template-columns:minmax(310px,.94fr) minmax(0,1.92fr);gap:2px;margin:0;align-items:start}
+.crop-app-shell .planting-reference-workspace>.panel,.crop-app-shell .planting-reference-detail{border:1px solid #e0e9e4;border-radius:10px;background:#fff;box-shadow:0 3px 12px #193c2c08}
+.crop-app-shell .planting-cycle-list-panel{padding:15px 13px;min-height:633px}
+.crop-app-shell .planting-reference-panel-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin:0 1px 15px}
+.crop-app-shell .planting-reference-panel-heading h3{margin:0;color:#1c3528;font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:16px;font-weight:750;letter-spacing:-.25px}
+.crop-app-shell .planting-reference-panel-heading p{max-width:260px;margin:4px 0 0;color:#86948b;font-size:10px;line-height:1.45}
+.crop-app-shell .planting-reference-panel-heading select{width:124px;min-height:31px;padding:7px 9px;border:1px solid #dce7e0;border-radius:7px;background:#fafcfb;color:#557063;font-size:9px;outline:0}
+.crop-app-shell .planting-reference-panel-heading select:focus{border-color:#45a36c;box-shadow:0 0 0 3px #dff2e4}
+.crop-app-shell .planting-reference-cycle-list{display:grid;gap:7px}
+.crop-app-shell .planting-reference-cycle-card{display:grid;grid-template-columns:60px minmax(0,1fr) auto;align-items:center;gap:15px;width:100%;min-width:0;padding:14px;border:1px solid #e4ece7;border-radius:8px;background:#fff;text-align:left;color:#334c3c;cursor:pointer;transition:border-color .18s,background .18s,box-shadow .18s}
+.crop-app-shell .planting-reference-cycle-card:hover{border-color:#a9d4b6;background:#f9fcf9;box-shadow:0 3px 9px #27865010}
+.crop-app-shell .planting-reference-cycle-card.selected{border-color:#3ca069;background:#eff9f1;box-shadow:0 3px 10px #27865015}
+.crop-app-shell .planting-cycle-thumb{display:block;width:60px;height:58px;overflow:hidden;border-radius:7px;background:#dcebd6}
+.crop-app-shell .planting-cycle-thumb img{display:block;width:100%;height:100%;object-fit:cover;filter:saturate(.82) hue-rotate(4deg)}
+.crop-app-shell .planting-cycle-card-copy{display:block;min-width:0}
+.crop-app-shell .planting-cycle-card-copy strong{display:block;overflow:hidden;color:#1e3328;font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;font-weight:800;text-overflow:ellipsis;white-space:nowrap}
+.crop-app-shell .planting-cycle-card-copy>span{display:block;overflow:hidden;margin-top:2px;color:#415548;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+.crop-app-shell .planting-cycle-card-copy small{display:block;overflow:hidden;margin-top:2px;color:#718278;font-size:10px;text-overflow:ellipsis;white-space:nowrap}
+.crop-app-shell .planting-reference-cycle-card>.badge{align-self:start;margin-top:0;padding:7px 11px;border-radius:999px;font-size:10px}
+.crop-app-shell .planting-reference-cycle-card>.badge:before,.crop-app-shell .planting-detail-title>.badge:before{content:'';width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:currentColor}
+.crop-app-shell .planting-reference-detail{min-width:0;padding:16px 17px 18px}
+.crop-app-shell .planting-reference-detail-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.crop-app-shell .planting-detail-code{display:block;color:#10233b;font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:20px;font-weight:800;letter-spacing:-.45px;line-height:1.2}
+.crop-app-shell .planting-detail-title{display:flex;align-items:center;gap:13px;min-height:29px}
+.crop-app-shell .planting-reference-detail-header h2{margin:4px 0 2px;color:#1a3528;font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:20px;font-weight:800;letter-spacing:-.45px;line-height:1.2}
+.crop-app-shell .planting-reference-detail-header p{margin:0;color:#809087;font-size:9px}
+.crop-app-shell .planting-detail-header-actions{display:flex;align-items:center;gap:9px}
+.crop-app-shell .planting-detail-title>.badge{padding:7px 13px;border-radius:999px;font-size:10px}
+.crop-app-shell .planting-detail-header-actions .icon-button{width:29px;height:29px;border:0;border-radius:7px;background:transparent;color:#263f31}
+.crop-app-shell .planting-reference-info-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin-bottom:13px;border:1px solid #e3ebe6;border-radius:8px;background:#f9fbfa;overflow:hidden}
+.crop-app-shell .planting-reference-info-grid>div{min-width:0;padding:9px 11px;border-right:1px solid #e3ebe6;border-bottom:1px solid #e3ebe6}
+.crop-app-shell .planting-reference-info-grid>div:nth-child(3n){border-right:0}
+.crop-app-shell .planting-reference-info-grid>div:nth-last-child(-n+3){border-bottom:0}
+.crop-app-shell .planting-reference-info-grid span{display:block;color:#8b9990;font-size:8px}
+.crop-app-shell .planting-reference-info-grid strong{display:block;overflow:hidden;margin-top:4px;color:#385444;font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:10px;font-weight:650;text-overflow:ellipsis;white-space:nowrap}
+.crop-app-shell .planting-reference-tabs{display:flex;gap:5px;overflow-x:auto;padding:0 0 10px;border-bottom:1px solid #e7eee9;scrollbar-width:none}
+.crop-app-shell .planting-reference-tabs button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:32px;padding:7px 27px;border:1px solid transparent;border-radius:7px;background:#f1f5f2;color:#7c8d83;font-size:11px;font-weight:500;white-space:nowrap;cursor:pointer}
+.crop-app-shell .planting-reference-tabs button svg{width:16px;height:16px}
+.crop-app-shell .planting-reference-tabs button:hover{color:#188454;background:#eaf6ee}
+.crop-app-shell .planting-reference-tabs button.active{border-color:#39a069;background:linear-gradient(135deg,#39a069,#188252);color:#fff;font-weight:700;box-shadow:0 3px 8px #16834f1c}
+.crop-app-shell .planting-detail-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:42px;padding:10px 0;border-bottom:1px solid #edf2ee}
+.crop-app-shell .planting-detail-actions .button{font-size:9px}
+.crop-app-shell .planting-detail-actions .button svg{width:13px;height:13px}
+.crop-app-shell .planting-summary-content{padding-top:12px}
+.crop-app-shell .planting-summary-grid{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(320px,.92fr);gap:10px}
+.crop-app-shell .planting-summary-grid>.panel{min-width:0;padding:12px 12px 8px;border:1px solid #e3ebe6;border-radius:9px;background:#fff;box-shadow:none}
+.crop-app-shell .planting-summary-card-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:9px}
+.crop-app-shell .planting-summary-card-heading h3{margin:0;color:#264534;font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12px;font-weight:750}
+.crop-app-shell .planting-summary-card-heading p{margin:4px 0 0;color:#8b9990;font-size:8px}
+.crop-app-shell .planting-summary-card-heading>.badge{font-size:8px}
+.crop-app-shell .planting-summary-map{height:218px;min-height:218px;overflow:hidden;border-radius:8px;background:#e6f0dd}
+.crop-app-shell .planting-summary-map .farm-map{height:100%;min-height:100%;border-radius:8px}
+.crop-app-shell .planting-summary-map .map-controls{top:10px;right:10px}
+.crop-app-shell .planting-summary-map .map-caption{top:10px;left:10px;padding:7px 9px;font-size:8px}
+.crop-app-shell .planting-summary-map .map-attribution{bottom:6px;left:8px}
+.crop-app-shell .planting-cycle-status-card{display:flex;flex-direction:column}
+.crop-app-shell .planting-progress-value{color:#16834f;font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:21px;font-weight:800;letter-spacing:-.7px}
+.crop-app-shell .planting-stage-timeline{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin:13px 0 12px}
+.crop-app-shell .planting-stage-timeline>div{display:flex;align-items:center;flex-direction:column;gap:5px;min-width:0;text-align:center}
+.crop-app-shell .planting-stage-timeline>div>span{display:grid;place-items:center;width:23px;height:23px;border:1px solid #d9e6dc;border-radius:50%;background:#f7faf8;color:#a1afa5;font-size:8px;font-weight:700}
+.crop-app-shell .planting-stage-timeline>div.done>span{border-color:#42a26a;background:#def3e4;color:#1c8a52}
+.crop-app-shell .planting-stage-timeline>div.current>span{border-color:#e1b44d;background:#fff7df;color:#c38a20}
+.crop-app-shell .planting-stage-timeline small{overflow:hidden;width:100%;color:#87978d;font-size:7px;text-overflow:ellipsis;white-space:nowrap}
+.crop-app-shell .planting-stage-timeline>div.done small{color:#43815b;font-weight:650}
+.crop-app-shell .planting-progress-track{height:5px;overflow:hidden;border-radius:999px;background:#eaf0eb}
+.crop-app-shell .planting-progress-track i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#64b676,#16834f);transition:width .25s ease}
+.crop-app-shell .planting-status-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:auto;padding-top:13px}
+.crop-app-shell .planting-status-metrics>div{min-width:0;padding:8px;border:1px solid #e6eee8;border-radius:7px;background:#fafcfb}
+.crop-app-shell .planting-status-metrics span{display:block;color:#89988f;font-size:7px;line-height:1.35}
+.crop-app-shell .planting-status-metrics strong{display:block;overflow:hidden;margin-top:4px;color:#355944;font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:10px;font-weight:750;text-overflow:ellipsis;white-space:nowrap}
+.crop-app-shell .planting-summary-meta-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:10px;margin-top:8px}
+.crop-app-shell .planting-summary-meta-card{display:flex;align-items:flex-start;gap:9px;min-width:0;padding:12px;border:1px solid #e3ebe6;border-radius:9px;background:#fbfdfb}
+.crop-app-shell .planting-meta-icon{display:grid;place-items:center;width:31px;height:31px;flex:0 0 31px;border-radius:8px;background:#e4f4e8;color:#329563}
+.crop-app-shell .planting-summary-meta-card small{display:block;color:#8b9990;font-size:8px}
+.crop-app-shell .planting-summary-meta-card strong{display:block;overflow:hidden;margin-top:4px;color:#365543;font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:10px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
+.crop-app-shell .planting-summary-meta-card div>span{display:block;overflow:hidden;margin-top:4px;color:#8b9990;font-size:8px;text-overflow:ellipsis;white-space:nowrap}
+.crop-app-shell .planting-meta-card-heading{margin:0 0 9px}
+.crop-app-shell .planting-meta-card-heading h3{margin:0;color:#294a37;font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12px;font-weight:750}
+.crop-app-shell .planting-key-dates-card{display:block}
+.crop-app-shell .planting-key-dates{display:flex;align-items:center;gap:7px;min-width:0}
+.crop-app-shell .planting-date-meta{display:flex;align-items:center;gap:6px;min-width:0;flex:1}
+.crop-app-shell .planting-date-meta-icon{display:grid!important;place-items:center;width:29px;height:29px;flex:0 0 29px;margin:0!important;border-radius:8px;background:#e9f7ed;color:#329563!important}
+.crop-app-shell .planting-date-meta div{min-width:0}
+.crop-app-shell .planting-date-meta strong{display:block;overflow:hidden;margin:0;color:#345342!important;font-size:9px!important;text-overflow:ellipsis;white-space:nowrap}
+.crop-app-shell .planting-date-meta small{display:block;margin-top:3px;color:#8b9990;font-size:7px}
+.crop-app-shell .planting-key-dates>svg{flex:0 0 14px;color:#a4b0a8}
+.crop-app-shell .planting-responsible-card{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;column-gap:12px}
+.crop-app-shell .planting-responsible-card .planting-meta-card-heading{grid-column:1/-1}
+.crop-app-shell .planting-responsible-copy{display:flex;align-items:center;gap:8px;min-width:0}
+.crop-app-shell .planting-responsible-copy .planting-meta-icon{width:31px;height:31px;flex:0 0 31px}
+.crop-app-shell .planting-responsible-copy div{min-width:0}
+.crop-app-shell .planting-responsible-copy strong{display:block;overflow:hidden;color:#345342!important;font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:10px!important;text-overflow:ellipsis;white-space:nowrap}
+.crop-app-shell .planting-responsible-copy div>span{display:block;overflow:hidden;margin-top:3px;color:#8b9990;font-size:8px;text-overflow:ellipsis;white-space:nowrap}
+.crop-app-shell .planting-responsible-card>.button{min-height:31px;font-size:9px}
+.crop-app-shell .planting-next-step{display:flex;align-items:center;gap:8px;margin-top:10px;padding:9px 11px;border:1px solid #e3eee6;border-radius:8px;background:#f5fbf6}
+.crop-app-shell .planting-next-step-dot{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:#e3b449}
+.crop-app-shell .planting-next-step>div{display:grid;gap:2px;min-width:0}
+.crop-app-shell .planting-next-step small{color:#9ba9a0;font-size:7px;font-weight:800;letter-spacing:1px}
+.crop-app-shell .planting-next-step strong{overflow:hidden;color:#3b5e49;font-size:9px;font-weight:650;text-overflow:ellipsis;white-space:nowrap}
+.crop-app-shell .planting-next-step .text-button{margin-left:auto;font-size:8px}
+.crop-app-shell .planting-tab-section{min-width:0;margin-top:12px;padding:14px;border:1px solid #e3ebe6;border-radius:9px;box-shadow:none}
+.crop-app-shell .planting-tab-section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:11px}
+.crop-app-shell .planting-tab-section-heading h3{margin:3px 0 0;color:#264534;font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;font-weight:750}
+.crop-app-shell .planting-tab-section-heading p{margin:4px 0 0;color:#87968d;font-size:9px}
+.crop-app-shell .planting-section-eyebrow{color:#82a18c;font-size:7px;font-weight:800;letter-spacing:1.2px}
+.crop-app-shell .planting-tab-section-heading>.badge{font-size:8px}
+.crop-app-shell .planting-tab-section .planting-record-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.crop-app-shell .planting-tab-section .planting-record-item{min-width:0;padding:11px;border:1px solid #e4ece7;border-radius:8px;background:#fbfdfb}
+.crop-app-shell .planting-tab-section .planting-record-item-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.crop-app-shell .planting-tab-section .planting-record-item-top strong{overflow:hidden;color:#365543;font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:10px;font-weight:700;line-height:1.35;text-overflow:ellipsis}
+.crop-app-shell .planting-tab-section .planting-record-item p{margin:6px 0 0;color:#64776c;font-size:9px;line-height:1.5}
+.crop-app-shell .planting-tab-section .planting-record-item small{display:block;margin-top:5px;color:#8d9b92;font-size:8px;line-height:1.45}
+.crop-app-shell .planting-tab-section .planting-record-item small svg{vertical-align:-2px;margin-right:3px}
+.crop-app-shell .planting-tab-section .planting-record-item .badge{font-size:7px}
+.crop-app-shell .planting-record-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:7px}
+.crop-app-shell .planting-record-actions .text-button,.crop-app-shell .planting-tab-section .planting-record-item>.text-button{margin-top:7px;font-size:8px}
+.crop-app-shell .planting-followup-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+.crop-app-shell .planting-followup-grid .planting-tab-section{margin-top:0}
+.crop-app-shell .planting-files-panel{display:flex;align-items:flex-start;flex-direction:column;gap:8px;margin-top:12px;min-height:190px;padding:28px 25px;border:1px solid #e3ebe6;border-radius:9px;box-shadow:none}
+.crop-app-shell .planting-empty-icon{display:grid;place-items:center;width:43px;height:43px;border-radius:12px;background:#e6f4e9;color:#3c9b61}
+.crop-app-shell .planting-files-panel h3{color:#294a37;font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px}
+.crop-app-shell .planting-files-panel p{max-width:570px;color:#819188;font-size:10px;line-height:1.65}
+.crop-app-shell .planting-files-note{color:#9ba8a0;font-size:8px}
+.crop-app-shell .planting-empty-detail{min-height:555px;padding:0}
+.crop-app-shell .planting-empty-detail .empty{height:100%;min-height:555px}
+.crop-app-shell .planting-empty-detail .empty h3{font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:16px}
+.crop-app-shell .planting-empty-detail .empty p{font-size:10px}
+.crop-app-shell .planting-form{font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.crop-app-shell .modal .planting-form>label{color:#536b5d;font-size:10px;font-weight:650}
+.crop-app-shell .modal .planting-form>label input,.crop-app-shell .modal .planting-form>label select,.crop-app-shell .modal .planting-form>label textarea{font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:11px}
+.crop-app-shell .modal .planting-form>.notice{grid-column:1/-1;margin-bottom:0}
+.crop-app-shell .modal .planting-form .form-actions{margin-top:3px}
+.crop-app-shell .modal .planting-form .button{font-weight:650}
+.crop-app-shell .modal .planting-form .button:disabled{cursor:wait;opacity:.65}
+
+@media(max-width:1250px){
+  .crop-app-shell .planting-reference-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .crop-app-shell .planting-reference-workspace{grid-template-columns:minmax(280px,.8fr) minmax(0,1.4fr)}
+  .crop-app-shell .planting-reference-cycle-card{grid-template-columns:58px minmax(0,1fr)}
+  .crop-app-shell .planting-cycle-thumb{width:58px;height:50px}
+  .crop-app-shell .planting-reference-cycle-card>.badge{grid-column:2;justify-self:start;margin-top:-4px}
+}
+@media(max-width:1050px){
+  .crop-app-shell .planting-reference-workspace{grid-template-columns:1fr}
+  .crop-app-shell .planting-cycle-list-panel{min-height:0}
+  .crop-app-shell .planting-reference-cycle-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .crop-app-shell .planting-reference-cycle-card{grid-template-columns:64px minmax(0,1fr) auto}
+  .crop-app-shell .planting-cycle-thumb{width:64px;height:52px}
+  .crop-app-shell .planting-reference-cycle-card>.badge{grid-column:auto;justify-self:auto;margin-top:2px}
+}
+@media(max-width:800px){
+  .crop-app-shell .planting-reference-heading{display:block;padding-top:7px}
+  .crop-app-shell .planting-reference-heading .heading-actions{margin-top:13px;flex-wrap:wrap}
+  .crop-app-shell .planting-reference-heading .heading-actions .button{flex:1}
+  .crop-app-shell .planting-reference-kpis{grid-template-columns:repeat(2,minmax(0,1fr));margin-right:15px}
+  .crop-app-shell .planting-reference-cycle-list{grid-template-columns:1fr}
+  .crop-app-shell .planting-reference-info-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .crop-app-shell .planting-reference-info-grid>div:nth-child(3n){border-right:1px solid #e3ebe6}
+  .crop-app-shell .planting-reference-info-grid>div:nth-child(2n){border-right:0}
+  .crop-app-shell .planting-reference-info-grid>div:nth-last-child(-n+3){border-bottom:1px solid #e3ebe6}
+  .crop-app-shell .planting-reference-info-grid>div:nth-last-child(-n+2){border-bottom:0}
+  .crop-app-shell .planting-summary-grid,.crop-app-shell .planting-summary-meta-grid,.crop-app-shell .planting-followup-grid{grid-template-columns:1fr}
+  .crop-app-shell .planting-tab-section .planting-record-list{grid-template-columns:1fr}
+}
+@media(max-width:600px){
+  .crop-app-shell .planting-breadcrumb{padding:0}
+  .crop-app-shell .planting-reference-heading,.crop-app-shell .planting-reference-kpis{margin-left:0;margin-right:0;padding-left:0;padding-right:0}
+  .crop-app-shell .planting-reference-heading h1{font-size:25px}
+  .crop-app-shell .planting-reference-heading p{font-size:10px}
+  .crop-app-shell .planting-reference-heading .heading-actions{display:grid;grid-template-columns:1fr 1fr}
+  .crop-app-shell .planting-reference-heading .heading-actions .button:last-child{grid-column:1/-1}
+  .crop-app-shell .planting-reference-kpis{gap:7px;margin-bottom:10px}
+  .crop-app-shell .planting-reference-kpis .planting-kpi-card{display:block;min-height:92px;padding:11px}
+  .crop-app-shell .planting-reference-kpis .planting-kpi-icon{width:34px;height:34px;margin-bottom:7px}
+  .crop-app-shell .planting-reference-kpis .planting-kpi-card strong{font-size:19px}
+  .crop-app-shell .planting-reference-workspace{margin:0}
+  .crop-app-shell .planting-reference-detail{padding:14px 12px}
+  .crop-app-shell .planting-reference-detail-header h2{font-size:18px}
+  .crop-app-shell .planting-reference-info-grid{grid-template-columns:1fr 1fr}
+  .crop-app-shell .planting-reference-tabs{gap:4px}
+  .crop-app-shell .planting-reference-tabs button{padding-left:8px;padding-right:8px;font-size:8px}
+  .crop-app-shell .planting-detail-actions .button{font-size:8px}
+  .crop-app-shell .planting-summary-map{height:190px;min-height:190px}
+  .crop-app-shell .planting-status-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .crop-app-shell .planting-summary-meta-card strong{white-space:normal}
+  .crop-app-shell .planting-next-step{align-items:flex-start;flex-wrap:wrap}
+  .crop-app-shell .planting-next-step .text-button{width:100%;margin-left:15px}
+}
+
+.crop-app-shell .global-search{max-width:405px}
+.crop-app-shell .farm-picker{width:163px}
+.crop-app-shell .date-picker{width:164px}
+.crop-app-shell .planting-reference-detail-header{margin-bottom:12px;padding:0 7px}
+.crop-app-shell .planting-reference-info-card{margin-bottom:13px;padding:11px 7px 0;border:1px solid #e3ebe6;border-radius:9px;background:#fff}
+.crop-app-shell .planting-info-card-heading{display:flex;align-items:center;justify-content:space-between;margin:0 0 5px}
+.crop-app-shell .planting-info-card-heading h3{margin:0;color:#263f31;font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:16px;font-weight:750}
+.crop-app-shell .planting-reference-info-card .planting-reference-info-grid{margin:0;border:0;border-radius:0;background:transparent}
+.crop-app-shell .planting-reference-info-card .planting-reference-info-grid>div{display:flex;align-items:center;gap:10px;min-height:56px;padding:6px 8px;border-right:1px solid #e3ebe6;border-bottom:1px solid #e3ebe6}
+.crop-app-shell .planting-reference-info-card .planting-reference-info-grid>div:nth-child(3n){border-right:0}
+.crop-app-shell .planting-reference-info-card .planting-reference-info-grid>div:nth-last-child(-n+3){border-bottom:0}
+.crop-app-shell .planting-info-cell-icon{display:grid!important;place-items:center;width:42px;height:42px;flex:0 0 42px;border-radius:11px;background:#eff9f1;color:#2c9b5d}
+.crop-app-shell .planting-info-cell-copy{display:block;min-width:0}
+.crop-app-shell .planting-info-cell-copy>span{display:block!important;color:#7f9086!important;font-size:10px!important}
+.crop-app-shell .planting-info-cell-copy strong{display:block!important;overflow:hidden;margin-top:4px;color:#284634!important;font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif!important;font-size:14px!important;font-weight:750!important;text-overflow:ellipsis;white-space:nowrap}
+.crop-app-shell .planting-action-menu-wrap{position:relative}
+.crop-app-shell .planting-action-menu{position:absolute;z-index:30;top:35px;right:0;display:grid;gap:2px;width:210px;padding:6px;border:1px solid #dfe9e3;border-radius:9px;background:#fff;box-shadow:0 12px 30px #193c2c1c}
+.crop-app-shell .planting-action-menu button{display:flex;align-items:center;gap:8px;width:100%;min-height:31px;padding:7px 8px;border:0;border-radius:6px;background:#fff;color:#496353;font-size:9px;text-align:left;cursor:pointer}
+.crop-app-shell .planting-action-menu button:hover{background:#edf8f0;color:#16834f}
+.crop-app-shell .planting-action-menu button:disabled{cursor:wait;opacity:.55}
+.crop-app-shell .planting-action-menu button svg{color:#349362}
+.crop-app-shell .planting-summary-grid{grid-template-columns:minmax(0,.78fr) minmax(320px,1.08fr)}
+.crop-app-shell .planting-summary-map{height:197px;min-height:197px}
+.crop-app-shell .planting-summary-card-heading{margin-bottom:8px}
+.crop-app-shell .planting-summary-card-heading h3{font-size:14px}
+.crop-app-shell .planting-summary-card-heading>.badge{font-size:8px}
+.crop-app-shell .planting-progress-heading{display:flex;align-items:center;justify-content:space-between;margin-top:15px;margin-bottom:7px;color:#2d4938;font-size:11px}
+.crop-app-shell .planting-progress-heading strong:last-child{color:#244534;font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12px;font-weight:800}
+.crop-app-shell .planting-cycle-status-card .planting-stage-timeline{margin-top:12px}
+.crop-app-shell .planting-stage-timeline small{min-height:18px;line-height:1.25;white-space:normal}
+.crop-app-shell .planting-cycle-status-card .planting-status-metrics{margin-top:14px}
+.crop-app-shell .planting-cycle-thumb img{transform:scale(2.8);transform-origin:center;filter:saturate(1.08) contrast(.95)}
+.crop-app-shell .planting-reference-kpis .planting-kpi-icon{width:49px;height:49px;flex-basis:49px;border-radius:12px}
+
+@media(max-width:800px){
+  .crop-app-shell .planting-reference-info-card .planting-reference-info-grid>div:nth-child(3n){border-right:1px solid #e3ebe6}
+  .crop-app-shell .planting-reference-info-card .planting-reference-info-grid>div:nth-child(2n){border-right:0}
+  .crop-app-shell .planting-reference-info-card .planting-reference-info-grid>div:nth-last-child(-n+3){border-bottom:1px solid #e3ebe6}
+  .crop-app-shell .planting-reference-info-card .planting-reference-info-grid>div:nth-last-child(-n+2){border-bottom:0}
+  .crop-app-shell .planting-summary-grid{grid-template-columns:1fr}
+}
+@media(max-width:600px){
+  .crop-app-shell .planting-reference-kpis .planting-kpi-icon{width:34px;height:34px;flex-basis:34px}
+  .crop-app-shell .planting-reference-info-card{padding-left:9px;padding-right:9px}
+  .crop-app-shell .planting-reference-info-card .planting-reference-info-grid>div{padding-left:5px;padding-right:5px}
+  .crop-app-shell .planting-info-cell-icon{width:29px;height:29px;flex-basis:29px}
+  .crop-app-shell .planting-info-cell-copy strong{font-size:9px!important}
+  .crop-app-shell .planting-key-dates{gap:3px;overflow-x:auto;padding-bottom:2px}
+  .crop-app-shell .planting-date-meta{min-width:105px}
+  .crop-app-shell .planting-responsible-card{display:flex;align-items:flex-end;flex-wrap:wrap}
+  .crop-app-shell .planting-responsible-card .planting-meta-card-heading{width:100%}
+}

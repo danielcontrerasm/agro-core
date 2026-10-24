@@ -1,0 +1,1 @@
+ALTER TABLE block ADD code VARCHAR(100);

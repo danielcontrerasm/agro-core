@@ -1,0 +1,185 @@
+import { useEffect, useState } from 'react';
+import type { FormEvent } from 'react';
+import { useApp } from '../context';
+import { api } from '../lib/api';
+import { saveDemo } from '../lib/demo';
+import { localDate, csvCell } from '../lib/domain';
+import { nutrientNames, units, doseUnits, quantityUnit, coverageUnit, totalQuantity, planLabels, fertilizationKey, readFertilizationDemo, interpretAnalysis, nutrientStatusTones } from '../lib/fertilization';
+import type { Analysis, FertilizationPlan, FertilizationApplication, FertilizationData, SoilResult, Nutrient, NutrientInterpretation } from '../lib/fertilization';
+import type { Member } from '../lib/types';
+import { demoInspections, inspectionDemoKey } from '../lib/inspections';
+import { readDemo } from '../lib/demo';
+import { Badge, Modal, Notice, Panel } from '../components/ui';
+import PhotoGallery from '../components/PhotoGallery';
+import FertilizationContext from '../components/FertilizationContext';
+import '../fertilization.css';
+
+type Editor = { kind: 'analysis' } | { kind: 'plan' } | { kind: 'application' | 'approve' | 'cancel' | 'followup'; plan: FertilizationPlan };
+const empty: FertilizationData = { analyses: [], plans: [], applications: [] };
+
+function InterpretationBadge({ interpretation }: { interpretation: NutrientInterpretation }) {
+  return <Badge tone={nutrientStatusTones[interpretation.status]}>{interpretation.label}</Badge>;
+}
+
+function AnalysisInterpretation({ analysis, crop }: { analysis: Analysis; crop?: string }) {
+  const summary = interpretAnalysis(analysis, crop);
+  const profile = summary.interpretations.find(item => item.profileName);
+  const detail = summary.attention ? `${summary.attention} resultado${summary.attention === 1 ? '' : 's'} por revisar` : `${summary.adequate} resultado${summary.adequate === 1 ? '' : 's'} en rango`;
+  return <div className="nutrient-interpretation-summary"><InterpretationBadge interpretation={summary.attention ? summary.interpretations.find(item => item.status === 'LOW' || item.status === 'HIGH')! : summary.interpretations[0]} /><span>{detail}</span>{summary.unknown > 0 && <small>{summary.unknown} sin perfil compatible</small>}{profile && <small>{profile.profileName} · requiere revisión técnica</small>}</div>;
+}
+
+function AnalysisInterpretationDetails({ analysis, crop }: { analysis: Analysis; crop?: string }) {
+  const summary = interpretAnalysis(analysis, crop);
+  const profile = summary.interpretations.find(item => item.profileName);
+  return <Panel title="Interpretación preliminar"><p className="muted">Los estados son una lectura contra un perfil base y no confirman una deficiencia ni calculan una dosis. Todos requieren revisión técnica.</p><div className="table-wrap"><table><thead><tr><th>Parámetro</th><th>Estado</th><th>Fundamento</th></tr></thead><tbody>{summary.interpretations.map(interpretation => <tr key={interpretation.nutrient}><td>{nutrientNames[interpretation.nutrient]}<br />{interpretation.value} {units[interpretation.unit]}</td><td><InterpretationBadge interpretation={interpretation} /></td><td>{interpretation.reason}</td></tr>)}</tbody></table></div>{profile && <p className="muted">{profile.profileName} · {profile.profileVersion}. {profile.source}</p>}</Panel>;
+}
+
+export default function Fertilization() {
+  const app = useApp();
+  const { mode, farmId, data, role, profile, notify } = app;
+  const demo = mode === 'demo';
+  const manager = role !== 'WORKER';
+  const [records, setRecords] = useState<FertilizationData>(empty);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [inspectionOptions, setInspectionOptions] = useState<{ id: number; blockId: number; problemCode: string }[]>([]);
+  const [tab, setTab] = useState('analyses');
+  const [blockFilter, setBlockFilter] = useState('');
+  const [editor, setEditor] = useState<Editor>();
+  const [detail, setDetail] = useState<Analysis | FertilizationPlan | FertilizationApplication>();
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  useEffect(() => {
+    let active = true; setLoading(true); setError(''); setRecords(empty); setDetail(undefined); setEditor(undefined);
+    const inspections = demo ? Promise.resolve(readDemo(inspectionDemoKey, demoInspections())) : api.inspections(farmId);
+    const people = demo ? Promise.resolve([{ userId: 1, name: profile.user.name, email: profile.user.email, role: 'ADMIN' as const }, { userId: 2, name: 'María González', email: 'maria@demo.local', role: 'WORKER' as const }]) : manager ? api.members(farmId) : Promise.resolve([]);
+    Promise.all([demo ? Promise.resolve(readFertilizationDemo()) : api.fertilization(farmId), people, inspections]).then(([result, users, inspections]) => {
+      if (active) { setRecords(result); setMembers(users); setInspectionOptions(inspections.filter(inspection => !inspection.canceledAt)); }
+    }).catch(failure => { if (active) setError(failure.message); }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [demo, farmId, manager, profile.user.id, profile.user.name, profile.user.email]);
+  function persist(next: FertilizationData) {
+    if (!saveDemo(fertilizationKey, next)) throw new Error('No se pudo guardar la demostración. Libera almacenamiento e inténtalo de nuevo.');
+    setRecords(next);
+  }
+  async function reload() { if (!demo) setRecords(await api.fertilization(farmId)); }
+  async function action(operation: () => Promise<void>) {
+    setBusy(true); setError('');
+    try { await operation(); setEditor(undefined); try { await reload(); } catch { throw new Error('El registro se guardó, pero no se pudo actualizar la vista. Recarga la página; no repitas la creación.'); } notify('Registro de fertilización guardado.'); }
+    catch (failure) { setError(failure instanceof Error ? failure.message : 'No se pudo guardar.'); }
+    finally { setBusy(false); }
+  }
+  const blockLabel = (id: number) => data.blocks.find(block => block.id === id)?.code ?? `Bloque #${id}`;
+  const selectedBlock = (id: number) => !blockFilter || id === Number(blockFilter);
+  const analyses = records.analyses.filter(analysis => data.blocks.some(block => block.id === analysis.blockId));
+  const plans = records.plans.filter(plan => data.blocks.some(block => block.id === plan.blockId));
+  const applications = records.applications.filter(application => plans.some(plan => plan.id === application.planId));
+  function exportCsv() {
+    const rows = [['Plan', 'Bloque', 'Estado', 'Producto', 'Programado', 'Aplicado', 'Unidad', 'Seguimiento'], ...plans.filter(plan => selectedBlock(plan.blockId)).map(plan => [plan.id, blockLabel(plan.blockId), planLabels[plan.status], plan.product, plan.totalQuantity, plan.appliedQuantity, quantityUnit(plan.doseUnit), plan.followUpOn])];
+    const url = URL.createObjectURL(new Blob(['\uFEFF' + rows.map(row => row.map(csvCell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'fertilizacion.csv'; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  async function generateTask(plan: FertilizationPlan) {
+    await action(async () => {
+      if (!demo) { await api.fertilizerAction(`plans/${plan.id}/task`); await app.refresh(true); return; }
+      if (plan.taskId) return;
+      const taskId = Date.now();
+      persist({ ...records, plans: records.plans.map(item => item.id === plan.id ? { ...item, taskId, version: item.version + 1 } : item) });
+      app.setTasks(previous => [...previous, { id: String(taskId), farmId, blockId: plan.blockId, assigneeId: plan.assigneeId, assignee: members.find(member => member.userId === plan.assigneeId)?.name ?? 'Responsable', title: `Fertilización #${plan.id} · ${plan.product}`, activity: 'fertilization', date: plan.scheduledOn, time: plan.scheduledTime, priority: 'Media', status: 'pending', version: 0, instructions: `Plan aprobado #${plan.id}. ${plan.dose} ${doseUnits[plan.doseUnit]}; ${plan.coverage} ${coverageUnit(plan.doseUnit)}. Total ${plan.totalQuantity} ${quantityUnit(plan.doseUnit)}. ${plan.method}. Seguimiento ${plan.followUpOn}.` }]);
+    });
+  }
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); if (!editor) return;
+    const form = new FormData(event.currentTarget);
+    const text = (key: string) => String(form.get(key) ?? '').trim();
+    const numeric = (key: string) => Number(text(key));
+    await action(async () => {
+      if (editor.kind === 'analysis') {
+        const results: SoilResult[] = (Object.keys(nutrientNames) as Nutrient[]).filter(code => text(`value-${code}`) !== '').map(code => ({ nutrient: code, value: numeric(`value-${code}`), unit: text(`unit-${code}`) as SoilResult['unit'], method: text(`method-${code}`) }));
+        if (!results.length || results.some(result => !result.method || result.value < 0 || (result.unit === 'PERCENT' && result.value > 100) || (result.nutrient === 'PH' && result.value > 14))) throw new Error('Indica resultados válidos y el método de cada medición.');
+        if (!!text('latitude') !== !!text('longitude')) throw new Error('Indica ambas coordenadas o ninguna.');
+        const payload = { blockId: numeric('blockId'), sampleType: text('sampleType'), sampledOn: text('sampledOn'), laboratory: text('laboratory'), reference: text('reference'), depthCm: numeric('depthCm'), latitude: text('latitude') ? numeric('latitude') : null, longitude: text('longitude') ? numeric('longitude') : null, results, notes: text('notes') };
+        const report = form.get('report') as File;
+        if (report?.size && (report.size > 10 * 1024 * 1024 || new TextDecoder().decode((await report.arrayBuffer()).slice(0, 5)) !== '%PDF-')) throw new Error('Adjunta un PDF válido de hasta 10 MB.');
+        let analysis: Analysis;
+        if (demo) {
+          analysis = { ...payload, id: Date.now(), createdBy: profile.user.id } as unknown as Analysis;
+          if (report?.size) { analysis.reportData = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(report); }); analysis.hasReport = true; }
+          persist({ ...records, analyses: [analysis, ...records.analyses] });
+        } else {
+          analysis = await api.fertilizerAction<Analysis>('analyses', payload);
+          if (report?.size) {
+            const upload = new FormData(); upload.append('file', report);
+            try { await api.fertilizerAction(`analyses/${analysis.id}/report`, upload); }
+            catch (failure) { setEditor(undefined); await reload(); throw new Error(`El análisis #${analysis.id} quedó guardado, pero falló el PDF: ${failure instanceof Error ? failure.message : 'Error de conexión'}. Puedes adjuntarlo desde su detalle.`); }
+          }
+        }
+      } else if (editor.kind === 'plan') {
+        const doseUnit = text('doseUnit') as FertilizationPlan['doseUnit'];
+        const payload = { blockId: numeric('blockId'), analysisId: numeric('analysisId'), inspectionId: text('inspectionId') ? numeric('inspectionId') : null, growthStage: text('growthStage'), diagnosis: text('diagnosis'), objective: text('objective'), product: text('product'), composition: text('composition'), dose: numeric('dose'), doseUnit, coverage: numeric('coverage'), method: text('method'), scheduledOn: text('scheduledOn'), scheduledTime: text('scheduledTime'), assigneeId: numeric('assigneeId'), followUpOn: text('followUpOn') };
+        const sample = analyses.find(analysis => analysis.id === payload.analysisId);
+        if (!sample || sample.blockId !== payload.blockId) throw new Error('Selecciona un análisis del mismo bloque.');
+        if (payload.inspectionId && !inspectionOptions.some(inspection => inspection.id === payload.inspectionId && inspection.blockId === payload.blockId)) throw new Error('La inspección debe pertenecer al mismo bloque.');
+        if (payload.scheduledOn < sample.sampledOn || payload.followUpOn < payload.scheduledOn) throw new Error('Revisa las fechas del análisis, aplicación y seguimiento.');
+        if (coverageUnit(doseUnit) === 'plantas' ? !Number.isInteger(payload.coverage) : payload.coverage > (data.blocks.find(block => block.id === payload.blockId)?.areaHa ?? Infinity)) throw new Error('La cobertura debe respetar el área del bloque o ser un número entero de plantas.');
+        if (demo) persist({ ...records, plans: [{ ...payload, id: Date.now(), totalQuantity: totalQuantity(payload.dose, payload.coverage, doseUnit), appliedQuantity: 0, status: 'DRAFT', version: 0, createdBy: profile.user.id, followups: [] } as FertilizationPlan, ...records.plans] });
+        else await api.fertilizerAction('plans', payload);
+      } else {
+        const plan = editor.plan;
+        if (editor.kind === 'approve' || editor.kind === 'cancel') {
+          if (demo) persist({ ...records, plans: records.plans.map(item => item.id === plan.id ? { ...item, status: editor.kind === 'approve' ? 'APPROVED' : 'CANCELED', version: item.version + 1, decisionReason: text('reason'), approvedBy: profile.user.id, approvedAt: new Date().toISOString() } : item) });
+          else await api.fertilizerAction(`plans/${plan.id}/${editor.kind}`, { version: plan.version, reason: text('reason') });
+        } else if (editor.kind === 'application') {
+          const payload = { occurredAt: new Date(text('occurredAt')).toISOString(), quantity: numeric('quantity'), coverage: numeric('coverage'), method: text('method'), lot: text('lot'), notes: text('notes') };
+          if (payload.quantity + plan.appliedQuantity > plan.totalQuantity + 1e-7 || payload.coverage > plan.coverage) throw new Error('La aplicación supera la cantidad o cobertura aprobada.');
+          if (new Date(payload.occurredAt).getTime() > Date.now()) throw new Error('La aplicación no puede estar en el futuro.');
+          if (coverageUnit(plan.doseUnit) === 'plantas' && !Number.isInteger(payload.coverage)) throw new Error('Indica un número entero de plantas.');
+          let application: FertilizationApplication;
+          if (demo) {
+            const task = app.tasks.find(item => item.id === String(plan.taskId));
+            if (!task || !['pending', 'progress'].includes(task.status)) throw new Error('La tarea debe estar pendiente o en progreso.');
+            const eventId = await app.create('events', { eventType: 'FERTILIZER_APPLICATION', blockId: plan.blockId, occurredAt: payload.occurredAt, notes: `Plan #${plan.id} · ${plan.product} · ${payload.quantity} ${quantityUnit(plan.doseUnit)} · ${payload.notes}` });
+            const id = Date.now(); application = { ...payload, id, planId: plan.id, eventId, createdBy: profile.user.id };
+            persist({ ...records, applications: [application, ...records.applications], plans: records.plans.map(item => item.id === plan.id ? { ...item, appliedQuantity: item.appliedQuantity + payload.quantity } : item) });
+            app.setTasks(previous => previous.map(item => item.id === String(plan.taskId) && item.status === 'pending' ? { ...item, status: 'progress', version: (item.version ?? 0) + 1 } : item));
+          } else { application = await api.fertilizerAction<FertilizationApplication>(`plans/${plan.id}/applications`, payload); await app.refresh(true); }
+          setDetail(application); setTab('applications');
+        } else {
+          const payload = { analysisId: text('analysisId') ? numeric('analysisId') : null, observations: text('observations') };
+          if (payload.analysisId && !analyses.some(sample => sample.id === payload.analysisId && sample.blockId === plan.blockId && sample.sampledOn >= plan.scheduledOn)) throw new Error('Selecciona una muestra posterior a la fecha programada, del mismo bloque.');
+          if (demo) persist({ ...records, plans: records.plans.map(item => item.id === plan.id ? { ...item, followups: [{ id: Date.now(), ...payload, reviewedBy: profile.user.id, reviewedAt: new Date().toISOString() } as unknown as FertilizationPlan['followups'][number], ...item.followups] } : item) });
+          else await api.fertilizerAction(`plans/${plan.id}/followups`, payload);
+        }
+      }
+    });
+  }
+  const open = (next: Editor) => { setDetail(undefined); setError(''); setEditor(next); };
+  const input = (label: string, name: string, options: { type?: string; value?: string | number; required?: boolean; min?: number | string; max?: number | string; step?: string } = {}) => <label>{label}<input name={name} type={options.type ?? 'text'} defaultValue={options.value} required={options.required ?? true} min={options.min} max={options.max} step={options.step} maxLength={name === 'composition' || name === 'method' ? 1000 : 150} /></label>;
+  const blockSelect = <label>Bloque<select name="blockId" required defaultValue={blockFilter || data.blocks[0]?.id}>{data.blocks.map(block => <option value={block.id} key={block.id}>{block.code} · {block.crop} · {block.variety ?? 'Sin variedad'} · {block.areaHa ?? '—'} ha</option>)}</select></label>;
+  const analysisSelect = (required = true) => <label>{required ? 'Análisis de referencia' : 'Nuevo análisis de seguimiento (opcional)'}<select name="analysisId" required={required}><option value="">Seleccionar</option>{analyses.map(sample => <option key={sample.id} value={sample.id}>#{sample.id} · {blockLabel(sample.blockId)} · {sample.sampledOn} · {sample.reference}</option>)}</select></label>;
+  return <>
+    <div className="page-heading"><div><span className="eyebrow">DIAGNÓSTICO · PLAN · APLICACIÓN · SEGUIMIENTO</span><h1>Fertilización</h1><p>Nutrición trazable por bloque, con aprobación y evidencia.</p></div><button className="button secondary" onClick={exportCsv}>Exportar planes CSV</button></div>
+    <Notice>La cartilla ICA orienta el manejo integrado, no una fórmula de fertilización. El perfil base identifica resultados bajos, en rango o altos para revisión técnica; el responsable técnico confirma el diagnóstico y define las dosis. El sistema no prescribe tratamientos. {demo && 'Todos los datos iniciales son ficticios.'}</Notice>
+    {error && !editor && !detail && <p role="alert">{error}</p>}
+    <div className="toolbar tabs" aria-label="Proceso de fertilización">{[['analyses', 'Análisis'], ['plans', 'Planes'], ['applications', 'Aplicaciones']].map(([key, label]) => <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}</button>)}<label>Filtrar bloque<select value={blockFilter} onChange={event => setBlockFilter(event.target.value)}><option value="">Todos</option>{data.blocks.map(block => <option key={block.id} value={block.id}>{block.code}</option>)}</select></label></div>
+    {loading ? <p role="status">Cargando fertilización…</p> : <Panel title={tab === 'analyses' ? 'Análisis de suelo y foliares' : tab === 'plans' ? 'Planes y seguimiento' : 'Aplicaciones reales'} action={tab !== 'applications' && (tab === 'analyses' || manager) ? <button className="button small" onClick={() => open({ kind: tab === 'analyses' ? 'analysis' : 'plan' })} disabled={!data.blocks.length || (tab === 'plans' && !analyses.length)}>{tab === 'analyses' ? 'Nuevo análisis' : 'Nuevo plan'}</button> : undefined}>
+      <div className="table-wrap"><table><thead><tr>{(tab === 'analyses' ? ['Bloque / muestra', 'Fecha / laboratorio', 'Resultados', 'Interpretación', 'Detalle'] : tab === 'plans' ? ['Bloque / producto', 'Estado', 'Programado / aplicado', 'Seguimiento', 'Acciones'] : ['Plan / bloque', 'Fecha / operador', 'Cantidad', 'Lote / método', 'Evidencia']).map(header => <th key={header}>{header}</th>)}</tr></thead><tbody>
+        {tab === 'analyses' && analyses.filter(sample => selectedBlock(sample.blockId)).map(sample => <tr key={sample.id}><td>{blockLabel(sample.blockId)}<br />{sample.reference} · {sample.sampleType === 'SOIL' ? 'Suelo' : 'Foliar'}</td><td>{sample.sampledOn}<br />{sample.laboratory}</td><td>{sample.results.slice(0, 4).map(result => <div key={result.nutrient}>{nutrientNames[result.nutrient]}: {result.value} {units[result.unit]}</div>)}</td><td><AnalysisInterpretation analysis={sample} crop={data.blocks.find(block => block.id === sample.blockId)?.crop} /></td><td><button className="text-button" onClick={() => setDetail(sample)}>Ver análisis {sample.id}</button></td></tr>)}
+        {tab === 'plans' && plans.filter(plan => selectedBlock(plan.blockId)).map(plan => <tr key={plan.id}><td>{blockLabel(plan.blockId)}<br />{plan.product}</td><td><Badge tone={plan.status === 'APPROVED' ? 'green' : 'neutral'}>{planLabels[plan.status]}</Badge></td><td>{plan.totalQuantity} / {plan.appliedQuantity} {quantityUnit(plan.doseUnit)}<br />{plan.scheduledOn}</td><td>{plan.followUpOn}<br />{plan.followups.length ? `${plan.followups.length} revisiones` : plan.followUpOn <= localDate() && plan.status === 'APPROVED' ? 'Revisión pendiente' : 'Sin revisión'}</td><td><button className="text-button" onClick={() => setDetail(plan)}>Ver plan {plan.id}</button>{manager && plan.status === 'DRAFT' && <button className="text-button" disabled={busy} onClick={() => open({ kind: 'approve', plan })}>Aprobar</button>}{manager && !plan.taskId && plan.status !== 'CANCELED' && <button className="text-button" onClick={() => open({ kind: 'cancel', plan })}>Anular</button>}{manager && plan.status === 'APPROVED' && !plan.taskId && <button className="text-button" disabled={busy} onClick={() => void generateTask(plan)}>Generar tarea</button>}{plan.taskId && plan.status === 'APPROVED' && (manager || plan.assigneeId === profile.user.id) && plan.appliedQuantity < plan.totalQuantity && <button className="text-button" onClick={() => open({ kind: 'application', plan })}>Registrar aplicación</button>}{manager && plan.status === 'APPROVED' && <button className="text-button" onClick={() => open({ kind: 'followup', plan })}>Registrar seguimiento</button>}</td></tr>)}
+        {tab === 'applications' && applications.filter(application => selectedBlock(plans.find(plan => plan.id === application.planId)!.blockId)).map(application => { const plan = plans.find(item => item.id === application.planId)!; return <tr key={application.id}><td>#{plan.id} · {blockLabel(plan.blockId)}<br />{plan.product}</td><td>{new Date(application.occurredAt).toLocaleString('es-CO')}<br />Usuario #{application.createdBy}</td><td>{application.quantity} {quantityUnit(plan.doseUnit)}<br />{application.coverage} {coverageUnit(plan.doseUnit)}</td><td>{application.lot}<br />{application.method}</td><td><button className="text-button" onClick={() => setDetail(application)}>Ver aplicación {application.id}</button></td></tr>; })}
+      </tbody></table></div><p className="muted">{tab === 'applications' ? 'Registra aplicaciones desde un plan aprobado con tarea. Las aplicaciones parciales conservan su propia evidencia.' : 'Los registros se conservan con autor y fecha. Las correcciones se documentan como un nuevo análisis o plan.'}</p>
+    </Panel>}
+    {editor && <Modal title={editor.kind === 'analysis' ? 'Nuevo análisis' : editor.kind === 'plan' ? 'Nuevo plan de fertilización' : editor.kind === 'application' ? 'Registrar aplicación' : editor.kind === 'followup' ? 'Seguimiento técnico' : editor.kind === 'approve' ? 'Aprobar plan' : 'Anular plan'} onClose={() => { if (!busy) setEditor(undefined); }} wide>
+      <form onSubmit={submit} className="fertilization-form"><fieldset disabled={busy} style={{ border: 0, padding: 0, minWidth: 0 }}>{error && <p role="alert">{error}</p>}
+        {editor.kind === 'analysis' ? <>{blockSelect}<label>Tipo de muestra<select name="sampleType"><option value="SOIL">Suelo</option><option value="FOLIAR">Foliar</option></select></label>{input('Fecha de muestreo', 'sampledOn', { type: 'date', value: localDate(), max: localDate() })}{input('Laboratorio', 'laboratory')}{input('Referencia de muestra', 'reference')}{input('Profundidad (cm; 0 para foliar)', 'depthCm', { type: 'number', min: 0, max: 300, step: 'any', value: 20 })}{input('Latitud (opcional)', 'latitude', { type: 'number', min: -90, max: 90, step: 'any', required: false })}{input('Longitud (opcional)', 'longitude', { type: 'number', min: -180, max: 180, step: 'any', required: false })}<p>Completa solo los parámetros medidos. Una casilla vacía significa sin dato, no cero.</p><div className="soil-result-grid">{(Object.entries(nutrientNames) as [Nutrient, string][]).map(([code, label]) => <fieldset key={code}><legend>{label}</legend>{input(`Valor ${code}`, `value-${code}`, { type: 'number', min: 0, max: code === 'PH' ? 14 : 1000000, step: 'any', required: false })}<label>Unidad {code}<select name={`unit-${code}`} defaultValue={code === 'PH' ? 'PH' : code === 'N' || code === 'OM' ? 'PERCENT' : 'MG_KG'}>{Object.entries(units).filter(([key]) => code === 'PH' ? key === 'PH' : key !== 'PH').map(([key, unit]) => <option key={key} value={key}>{unit}</option>)}</select></label>{input(`Método ${code}`, `method-${code}`, { required: false })}</fieldset>)}</div><label>Informe de laboratorio PDF (opcional; 10 MB)<input type="file" name="report" accept="application/pdf" /></label><label>Observaciones<textarea name="notes" maxLength={4000} /></label></> : editor.kind === 'plan' ? <>{blockSelect}{analysisSelect()}<label>Inspección sanitaria relacionada (opcional)<select name="inspectionId"><option value="">Ninguna</option>{inspectionOptions.map(inspection => <option key={inspection.id} value={inspection.id}>#{inspection.id} · {blockLabel(inspection.blockId)} · {inspection.problemCode}</option>)}</select></label>{input('Etapa de crecimiento', 'growthStage')}<label>Diagnóstico y justificación técnica<textarea name="diagnosis" required maxLength={4000} placeholder="Interpretación de resultados, deficiencias confirmadas y otros factores evaluados" /></label><label>Objetivo agronómico<textarea name="objective" required maxLength={2000} /></label>{input('Producto', 'product')}{input('Composición declarada (N-P-K y otros)', 'composition')}{input('Dosis definida por el técnico', 'dose', { type: 'number', min: '0.000001', max: 1000000, step: 'any' })}<label>Unidad de dosis<select name="doseUnit">{Object.entries(doseUnits).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>{input('Cobertura (ha o plantas según unidad de dosis)', 'coverage', { type: 'number', min: '0.000001', max: 10000000, step: 'any' })}{input('Método e instrucciones de aplicación', 'method')}{input('Fecha programada', 'scheduledOn', { type: 'date', value: localDate() })}{input('Hora programada', 'scheduledTime', { type: 'time', value: '08:00' })}<label>Responsable<select name="assigneeId" required>{members.map(member => <option key={member.userId} value={member.userId}>{member.name}</option>)}</select></label>{input('Fecha de seguimiento', 'followUpOn', { type: 'date', value: localDate() })}<Notice>kg/ha × ha = kg; g/planta × plantas ÷ 1000 = kg. El mismo cálculo se aplica a L/ha y mL/planta. El total queda fijado en el plan; no se permiten sobredosificaciones sin un nuevo plan.</Notice></> : editor.kind === 'application' ? <><Notice>{editor.plan.product} · Pendiente: {Number((editor.plan.totalQuantity - editor.plan.appliedQuantity).toFixed(6))} {quantityUnit(editor.plan.doseUnit)}. Las fotos se adjuntan después de guardar.</Notice>{input('Fecha y hora reales', 'occurredAt', { type: 'datetime-local', value: `${localDate()}T08:00` })}{input(`Cantidad aplicada (${quantityUnit(editor.plan.doseUnit)})`, 'quantity', { type: 'number', min: '0.000001', max: Number((editor.plan.totalQuantity - editor.plan.appliedQuantity).toFixed(6)), step: 'any' })}{input(`Cobertura real (${coverageUnit(editor.plan.doseUnit)})`, 'coverage', { type: 'number', min: '0.000001', max: editor.plan.coverage, step: 'any' })}{input('Método real', 'method', { value: editor.plan.method })}{input('Lote del producto', 'lot')}<label>Observaciones de campo<textarea name="notes" maxLength={4000} /></label></> : editor.kind === 'followup' ? <>{analysisSelect(false)}<label>Observaciones y conclusión técnica<textarea name="observations" required maxLength={4000} placeholder="Comparar plan y aplicación; documentar respuesta, sanidad y producción sin atribuir causalidad automáticamente." /></label></> : <><Notice>Decisión registrada a nombre de {profile.user.name}. Confirma la revisión técnica del análisis, dosis, producto y método.</Notice><label>Justificación de la decisión<textarea name="reason" required maxLength={4000} /></label></>}
+        <div className="form-actions"><button type="button" className="button secondary" onClick={() => setEditor(undefined)}>Cancelar</button><button className="button" type="submit">{busy ? 'Guardando…' : 'Guardar'}</button></div></fieldset></form>
+    </Modal>}
+    {detail && !editor && <Modal title={'results' in detail ? `Análisis #${detail.id}` : 'product' in detail ? `Plan #${detail.id}` : `Aplicación #${detail.id}`} onClose={() => { if (!photoBusy && !busy) setDetail(undefined); }} wide>
+      {error && <p role="alert">{error}</p>}
+      {'product' in detail && <FertilizationContext plan={detail} analyses={analyses} data={data} />}
+      {'results' in detail && <AnalysisInterpretationDetails analysis={detail} crop={data.blocks.find(block => block.id === detail.blockId)?.crop} />}
+      {'results' in detail ? <><p>{blockLabel(detail.blockId)} · {detail.sampledOn} · {detail.laboratory} · {detail.reference}</p><p>Profundidad: {detail.depthCm} cm · Coordenadas: {detail.latitude ?? '—'}, {detail.longitude ?? '—'} · Autor #{detail.createdBy}</p><div className="table-wrap"><table><thead><tr><th>Parámetro</th><th>Valor</th><th>Unidad</th><th>Método</th></tr></thead><tbody>{detail.results.map(result => <tr key={result.nutrient}><td>{nutrientNames[result.nutrient]}</td><td>{result.value}</td><td>{units[result.unit]}</td><td>{result.method}</td></tr>)}</tbody></table></div><p>{detail.notes}</p>{detail.hasReport ? <a className="button secondary" href={demo ? detail.reportData : `/api/v1/fertilization/analyses/${detail.id}/report`} download={`laboratorio-${detail.id}.pdf`}>Descargar informe PDF</a> : !demo && (manager || detail.createdBy === profile.user.id) && <label>Adjuntar informe PDF<input type="file" accept="application/pdf" disabled={busy} onChange={event => { const file = event.target.files?.[0]; if (file) void action(async () => { const form = new FormData(); form.append('file', file); await api.fertilizerAction(`analyses/${detail.id}/report`, form); setDetail({ ...detail, hasReport: true }); }); }} /></label>}</> : 'product' in detail ? <><p>{blockLabel(detail.blockId)} · {data.blocks.find(block => block.id === detail.blockId)?.crop} · {data.blocks.find(block => block.id === detail.blockId)?.variety} · {detail.growthStage}</p><p>Plantas estimadas del bloque: {data.rows.filter(row => row.block.id === detail.blockId).reduce((sum, row) => sum + (row.plantsEstimated ?? 0), 0)}</p><Badge>{planLabels[detail.status]}</Badge><dl className="detail-list">{[['Análisis', `#${detail.analysisId}`], ['Inspección', detail.inspectionId ? `#${detail.inspectionId}` : 'No vinculada'], ['Diagnóstico', detail.diagnosis], ['Objetivo', detail.objective], ['Producto / composición', `${detail.product} · ${detail.composition}`], ['Dosis / cobertura', `${detail.dose} ${doseUnits[detail.doseUnit]} · ${detail.coverage} ${coverageUnit(detail.doseUnit)}`], ['Total / aplicado', `${detail.totalQuantity} / ${detail.appliedQuantity} ${quantityUnit(detail.doseUnit)}`], ['Método', detail.method], ['Programación', `${detail.scheduledOn} ${detail.scheduledTime}`], ['Responsable', members.find(member => member.userId === detail.assigneeId)?.name ?? `#${detail.assigneeId}`], ['Autor / aprobación', `#${detail.createdBy} / ${detail.approvedBy ? `#${detail.approvedBy} · ${detail.approvedAt}` : 'Pendiente'}`], ['Decisión', detail.decisionReason ?? 'Pendiente'], ['Tarea', detail.taskId ? `#${detail.taskId}` : 'Sin generar'], ['Seguimiento', detail.followUpOn]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>{detail.followups.map(followup => <Panel key={followup.id} title={`Revisión ${new Date(followup.reviewedAt).toLocaleString('es-CO')}`}><p>{followup.observations}</p><p>Revisor #{followup.reviewedBy} · Análisis {followup.analysisId ? `#${followup.analysisId}` : 'No vinculado'}</p></Panel>)}</> : <><p>Plan #{detail.planId} · {new Date(detail.occurredAt).toLocaleString('es-CO')} · Operador #{detail.createdBy}</p><p>{detail.quantity} {quantityUnit(plans.find(plan => plan.id === detail.planId)!.doseUnit)} · {detail.coverage} {coverageUnit(plans.find(plan => plan.id === detail.planId)!.doseUnit)} · {detail.method} · Lote: {detail.lot}</p><p>{detail.notes}</p><PhotoGallery target={{ eventId: detail.eventId }} onBusyChange={setPhotoBusy} /></>}
+    </Modal>}
+  </>;
+}

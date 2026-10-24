@@ -1,0 +1,118 @@
+package com.yourco.agro;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yourco.agro.auth.AuthDtos;
+import com.yourco.agro.auth.FarmAccess;
+import com.yourco.agro.config.SecurityConfig;
+import com.yourco.agro.media.PhotoController;
+import com.yourco.agro.media.PhotoService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.test.web.servlet.MockMvc;
+
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@WebMvcTest(PhotoController.class)
+@Import({SecurityConfig.class, FarmAccess.class, PhotoService.class, InspectionApiTest.DatabaseConfig.class})
+class PhotoApiTest {
+  @Autowired MockMvc mvc;
+  @Autowired JdbcTemplate jdbc;
+  @Autowired ObjectMapper json;
+
+  private UsernamePasswordAuthenticationToken login() {
+    return UsernamePasswordAuthenticationToken.authenticated(new AuthDtos.User(1L, "Worker", "worker@example.com"), null, List.of());
+  }
+
+  @BeforeEach void seed() {
+    jdbc.update("DELETE FROM photo_asset"); jdbc.update("DELETE FROM inspection_evidence"); jdbc.update("DELETE FROM inspection_treatment");
+    jdbc.update("DELETE FROM phytosanitary_inspection"); jdbc.update("DELETE FROM farm_membership");
+    jdbc.update("DELETE FROM app_user"); jdbc.update("DELETE FROM field_event"); jdbc.update("DELETE FROM row_line");
+    jdbc.update("DELETE FROM block"); jdbc.update("DELETE FROM field"); jdbc.update("DELETE FROM farm");
+    jdbc.update("INSERT INTO farm VALUES (10, 'North'), (20, 'South')");
+    jdbc.update("INSERT INTO field VALUES (11, 10), (21, 20)");
+    jdbc.update("INSERT INTO block VALUES (12, 11), (22, 21)");
+    jdbc.update("INSERT INTO field_event VALUES (14, 12, NULL), (24, 22, NULL)");
+    jdbc.update("INSERT INTO app_user(id, name, email, password_hash) VALUES (1, 'Worker', 'worker@example.com', 'hash')");
+    jdbc.update("INSERT INTO farm_membership VALUES (10, 1, 'WORKER')");
+    jdbc.update("""
+      INSERT INTO phytosanitary_inspection(id, block_id, problem_code, inspected_at, inspected_plants,
+        affected_plants, symptoms, severity_percent, severity_method, next_visit, created_by_user_id)
+      VALUES (30, 12, 'SIGATOKA', CURRENT_TIMESTAMP, 20, 2, 'Manchas', 10, 'Visual', CURRENT_DATE, 1),
+        (31, 12, 'MOKO', CURRENT_TIMESTAMP, 20, 1, 'Marchitez', 5, 'Visual', CURRENT_DATE, 1),
+        (32, 22, 'SIGATOKA', CURRENT_TIMESTAMP, 20, 2, 'Manchas', 10, 'Visual', CURRENT_DATE, 1)
+      """);
+    jdbc.update("INSERT INTO inspection_treatment(id, inspection_id, occurred_at, description, created_by_user_id) VALUES (40, 30, CURRENT_TIMESTAMP, 'Deshoje', 1), (41, 31, CURRENT_TIMESTAMP, 'Inspección', 1)");
+  }
+
+  private MockMultipartFile photo(String format) throws Exception {
+    var image = new BufferedImage(12, 8, BufferedImage.TYPE_INT_RGB);
+    image.setRGB(0, 0, 0x00ff00);
+    var output = new ByteArrayOutputStream(); ImageIO.write(image, format, output);
+    return new MockMultipartFile("file", "campo." + format, "image/" + format, output.toByteArray());
+  }
+
+  private String upload(String target, String value) throws Exception {
+    var response = mvc.perform(multipart("/api/v1/photos").file(photo("png")).param(target, value).with(authentication(login())).with(csrf()))
+      .andExpect(status().isOk()).andExpect(jsonPath("contentType").value("image/png")).andReturn();
+    return json.readTree(response.getResponse().getContentAsString()).get("id").asText();
+  }
+
+  @Test void eventPhotoRoundTripIncludesAuthenticatedPreviewAndDownload() throws Exception {
+    String id = upload("eventId", "14");
+    mvc.perform(get("/api/v1/photos").param("eventId", "14").with(authentication(login())))
+      .andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(id)).andExpect(jsonPath("$[0].createdByUserId").value(1));
+    var result = mvc.perform(get("/api/v1/photos/" + id + "/content").with(authentication(login())))
+      .andExpect(status().isOk()).andExpect(content().contentType("image/png"))
+      .andExpect(header().string("Cache-Control", "no-store")).andExpect(header().string("X-Content-Type-Options", "nosniff")).andReturn();
+    var decoded = ImageIO.read(new ByteArrayInputStream(result.getResponse().getContentAsByteArray()));
+    assertThat(decoded.getWidth()).isEqualTo(12); assertThat(decoded.getHeight()).isEqualTo(8);
+    mvc.perform(get("/api/v1/photos/" + id + "/content").param("download", "true").with(authentication(login())))
+      .andExpect(status().isOk()).andExpect(header().string("Content-Disposition", "attachment; filename=\"foto-" + id + ".png\""));
+    mvc.perform(get("/api/v1/photos/" + id + "/content")).andExpect(status().isUnauthorized());
+    jdbc.update("DELETE FROM farm_membership WHERE user_id = 1");
+    mvc.perform(get("/api/v1/photos/" + id + "/content").with(authentication(login()))).andExpect(status().isForbidden());
+    jdbc.update("DELETE FROM field_event WHERE id = 14");
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM photo_asset WHERE id = ?", Integer.class, id)).isZero();
+  }
+
+  @Test void inspectionAndTreatmentPhotosKeepTheirTargetAndSurviveAnnulment() throws Exception {
+    upload("inspectionId", "30");
+    mvc.perform(multipart("/api/v1/photos").file(photo("jpeg")).param("inspectionId", "30").param("treatmentId", "40").with(authentication(login())).with(csrf()))
+      .andExpect(status().isOk()).andExpect(jsonPath("treatmentId").value(40)).andExpect(jsonPath("contentType").value("image/jpeg"));
+    mvc.perform(get("/api/v1/photos").param("inspectionId", "30").with(authentication(login())))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
+    mvc.perform(get("/api/v1/photos").param("inspectionId", "30").param("treatmentId", "40").with(authentication(login())))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+    mvc.perform(multipart("/api/v1/photos").file(photo("png")).param("inspectionId", "30").param("treatmentId", "41").with(authentication(login())).with(csrf())).andExpect(status().isBadRequest());
+    jdbc.update("UPDATE phytosanitary_inspection SET canceled_at = CURRENT_TIMESTAMP WHERE id = 30");
+    mvc.perform(multipart("/api/v1/photos").file(photo("png")).param("inspectionId", "30").with(authentication(login())).with(csrf())).andExpect(status().isConflict());
+    mvc.perform(get("/api/v1/photos").param("inspectionId", "30").with(authentication(login())))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
+  }
+
+  @Test void uploadRejectsForeignTargetsInvalidImagesAmbiguousTargetsAndMissingCsrf() throws Exception {
+    mvc.perform(multipart("/api/v1/photos").file(photo("png")).param("eventId", "24").with(authentication(login())).with(csrf())).andExpect(status().isForbidden());
+    mvc.perform(multipart("/api/v1/photos").file(photo("png")).param("inspectionId", "32").with(authentication(login())).with(csrf())).andExpect(status().isForbidden());
+    mvc.perform(multipart("/api/v1/photos").file(photo("png")).param("eventId", "14").param("inspectionId", "30").with(authentication(login())).with(csrf())).andExpect(status().isBadRequest());
+    mvc.perform(multipart("/api/v1/photos").file(photo("png")).param("eventId", "14").with(authentication(login()))).andExpect(status().isForbidden());
+    mvc.perform(multipart("/api/v1/photos").file(new MockMultipartFile("file", "fake.png", "image/png", "<script>alert(1)</script>".getBytes())).param("eventId", "14").with(authentication(login())).with(csrf()))
+      .andExpect(status().isUnsupportedMediaType());
+    mvc.perform(multipart("/api/v1/photos").file(new MockMultipartFile("file", "large.jpg", "image/jpeg", new byte[PhotoService.MAX_BYTES + 1])).param("eventId", "14").with(authentication(login())).with(csrf()))
+      .andExpect(status().isPayloadTooLarge());
+  }
+}

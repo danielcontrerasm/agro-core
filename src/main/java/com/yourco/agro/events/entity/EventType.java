@@ -1,0 +1,11 @@
+package com.yourco.agro.events.entity;
+
+public enum EventType {
+  SCOUTING_OBSERVATION,
+  TREATMENT_APPLICATION,
+  FERTILIZER_APPLICATION,
+  IRRIGATION_EVENT,
+  HANDLING_EVENT,
+  SOIL_SAMPLE,
+  HARVEST_EVENT
+}
