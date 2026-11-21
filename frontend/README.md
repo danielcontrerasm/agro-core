@@ -36,9 +36,9 @@ AGRO_API_URL=http://localhost:8081 npm run dev
 | Surcos y plantas | Inventario por bloque, longitud, espaciado, plantas estimadas, creación, eliminación y carga incremental de filas en pantalla. |
 | Mapas | Bloques seleccionables, acercamiento, centrado, pantalla ampliada, controles de capas y comparación. La capa **Nutrientes** permite consultar N, P, K, pH, materia orgánica, Ca, Mg, S, B y Zn por bloque, con trazabilidad e interpretación preliminar. En modo real, representa datos del API. |
 | Riego | Sectores, mediciones de humedad, programación y ejecución de riego, consumo de agua, alertas, fuentes, calidad, infraestructura, balances, mantenimiento y verificación de sensores. Las programaciones recurrentes siguen pendientes. |
-| Fertilización | Pestañas **Análisis**, **Planes** y **Aplicaciones** para registrar resultados de suelo/foliares, interpretar provisionalmente, aprobar planes, generar tareas, registrar aplicaciones parciales, seguimientos y evidencia; sin prescripción automática. |
+| Fertilización | Pestañas **Análisis**, **Planes** y **Aplicaciones** para registrar resultados de suelo/foliares, interpretar provisionalmente, administrar perfiles y productos, aprobar planes únicos o recurrentes, generar tareas por ocurrencia, registrar aplicaciones parciales, seguimientos y evidencia; sin prescripción automática. |
 | Plagas y enfermedades | Registro de observaciones con síntomas y severidad, historial de eventos y tratamientos. |
-| Cosecha | Historial de jornadas y registro de actividades; sin captura estructurada de rendimiento. |
+| Cosecha | Historial estructurado por campo, bloque o fila y ciclo de cultivo; captura de fecha, área, rendimiento estimado, cantidad cosechada, unidad, calidad, rechazo y motivo; filtros por ciclo y unidad; acciones para ver el detalle y editar registros. |
 | Reportes y actividad | Filtros por tipo, bloque y fechas, detalle de evento, exportación CSV, referencias de archivos y eliminación autorizada. |
 | Centro agronómico | Orientación de uso y accesos a los registros; sin servicio de IA ni recomendaciones automáticas. |
 | Configuración | Perfil, información de finca, creación de otra finca, equipo y asignación/cambio de roles. |
@@ -79,10 +79,14 @@ Completar una tarea no crea un evento agrícola, ni adjunta evidencias. No hay
 reprogramación, cancelación o edición de asignaciones en esta primera versión.
 
 Los mapas de demo utilizan una imagen aérea ficticia y polígonos ilustrativos.
-No son cartografía georreferenciada. La vista real representa los polígonos de
-campos y bloques y las coordenadas SRID 4326 de los surcos devueltos por
-`/map/rows/disease`, sin proveedor de mapa base. Los campos se pueden seleccionar
-para consultar su área, aunque todavía no existan surcos u observaciones.
+No son cartografía georreferenciada. La vista real usa Leaflet para colocar los
+polígonos SRID 4326 de campos y bloques y las líneas SRID 4326 de los surcos
+encima de un mapa base. La capa **Mapa** usa OpenStreetMap; **Satélite** usa
+World Imagery de Esri por defecto y **Híbrido** combina ambas capas. Para
+producción se puede configurar un proveedor autorizado con
+`VITE_MAP_SATELLITE_TILES_URL` y `VITE_MAP_SATELLITE_ATTRIBUTION`. Los campos,
+bloques y surcos se pueden activar o desactivar desde **Herramientas** y las
+geometrías son seleccionables aunque todavía no existan observaciones.
 Las geometrías marcadas `[PRUEBA]` se identifican como ficticias en la vista de
 mapas. Ver [el plano de prueba de Guasita](../scripts/README.md).
 

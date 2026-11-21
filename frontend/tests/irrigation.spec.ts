@@ -138,6 +138,51 @@ test('water management records can be edited from each management table', async 
   await dialog.getByRole('button', { name: 'Cancelar', exact: true }).click();
 });
 
+test('recurring irrigation schedules generate occurrences and can be paused and resumed', async ({ page }) => {
+  await page.goto('/#irrigation');
+  await page.getByRole('button', { name: 'Programación', exact: true }).click();
+  await page.getByRole('button', { name: 'Nueva recurrencia', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  const today = new Date(); const dateValue = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  await dialog.getByRole('combobox', { name: 'Sector', exact: true }).selectOption({ index: 0 });
+  await dialog.getByLabel('Fecha de inicio', { exact: true }).fill(dateValue(today));
+  await dialog.getByLabel('Fecha final', { exact: true }).fill(dateValue(new Date(today.getTime() + 4 * 86400000)));
+  await dialog.getByLabel('Hora programada', { exact: true }).fill('08:00');
+  await dialog.getByLabel('Frecuencia', { exact: true }).selectOption('DAILY');
+  await dialog.getByLabel('Cada cuántos días o semanas', { exact: true }).fill('2');
+  await dialog.getByLabel('Duración por ocurrencia (min)', { exact: true }).fill('45');
+  await dialog.getByLabel('Volumen por ocurrencia (m³)', { exact: true }).fill('9');
+  await dialog.getByRole('combobox', { name: 'Responsable', exact: true }).selectOption({ index: 0 });
+  await dialog.getByLabel('Justificación técnica', { exact: true }).fill('Turno recurrente documentado.');
+  await dialog.getByLabel('Instrucciones de ejecución', { exact: true }).fill('Registrar el contador en cada ocurrencia.');
+  await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  const schedulePanel = page.locator('.panel').filter({ hasText: 'Programaciones recurrentes' });
+  const row = schedulePanel.getByRole('row').filter({ hasText: 'Sector demo 1' });
+  await expect(row).toContainText('2 días');
+  await expect(row).toContainText('planes');
+  await row.getByRole('button', { name: 'Pausar', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Guardar', exact: true }).click();
+  await expect(row).toContainText('Pausada');
+  await row.getByRole('button', { name: 'Reanudar', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Guardar', exact: true }).click();
+  await expect(row).toContainText('Activa');
+});
+
+test('water usage report compares plans, execution origins, rainfall and deficits', async ({ page }) => {
+  await page.goto('/#reports');
+  const report = page.locator('.water-analytics-panel');
+  await expect(report).toContainText('Consumo y balance de agua');
+  await expect(report.getByRole('row').filter({ hasText: 'Sector demo 1' })).toContainText('12 m³');
+  await expect(report).toContainText('Lluvia acumulada');
+  await report.getByRole('combobox', { name: 'Filtrar sector o bloque' }).selectOption('sector:1');
+  await expect(report.getByRole('row').filter({ hasText: 'Sector demo 1' })).toBeVisible();
+  await expect(report.getByRole('row')).toHaveCount(2);
+  const downloadPromise = page.waitForEvent('download');
+  await report.getByRole('button', { name: 'Exportar consumo', exact: true }).click();
+  await expect((await downloadPromise).suggestedFilename()).toContain('consumo-agua');
+});
+
 test('live worker records a unit-aware reading without requesting management permissions', async ({ page }) => {
   const farm = { id: 1, name: 'Finca conectada' }; const field = { id: 1, farm, name: 'Norte' }; const block = { id: 1, field, crop: 'banana', code: 'A' };
   const sector = { id: 9, blockId: 1, name: 'Sector conectado', areaHa: 2, system: 'Goteo', waterSource: 'Reservorio', unit: 'KPA', depthCm: 30, maxAgeHours: 24, technicalBasis: 'Calibración', version: 0, condition: 'NO_DATA', createdBy: 2, createdAt: '2026-01-01T12:00:00Z' };

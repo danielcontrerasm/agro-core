@@ -4,11 +4,12 @@ export type Page = 'dashboard' | 'tasks' | 'fields' | 'maps' | 'plants' | 'plant
 export interface User { id: number; name: string; email: string }
 export interface Membership { farmId: number; farmName: string; role: Role }
 export interface Profile { user: User; memberships: Membership[] }
-export interface Farm { id: number; name: string; country?: string; region?: string }
+export interface Farm { id: number; name: string; country?: string; region?: string; geom?: PolygonGeometry }
 export interface PolygonGeometry { type: 'Polygon'; coordinates: number[][][] }
+export interface LineStringGeometry { type: 'LineString'; coordinates: number[][] }
 export interface Field { id: number; name: string; farm: Farm; areaHa?: number; geom?: PolygonGeometry }
 export interface Block { id: number; code: string; field: Field; crop: string; cropId?: number; variety?: string; varietyId?: number; areaHa?: number; geom?: PolygonGeometry }
-export interface Row { id: number; rowCode: string; block: Block; lengthM?: number; plantSpacingM?: number; plantsEstimated?: number }
+export interface Row { id: number; rowCode: string; block: Block; geom?: LineStringGeometry; lengthM?: number; plantSpacingM?: number; plantsEstimated?: number }
 export type EventType = 'SCOUTING_OBSERVATION' | 'TREATMENT_APPLICATION' | 'FERTILIZER_APPLICATION' | 'IRRIGATION_EVENT' | 'HANDLING_EVENT' | 'SOIL_SAMPLE' | 'HARVEST_EVENT';
 export interface FieldEvent { id: number; eventType: EventType; occurredAt: string; notes?: string; block?: Block; row?: Row; createdByUserId: number; plantIndexStart?: number; plantIndexEnd?: number }
 export interface Member { userId: number; name: string; email: string; role: Role }

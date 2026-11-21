@@ -16,10 +16,11 @@ import Operations from './pages/Operations';
 import Planting from './pages/Planting';
 import SettingsPage from './pages/Settings';
 import { ResourceForm } from './components/Forms';
-import { demoInspections, inspectionDemoKey } from './lib/inspections';
+import { demoInspections, inspectionDemoKey, saveSanitaryProblemsDemo, sanitaryProblems } from './lib/inspections';
 import { demoFertilization, fertilizationKey, readFertilizationDemo } from './lib/fertilization';
 import { demoIrrigation, irrigationKey, readIrrigationDemo } from './lib/irrigation';
 import { plantingKey, demoPlanting } from './lib/planting';
+import { productionKey, demoProduction } from './lib/production';
 import { catalogKey, demoCatalog, readCatalogDemo, saveCatalogDemo } from './lib/catalog';
 import { calendarKey, demoCalendars, readCalendarsDemo, saveCalendarsDemo } from './lib/calendar';
 import { clearDemoPhotos, deleteDemoEventPhotos } from './lib/photos';
@@ -174,9 +175,11 @@ export default function App() {
   async function resetDemo() {
     try { await clearDemoPhotos(); } catch (failure) { notify(failure instanceof Error ? failure.message : 'No se pudieron restablecer las fotos.', true); return; }
     if (!saveDemo(inspectionDemoKey, demoInspections())) { notify('No se pudieron restablecer las inspecciones.', true); return; }
+    if (!saveSanitaryProblemsDemo(sanitaryProblems)) { notify('No se pudo restablecer el catálogo fitosanitario.', true); return; }
     if (!saveDemo(fertilizationKey, demoFertilization())) { notify('No se pudo restablecer la fertilización.', true); return; }
     if (!saveDemo(irrigationKey, demoIrrigation())) { notify('No se pudo restablecer el riego.', true); return; }
     if (!saveDemo(plantingKey, demoPlanting())) { notify('No se pudo restablecer siembra y ciclos.', true); return; }
+    if (!saveDemo(productionKey, demoProduction())) { notify('No se pudieron restablecer los registros de producción.', true); return; }
     if (!saveDemo(catalogKey, demoCatalog())) { notify('No se pudo restablecer el catálogo agrícola.', true); return; }
     if (!saveDemo(calendarKey, demoCalendars())) { notify('No se pudo restablecer el calendario regional.', true); return; }
     setAllData(demoData); setTasks(demoTasks); setProfile(demoProfile); setFarmId(1); setDemoRole('ADMIN'); notify('Demostración restablecida.');

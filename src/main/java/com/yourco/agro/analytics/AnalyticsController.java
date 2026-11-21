@@ -2,6 +2,7 @@ package com.yourco.agro.analytics;
 
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.Map;
 
 @RestController
@@ -15,4 +16,9 @@ public class AnalyticsController {
 
   @GetMapping("/dashboard")
   public Map<String, Object> dashboard(@RequestParam Long farmId) { return service.dashboard(farmId); }
+
+  @GetMapping("/water-usage")
+  public Map<String, Object> waterUsage(@RequestParam Long farmId, @RequestParam(required = false) LocalDate from, @RequestParam(required = false) LocalDate until) {
+    return service.waterUsage(farmId, from, until);
+  }
 }

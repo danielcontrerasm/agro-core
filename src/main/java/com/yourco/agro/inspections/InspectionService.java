@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.dao.DataAccessException;
 
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -33,7 +34,7 @@ public class InspectionService {
     return new InspectionDtos.Inspection(result.getLong("id"), result.getLong("farm_id"),
       result.getLong("block_id"), result.getObject("row_id", Long.class), result.getString("problem_code"),
       result.getString("problem_name"), result.getTimestamp("inspected_at").toInstant(), inspected,
-      affected, 100.0 * affected / inspected, result.getString("symptoms"),
+      affected, result.getObject("affected_area_ha", Double.class), 100.0 * affected / inspected, result.getString("symptoms"),
       result.getDouble("severity_percent"), result.getString("severity_method"),
       InspectionDtos.AssessmentStatus.valueOf(result.getString("assessment_status")),
       result.getBoolean("resolved"), result.getDate("next_visit").toLocalDate(),
@@ -46,13 +47,63 @@ public class InspectionService {
 
   public InspectionService(JdbcTemplate jdbc, FarmAccess access) { this.jdbc = jdbc; this.access = access; }
 
-  public List<Map<String, Object>> problems() {
-    return jdbc.queryForList("SELECT code, name, category FROM phytosanitary_problem ORDER BY name");
+  public List<InspectionDtos.Problem> problems(Long farmId, boolean includeInactive) {
+    if (farmId == null) throw badRequest("La finca es obligatoria");
+    access.require(farmId, false);
+    String sql = "SELECT code, name, category, active FROM phytosanitary_problem";
+    if (!includeInactive) sql += " WHERE active = TRUE";
+    sql += " ORDER BY active DESC, name, code";
+    return jdbc.query(sql, (result, rowNumber) -> new InspectionDtos.Problem(result.getString("code"),
+      result.getString("name"), result.getString("category"), result.getBoolean("active")));
+  }
+
+  @Transactional
+  public InspectionDtos.Problem createProblem(InspectionDtos.CreateProblemRequest request) {
+    access.requireAgronomic(request.farmId());
+    String code = normalizeCode(request.code());
+    String category = normalizeCategory(request.category());
+    if (jdbc.queryForObject("SELECT COUNT(*) FROM phytosanitary_problem WHERE code = ?", Integer.class, code) > 0) {
+      throw conflict("Ya existe una plaga o enfermedad con ese código");
+    }
+    jdbc.update("INSERT INTO phytosanitary_problem(code, name, category, active) VALUES (?, ?, ?, TRUE)",
+      code, request.name().trim(), category);
+    return problem(code);
+  }
+
+  @Transactional
+  public InspectionDtos.Problem updateProblem(String code, InspectionDtos.UpdateProblemRequest request) {
+    access.requireAgronomic(request.farmId());
+    String normalized = normalizeCode(code);
+    String category = normalizeCategory(request.category());
+    if (jdbc.queryForObject("SELECT COUNT(*) FROM phytosanitary_problem WHERE code = ?", Integer.class, normalized) == 0) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Problema sanitario no encontrado");
+    }
+    jdbc.update("UPDATE phytosanitary_problem SET name = ?, category = ?, active = ? WHERE code = ?",
+      request.name().trim(), category, request.active(), normalized);
+    return problem(normalized);
+  }
+
+  @Transactional
+  public InspectionDtos.Problem deactivateProblem(String code, long farmId) {
+    access.requireAgronomic(farmId);
+    String normalized = normalizeCode(code);
+    if (jdbc.update("UPDATE phytosanitary_problem SET active = FALSE WHERE code = ?", normalized) == 0) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Problema sanitario no encontrado");
+    }
+    return problem(normalized);
+  }
+
+  private InspectionDtos.Problem problem(String code) {
+    return jdbc.query("SELECT code, name, category, active FROM phytosanitary_problem WHERE code = ?",
+      (result, rowNumber) -> new InspectionDtos.Problem(result.getString("code"), result.getString("name"),
+        result.getString("category"), result.getBoolean("active")), code).stream().findFirst()
+      .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Problema sanitario no encontrado"));
   }
 
   @Transactional
   public InspectionDtos.Inspection create(InspectionDtos.CreateRequest request) {
     access.require(access.blockFarm(request.blockId()), false);
+    String problemCode = normalizeCode(request.problemCode());
     if (request.rowId() != null) {
       access.require(access.rowFarm(request.rowId()), false);
       if (!request.blockId().equals(jdbc.queryForObject("SELECT block_id FROM row_line WHERE id = ?", Long.class, request.rowId()))) {
@@ -60,20 +111,25 @@ public class InspectionService {
       }
     }
     if (request.affectedPlants() > request.inspectedPlants()) throw badRequest("Las plantas afectadas no pueden superar las inspeccionadas");
+    if (request.affectedAreaHa() == null || request.affectedAreaHa() < 0) throw badRequest("El área afectada no puede ser negativa");
+    if (request.affectedPlants() == 0 && request.affectedAreaHa() != 0) throw badRequest("Sin plantas afectadas el área afectada debe ser cero");
+    var blockArea = blockArea(request.blockId());
+    if (blockArea != null && request.affectedAreaHa() > blockArea) throw badRequest("El área afectada no puede superar el área del bloque");
     if (request.affectedPlants() == 0 && request.severityPercent() != 0) throw badRequest("Sin plantas afectadas la severidad debe ser cero");
     if (request.nextVisit().isBefore(request.inspectedAt().atZone(ZoneOffset.UTC).toLocalDate())) throw badRequest("La próxima visita no puede ser anterior a la inspección");
-    if (jdbc.queryForObject("SELECT COUNT(*) FROM phytosanitary_problem WHERE code = ?", Integer.class, request.problemCode()) == 0) throw badRequest("Problema sanitario desconocido");
+    if (jdbc.queryForObject("SELECT COUNT(*) FROM phytosanitary_problem WHERE code = ? AND active = TRUE", Integer.class, problemCode) == 0) throw badRequest("Problema sanitario desconocido o inactivo");
     if (request.parentInspectionId() != null) {
       var parent = writable(request.parentInspectionId());
       if (!parent.blockId().equals(request.blockId()) || !Objects.equals(parent.rowId(), request.rowId())
-        || !parent.problemCode().equals(request.problemCode()) || request.inspectedAt().isBefore(parent.inspectedAt())) {
+        || !parent.problemCode().equals(problemCode) || request.inspectedAt().isBefore(parent.inspectedAt())) {
         throw badRequest("El seguimiento debe corresponder al mismo problema y ubicación, con fecha posterior");
       }
     }
     var values = new HashMap<String, Object>();
     values.put("block_id", request.blockId()); values.put("row_id", request.rowId());
-    values.put("problem_code", request.problemCode()); values.put("inspected_at", Timestamp.from(request.inspectedAt()));
+    values.put("problem_code", problemCode); values.put("inspected_at", Timestamp.from(request.inspectedAt()));
     values.put("inspected_plants", request.inspectedPlants()); values.put("affected_plants", request.affectedPlants());
+    values.put("affected_area_ha", request.affectedAreaHa());
     values.put("symptoms", request.symptoms()); values.put("severity_percent", request.severityPercent());
     values.put("severity_method", request.severityMethod()); values.put("next_visit", java.sql.Date.valueOf(request.nextVisit()));
     values.put("created_by_user_id", access.userId());
@@ -141,6 +197,28 @@ public class InspectionService {
   }
 
   private ResponseStatusException badRequest(String message) { return new ResponseStatusException(HttpStatus.BAD_REQUEST, message); }
+
+  private ResponseStatusException conflict(String message) { return new ResponseStatusException(HttpStatus.CONFLICT, message); }
+
+  private String normalizeCode(String value) {
+    String normalized = value.trim().toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]+", "_");
+    if (normalized.isBlank() || normalized.length() > 40) throw badRequest("El código no es válido");
+    return normalized;
+  }
+
+  private String normalizeCategory(String value) {
+    String normalized = value.trim().toUpperCase(Locale.ROOT);
+    if (!Set.of("DISEASE", "PEST").contains(normalized)) throw badRequest("La categoría debe ser DISEASE o PEST");
+    return normalized;
+  }
+
+  private Double blockArea(Long blockId) {
+    try {
+      return jdbc.queryForObject("SELECT area_ha FROM block WHERE id = ?", Double.class, blockId);
+    } catch (DataAccessException ignored) {
+      return null;
+    }
+  }
 
   private InspectionDtos.Inspection writable(Long id) {
     get(id);

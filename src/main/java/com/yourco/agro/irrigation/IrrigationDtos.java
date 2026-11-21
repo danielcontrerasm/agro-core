@@ -14,6 +14,7 @@ public class IrrigationDtos {
   public enum MoistureUnit { VWC_PERCENT, GRAV_PERCENT, KPA }
   public enum VolumeMode { METER, FLOW }
   public enum VolumeUnit { L, M3 }
+  public enum RecurrenceUnit { DAILY, WEEKLY }
   public record Sector(@NotNull Long blockId, @NotBlank @Size(max=100) String name,
     @NotNull @DecimalMin(value="0",inclusive=false) @DecimalMax("1000000") BigDecimal areaHa,
     @NotBlank @Size(max=150) String system, @NotBlank @Size(max=150) String waterSource,
@@ -39,6 +40,21 @@ public class IrrigationDtos {
     @NotNull @DecimalMin(value="0",inclusive=false) @DecimalMax("1000000000") @Digits(integer=10,fraction=6) BigDecimal volumeM3,
     @NotNull Long assigneeId, @NotBlank @Size(max=2000) String justification,
     @NotBlank @Size(max=1000) String instructions) {}
+  public record RecurringSchedule(@NotNull Long sectorId, @NotNull LocalDate startDate, @NotNull LocalDate endDate,
+    @NotNull LocalTime scheduledTime, @NotNull RecurrenceUnit recurrenceUnit,
+    @NotNull @Min(1) @Max(365) Integer recurrenceInterval,
+    @NotNull @DecimalMin(value="0",inclusive=false) @DecimalMax("43200") @Digits(integer=5,fraction=6) BigDecimal durationMinutes,
+    @NotNull @DecimalMin(value="0",inclusive=false) @DecimalMax("1000000000") @Digits(integer=10,fraction=6) BigDecimal volumeM3,
+    @NotNull Long assigneeId, @NotBlank @Size(max=2000) String justification,
+    @NotBlank @Size(max=1000) String instructions) {}
+  public record RecurringScheduleUpdate(@NotNull Long sectorId, @NotNull LocalDate startDate, @NotNull LocalDate endDate,
+    @NotNull LocalTime scheduledTime, @NotNull RecurrenceUnit recurrenceUnit,
+    @NotNull @Min(1) @Max(365) Integer recurrenceInterval,
+    @NotNull @DecimalMin(value="0",inclusive=false) @DecimalMax("43200") @Digits(integer=5,fraction=6) BigDecimal durationMinutes,
+    @NotNull @DecimalMin(value="0",inclusive=false) @DecimalMax("1000000000") @Digits(integer=10,fraction=6) BigDecimal volumeM3,
+    @NotNull Long assigneeId, @NotBlank @Size(max=2000) String justification,
+    @NotBlank @Size(max=1000) String instructions, @NotNull @Min(0) Long version) {}
+  public record RecurringScheduleAction(@NotNull @Min(0) Long version, @Size(max=2000) String reason) {}
   public record Cancel(@NotNull @Min(0) Long version, @NotBlank @Size(max=2000) String reason) {}
   public record Execution(@NotNull @PastOrPresent Instant startedAt, @NotNull @PastOrPresent Instant endedAt,
     @NotNull @DecimalMin("0") @DecimalMax("43200") @Digits(integer=5,fraction=6) BigDecimal interruptionMinutes,

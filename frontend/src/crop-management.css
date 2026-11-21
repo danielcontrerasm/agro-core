@@ -69,6 +69,17 @@
 .crop-app-shell .record-filters>label{min-width:130px;color:#718277;font-size:9px;gap:6px}
 .crop-app-shell .record-filters select,.crop-app-shell .record-filters input{min-height:35px;padding:8px 10px;border-color:#e1e9e3;background:#fbfdfb;color:#40594b;font-size:10px}
 .crop-app-shell .record-filters .text-button{margin-top:0;align-self:center}
+.crop-app-shell .water-analytics-panel{margin:0 0 12px}
+.crop-app-shell .water-report-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.crop-app-shell .water-report-filters{margin-bottom:14px}
+.crop-app-shell .water-analytics-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:0 0 14px}
+.crop-app-shell .water-analytics-kpis>div{min-width:0;padding:11px 12px;border:1px solid #e4ede6;border-radius:8px;background:#fbfdfb}
+.crop-app-shell .water-analytics-kpis span{display:block;color:#788b7e;font-size:9px;line-height:1.3}
+.crop-app-shell .water-analytics-kpis strong{display:block;margin-top:4px;color:#28523b;font-family:Manrope,sans-serif;font-size:16px;line-height:1.2;white-space:nowrap}
+.crop-app-shell .water-analytics-kpis small{display:block;margin-top:4px;color:#94a198;font-size:8px;line-height:1.35}
+.crop-app-shell .water-report-table table{min-width:930px}
+.crop-app-shell .water-report-table td strong{display:block;color:#2d4d3b;font-size:10px}
+.crop-app-shell .water-report-table td small{line-height:1.35}
 .crop-app-shell .table-wrap{overflow-x:auto}
 .crop-app-shell table{width:100%;border-collapse:collapse;min-width:680px}
 .crop-app-shell th{padding:9px 10px;background:#f6faf7;border-bottom:1px solid #e5ede7;color:#74867b;font-size:8px;letter-spacing:.45px;text-align:left;text-transform:uppercase;white-space:nowrap}
@@ -91,11 +102,12 @@
 .crop-app-shell .planned-work p{font-size:10px;color:#819188;margin:8px 0}
 .crop-app-shell .detail-date{font-size:9px;color:#819188;margin:12px 0}
 .crop-app-shell .page-note+.page-note{margin-top:4px}
-.crop-app-shell .stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 12px}
-.crop-app-shell .stat-grid>.panel{min-height:86px;padding:13px 15px;box-shadow:0 2px 8px #193c2c08}
+.crop-app-shell .stat-grid,.crop-app-shell .stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 12px}
+.crop-app-shell .stats-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.crop-app-shell .stat-grid>.panel,.crop-app-shell .stats-grid>.panel{display:flex;align-items:center;gap:11px;min-height:86px;padding:13px 15px;box-shadow:0 2px 8px #193c2c08}
 .crop-app-shell .stat-label{display:block;color:#728379;font-size:10px}
 .crop-app-shell .stat-value{display:block;margin:3px 0 0;color:#213b2d;font-family:Manrope,sans-serif;font-size:24px;line-height:1.25;letter-spacing:-.7px}
-.crop-app-shell .stat-grid small{display:block;margin-top:3px;color:#90a097;font-size:9px}
+.crop-app-shell .stat-grid small,.crop-app-shell .stats-grid small{display:block;margin-top:3px;color:#90a097;font-size:9px}
 .crop-app-shell .content-grid{display:grid;gap:12px;margin-bottom:12px}
 .crop-app-shell .content-grid.two-one{grid-template-columns:minmax(270px,.9fr) minmax(0,1.55fr)}
 .crop-app-shell .stack-list{display:flex;flex-direction:column;gap:7px}
@@ -105,6 +117,7 @@
 .crop-app-shell .list-card>span:nth-child(2){min-width:0}
 .crop-app-shell .list-card strong{display:block;overflow:hidden;color:#2e4e3b;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
 .crop-app-shell .list-card small{display:block;margin-top:3px;overflow:hidden;color:#87978d;font-size:9px;text-overflow:ellipsis;white-space:nowrap}
+.crop-app-shell .preventive-library .list-card>p{grid-column:2/-1;margin:2px 0 0;color:#7b8d80;font-size:10px;line-height:1.5;overflow-wrap:anywhere}
 .crop-app-shell .list-card .icon-tile{width:36px;height:36px;border-radius:9px}
 .crop-app-shell .list-card-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
 .crop-app-shell .catalog-varieties{grid-column:2/-1;display:flex;gap:5px;flex-wrap:wrap;padding-top:2px}
@@ -168,9 +181,116 @@
 .crop-app-shell .modal>header,.crop-app-shell .modal-header{border-bottom:1px solid #edf2ee}
 .crop-app-shell .modal h2{font-size:18px;color:#243b2e}
 
+.crop-app-shell{--green:#079b60;--green-dark:#067548;--mint:#e8f5ee;--border:#e3ebe7;background:#f6faf8;color:#182d28;font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.crop-app-shell .sidebar{background:linear-gradient(180deg,#f1faf5 0%,#f8fcfa 56%,#eef8f2 100%);border-right:1px solid #e0ebe5}
+.crop-app-shell .sidebar-top{padding-bottom:13px}
+.crop-app-shell .brand strong{font-size:21px;color:#087b50;letter-spacing:-.6px}
+.crop-app-shell .brand small{font-size:8px;color:#a18135;letter-spacing:.2px}
+.crop-app-shell .brand-mark{width:36px;height:42px}
+.crop-app-shell .nav-item{padding:10px 12px;border-radius:8px;font-size:11px;color:#536b60}
+.crop-app-shell .nav-item:hover{background:#e0f1e7;color:#087b50}
+.crop-app-shell .nav-item.active{background:#dff2e6;color:#087b50}
+.crop-app-shell .nav-item.active:before{background:#079b60;height:18px}
+.crop-app-shell .sidebar-message{background:linear-gradient(135deg,#e3f3d9,#eef8e9);border:1px solid #e2efdc}
+.crop-app-shell .topbar{height:58px;padding:0 22px;background:#fff;border-bottom:1px solid #e8efeb}
+.crop-app-shell .global-search{height:36px;max-width:408px;border-radius:8px;background:#f4f7f7;border-color:#edf1ef}
+.crop-app-shell .global-search input{font-size:11px;color:#536579}
+.crop-app-shell .farm-picker,.crop-app-shell .date-picker{height:36px;border-color:#e1e9e4;border-radius:7px}
+.crop-app-shell .farm-picker select,.crop-app-shell .date-picker-value{font-size:10px}
+.crop-app-shell .topbar-weather{gap:6px;padding-right:10px}
+.crop-app-shell .topbar-weather strong{font-size:12px}
+.crop-app-shell .topbar-weather small{font-size:8px}
+.crop-app-shell .notification-button{width:36px;height:36px;border-radius:50%;box-shadow:0 2px 6px #193c2c0a}
+.crop-app-shell .notification-button svg{width:18px;height:18px}
+.crop-app-shell .notification-button i{width:17px;height:17px;top:-1px;right:-2px;font-size:8px}
+.crop-app-shell .profile-button{width:36px;height:36px;font-size:11px}
+.crop-app-shell main{padding:0 17px 20px 12px;background:#f6faf8;min-height:calc(100vh - 58px)}
+.crop-app-shell .page-heading{min-height:88px;padding:18px 14px 10px;gap:12px}
+.crop-app-shell .page-heading h1{font-size:27px;line-height:1.15;letter-spacing:-.8px;color:#13243e;margin:3px 0 3px}
+.crop-app-shell .page-heading p{font-size:11px;color:#5f718a}
+.crop-app-shell .page-heading .eyebrow{font-size:8px;color:#6c9476;letter-spacing:1.2px}
+.crop-app-shell .button{min-height:36px;padding:9px 14px;border-radius:7px;background:linear-gradient(135deg,#0aa368,#078450);box-shadow:0 3px 7px #08784c18;font-size:10px}
+.crop-app-shell .button:hover:not(:disabled){background:linear-gradient(135deg,#078e5b,#056e43)}
+.crop-app-shell .button.secondary{border-color:#dfe9e3;color:#176b4a;background:#fff;box-shadow:0 2px 5px #193c2c08}
+.crop-app-shell .button.secondary:hover:not(:disabled){background:#f0f8f3;border-color:#bcd9c6}
+.crop-app-shell .toolbar{margin:0 0 12px;padding:0;border-bottom:1px solid #e1eae5;gap:3px}
+.crop-app-shell .tabs>button{height:37px;padding:0 15px;border-radius:7px 7px 0 0;color:#68798b;background:#f4f7f7;font-size:10px}
+.crop-app-shell .tabs>button.active{border-color:#079b60;background:#f0faf4;color:#087b50;font-weight:700}
+.crop-app-shell .tabs>label{margin-left:auto;display:flex;align-items:center;gap:7px;color:#718277;font-size:9px}
+.crop-app-shell .tabs>label select{height:32px;min-width:124px;padding:6px 9px;border:1px solid #dfe9e2;border-radius:7px;background:#fff;color:#40594b;font-size:10px}
+.crop-app-shell .panel{padding:14px;border-color:#e3ebe7;border-radius:10px;box-shadow:0 4px 16px #193c2c08;background:#fff}
+.crop-app-shell .panel-heading{margin-bottom:10px}
+.crop-app-shell .panel-heading h3{font-size:13px;color:#182d28}
+.crop-app-shell .notice{border-color:#dce9dc;background:#f4faf3;color:#668369;font-size:10px}
+.crop-app-shell table{min-width:720px}
+.crop-app-shell th{padding:8px 9px;background:#f5f9f7;color:#7c8d83;font-size:8px;letter-spacing:.4px}
+.crop-app-shell td{padding:9px;color:#506477;font-size:10px;line-height:1.45}
+.crop-app-shell td strong{color:#253b31;font-size:10px}
+.crop-app-shell .text-button{font-size:9px;color:#087b50}
+.crop-app-shell .irrigation-alert-center{padding:14px;margin:0 0 12px;border-color:#e3ebe7;border-radius:10px;background:#fff;box-shadow:0 4px 16px #193c2c08}
+.crop-app-shell .alert-center-heading{padding-bottom:11px;border-bottom-color:#edf2ee}
+.crop-app-shell .alert-center-heading h2{font-size:16px;color:#182d28}
+.crop-app-shell .alert-center-heading p{font-size:9px;color:#7e8f84}
+.crop-app-shell .alert-counts{gap:7px}
+.crop-app-shell .alert-counts strong{min-width:58px;padding:7px 8px;border-radius:8px;font-size:16px}
+.crop-app-shell .alert-counts small{font-size:8px}
+.crop-app-shell .alert-list{gap:7px;padding-top:11px}
+.crop-app-shell .irrigation-alert{padding:9px;border-radius:8px;gap:9px}
+.crop-app-shell .alert-icon{width:32px;height:32px;border-radius:8px}
+.crop-app-shell .alert-copy strong{font-size:10px}
+.crop-app-shell .alert-copy p{font-size:9px;line-height:1.45;margin:4px 0 3px}
+.crop-app-shell .alert-copy small{font-size:8px}
+.crop-app-shell .alert-action{font-size:9px}
+.crop-app-shell .fertilization-form label{gap:6px;margin:9px 0;color:#536b5d;font-size:10px;font-weight:650}
+.crop-app-shell .fertilization-form input,.crop-app-shell .fertilization-form select,.crop-app-shell .fertilization-form textarea{padding:9px 10px;border-color:#dce8e1;border-radius:7px;background:#fbfdfc;color:#30483a;font-size:11px}
+.crop-app-shell .fertilization-form textarea{min-height:80px}
+.crop-app-shell .water-management-heading{padding:12px 14px;margin-bottom:12px;border-color:#e3ebe7;background:#fff;box-shadow:0 4px 16px #193c2c08}
+.crop-app-shell .water-management-heading h2{font-size:16px;color:#182d28}
+.crop-app-shell .water-management-heading p{font-size:10px;line-height:1.5}
+.crop-app-shell .water-management-guide>div{padding:9px 10px;background:#f8fcfa;border-color:#e3ece6}
+.crop-app-shell .water-management-summary>div{padding:10px;border-color:#e3ebe7}
+.crop-app-shell .water-management-summary strong{font-size:19px}
+.crop-app-shell .water-management-grid{gap:11px}
+
+@media(max-width:800px){
+  .crop-app-shell .topbar{height:62px;padding:0 15px}
+  .crop-app-shell main{padding:0 15px 18px}
+  .crop-app-shell .page-heading{padding:17px 2px 11px}
+  .crop-app-shell .tabs{overflow-x:auto}
+  .crop-app-shell .tabs>label{margin-left:0;flex:0 0 auto}
+  .crop-app-shell .tabs>label select{min-width:112px}
+  .crop-app-shell .alert-center-heading{flex-direction:column}
+  .crop-app-shell .alert-counts{width:100%}
+  .crop-app-shell .alert-counts strong{flex:1}
+}
+
+.crop-app-shell .irrigation-dashboard{padding:0 2px 12px}
+.crop-app-shell .irrigation-dashboard-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding:16px 12px 10px}
+.crop-app-shell .irrigation-dashboard-heading h2{margin:4px 0 2px;color:#13243e;font-family:Manrope,sans-serif;font-size:27px;letter-spacing:-.8px}
+.crop-app-shell .irrigation-dashboard-heading p{margin:0;color:#5f718a;font-size:11px}
+.crop-app-shell .irrigation-dashboard-actions,.crop-app-shell .irrigation-table-actions{display:flex;align-items:center;gap:8px}
+.crop-app-shell .irrigation-dashboard-tabs{display:flex;gap:3px;border-bottom:1px solid #e1eae5;margin:0 12px 12px}
+.crop-app-shell .irrigation-dashboard-tabs button{height:37px;padding:0 16px;border:1px solid transparent;border-radius:7px 7px 0 0;background:#f3f7f6;color:#68798b;font-size:10px}
+.crop-app-shell .irrigation-dashboard-tabs button.active{border-color:#079b60;background:#f0faf4;color:#087b50;font-weight:700}
+.crop-app-shell .irrigation-kpi-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:0 0 10px}
+.crop-app-shell .irrigation-kpi{display:flex;align-items:center;gap:9px;min-width:0;min-height:76px;padding:10px;border:1px solid #e3ebe7;border-radius:9px;background:#fff;box-shadow:0 3px 12px #193c2c08}
+.crop-app-shell .irrigation-kpi-icon{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;flex:0 0 auto}
+.crop-app-shell .irrigation-kpi-icon.blue{background:#e8f2ff;color:#1979e7}.crop-app-shell .irrigation-kpi-icon.green{background:#e8f7ed;color:#25a05b}
+.crop-app-shell .irrigation-kpi>div{min-width:0}.crop-app-shell .irrigation-kpi small{display:block;color:#778898;font-size:8px;white-space:nowrap}.crop-app-shell .irrigation-kpi strong{display:block;color:#16243a;font-family:Manrope,sans-serif;font-size:19px;line-height:1.4;white-space:nowrap}.crop-app-shell .irrigation-kpi em{display:block;color:#8998a8;font-size:7px;font-style:normal;white-space:nowrap}.crop-app-shell .irrigation-kpi>b,.crop-app-shell .irrigation-kpi mark{margin-left:auto;padding:4px 7px;border:0;border-radius:6px;background:#e8f7ed;color:#2a9b5d;font-size:8px;white-space:nowrap}.crop-app-shell .irrigation-kpi mark{font-weight:500}
+.crop-app-shell .irrigation-dashboard-main{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(330px,.85fr);gap:10px;margin-bottom:10px}
+.crop-app-shell .irrigation-map-card,.crop-app-shell .irrigation-alert-card,.crop-app-shell .irrigation-sector-card{min-width:0;padding:12px;border:1px solid #e3ebe7;border-radius:10px;background:#fff;box-shadow:0 4px 16px #193c2c08}
+.crop-app-shell .irrigation-section-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}.crop-app-shell .irrigation-section-heading h3{margin:0;color:#182d28;font-size:14px}.crop-app-shell .irrigation-section-heading p{margin:3px 0 0;color:#7e8f84;font-size:9px}.crop-app-shell .irrigation-section-heading>div:last-child{display:flex;align-items:center;gap:7px}
+.crop-app-shell .compact-select{height:33px;padding:0 10px;border:1px solid #dfe9e2;border-radius:7px;background:#fff;color:#40594b;font-size:9px;white-space:nowrap}.crop-app-shell .icon-button{display:grid;place-items:center;width:33px;height:33px;border:1px solid #dfe9e2;border-radius:7px;background:#fff;color:#40594b}
+.crop-app-shell .irrigation-map{position:relative;height:315px;overflow:hidden;border-radius:8px;background:#dcebd8}.crop-app-shell .irrigation-map>img{width:100%;height:100%;object-fit:cover}.crop-app-shell .irrigation-map-wash{position:absolute;inset:0;background:linear-gradient(130deg,#163e1b42,#1d7d3b15 45%,#122e1836)}
+.crop-app-shell .irrigation-map-label{position:absolute;display:flex;flex-direction:column;min-width:88px;padding:7px 9px;border:1px solid #ffffffaa;border-radius:7px;background:#ffffffdd;box-shadow:0 3px 10px #193c2c28;text-align:center;transform:translate(-50%,-50%)}.crop-app-shell .irrigation-map-label strong{color:#21342c;font-size:10px}.crop-app-shell .irrigation-map-label span{font-size:8px;color:#536a5b}.crop-app-shell .irrigation-map-label small{font-size:8px;color:#334b3d}.crop-app-shell .irrigation-map-label.blue{border-bottom:3px solid #2186ee}.crop-app-shell .irrigation-map-label.green{border-bottom:3px solid #31aa60}.crop-app-shell .irrigation-map-label.gold{border-bottom:3px solid #e8ac22}.crop-app-shell .irrigation-map-label.critical{border-bottom:3px solid #ec3b3b}
+.crop-app-shell .irrigation-map-legend{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:6px;width:155px;padding:10px;border-radius:7px;background:#ffffffed;color:#536579;font-size:8px}.crop-app-shell .irrigation-map-legend strong{color:#182d28;font-size:9px}.crop-app-shell .irrigation-map-legend span{display:flex;align-items:center;gap:6px}.crop-app-shell .irrigation-map-legend i{width:8px;height:8px;border-radius:50%;background:#2186ee}.crop-app-shell .irrigation-map-legend i.gold{background:#e8ac22}.crop-app-shell .irrigation-map-legend i.green{background:#31aa60}.crop-app-shell .irrigation-map-legend i.critical{background:#ec3b3b}
+.crop-app-shell .irrigation-alert-card .irrigation-section-heading{margin-bottom:3px}.crop-app-shell .irrigation-alert-card .text-button{display:inline-flex;align-items:center;gap:2px;font-size:8px}.crop-app-shell .irrigation-dashboard-alert{display:flex;align-items:center;gap:9px;padding:10px 2px;border-bottom:1px solid #edf2ee}.crop-app-shell .irrigation-dashboard-alert:last-child{border-bottom:0}.crop-app-shell .irrigation-alert-symbol{display:grid;place-items:center;width:34px;height:34px;flex:0 0 auto;border-radius:8px;background:#fff1df;color:#eea227}.crop-app-shell .irrigation-alert-symbol.critical{background:#ffebe9;color:#ed4545}.crop-app-shell .irrigation-alert-symbol.blue{background:#e8f2ff;color:#267fe2}.crop-app-shell .irrigation-dashboard-alert>div{min-width:0;flex:1}.crop-app-shell .irrigation-dashboard-alert strong{display:block;color:#24364a;font-size:10px}.crop-app-shell .irrigation-dashboard-alert small{display:block;margin-top:3px;color:#68798b;font-size:8px;line-height:1.4}.crop-app-shell .irrigation-dashboard-alert em{display:block;margin-top:3px;color:#9aa7b3;font-size:7px;font-style:normal}.crop-app-shell .outline-action{padding:6px 9px;border:1px solid #bfe4d0;border-radius:7px;background:#fff;color:#15834f;font-size:8px;white-space:nowrap}.crop-app-shell .irrigation-sector-card{padding-bottom:8px}.crop-app-shell .irrigation-sector-card .irrigation-section-heading{margin-bottom:8px}.crop-app-shell .irrigation-table-actions label{display:flex;align-items:center;gap:5px;height:33px;padding:0 9px;border:1px solid #dfe9e2;border-radius:7px;color:#647789}.crop-app-shell .irrigation-table-actions input{width:130px;border:0;outline:0;color:#40594b;font-size:9px}.crop-app-shell .irrigation-table-actions .button.small{min-height:33px;padding:7px 11px}.crop-app-shell .irrigation-dashboard-table{min-width:900px}.crop-app-shell .irrigation-dashboard-table th{background:#f5f9f7}.crop-app-shell .irrigation-dashboard-table td{padding:8px 9px}.crop-app-shell .irrigation-status-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 7px;border-radius:999px;background:#fff2d9;color:#d28a0b;font-size:8px;white-space:nowrap}.crop-app-shell .irrigation-status-pill i{width:7px;height:7px;border-radius:50%;background:#f0ad21}.crop-app-shell .irrigation-status-pill.green{background:#e8f7ed;color:#2c9b5b}.crop-app-shell .irrigation-status-pill.green i{background:#2caa60}.crop-app-shell .irrigation-status-pill.blue{background:#e6f1ff;color:#2377d6}.crop-app-shell .irrigation-status-pill.blue i{background:#2377d6}.crop-app-shell .irrigation-status-pill.critical{background:#ffe8e7;color:#df3c3c}.crop-app-shell .irrigation-status-pill.critical i{background:#ef3e3e}.crop-app-shell .table-more{border:0;background:none;color:#526a7a;font-size:12px}
+@media(max-width:1200px){.crop-app-shell .irrigation-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.crop-app-shell .irrigation-dashboard-main{grid-template-columns:minmax(0,1.5fr) minmax(300px,.9fr)}}
+@media(max-width:800px){.crop-app-shell .irrigation-dashboard-heading{display:block;padding-left:2px;padding-right:2px}.crop-app-shell .irrigation-dashboard-actions{margin-top:12px}.crop-app-shell .irrigation-dashboard-actions .button{flex:1}.crop-app-shell .irrigation-dashboard-tabs{margin-left:2px;margin-right:2px;overflow-x:auto}.crop-app-shell .irrigation-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.crop-app-shell .irrigation-dashboard-main{grid-template-columns:1fr}.crop-app-shell .irrigation-section-heading{align-items:flex-start;flex-direction:column}.crop-app-shell .irrigation-section-heading>div:last-child,.crop-app-shell .irrigation-table-actions{width:100%;overflow-x:auto}.crop-app-shell .irrigation-map{height:280px}.crop-app-shell .irrigation-map-legend{width:125px}.crop-app-shell .irrigation-table-actions label{flex:1}.crop-app-shell .irrigation-table-actions input{width:100px}}
+
 @media(max-width:1200px){
   .crop-app-shell .page-heading{align-items:flex-start}
-  .crop-app-shell .stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .crop-app-shell .stat-grid,.crop-app-shell .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .crop-app-shell .workflow{grid-template-columns:repeat(3,minmax(0,1fr))}
   .crop-app-shell .water-management-summary{grid-template-columns:repeat(3,1fr)}
   .crop-app-shell .water-management-heading{align-items:flex-start;flex-direction:column}
@@ -206,7 +326,7 @@
   .crop-app-shell .topbar-weather{display:none}
   .crop-app-shell .notification-button{width:34px;height:34px}
   .crop-app-shell .profile-button{width:31px;height:31px}
-  .crop-app-shell .stat-grid,.crop-app-shell .water-management-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .crop-app-shell .stat-grid,.crop-app-shell .stats-grid,.crop-app-shell .water-management-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
   .crop-app-shell .detail-grid{grid-template-columns:1fr}
   .crop-app-shell .workflow,.crop-app-shell .water-management-guide{grid-template-columns:1fr}
   .crop-app-shell .heading-buttons,.crop-app-shell .heading-actions{width:100%}
@@ -637,4 +757,13 @@
   .crop-app-shell .planting-date-meta{min-width:105px}
   .crop-app-shell .planting-responsible-card{display:flex;align-items:flex-end;flex-wrap:wrap}
   .crop-app-shell .planting-responsible-card .planting-meta-card-heading{width:100%}
+}
+
+@media(max-width:1100px){
+  .crop-app-shell .water-analytics-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:600px){
+  .crop-app-shell .water-report-actions{justify-content:flex-start}
+  .crop-app-shell .water-report-actions .button{flex:1}
+  .crop-app-shell .water-analytics-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
 }

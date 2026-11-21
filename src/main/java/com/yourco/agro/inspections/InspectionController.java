@@ -4,7 +4,6 @@ import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -13,7 +12,27 @@ public class InspectionController {
   public InspectionController(InspectionService service) { this.service = service; }
 
   @GetMapping("/phytosanitary-problems")
-  public List<Map<String, Object>> problems() { return service.problems(); }
+  public List<InspectionDtos.Problem> problems(@RequestParam long farmId,
+    @RequestParam(defaultValue = "false") boolean includeInactive) {
+    return service.problems(farmId, includeInactive);
+  }
+
+  @PostMapping("/phytosanitary-problems")
+  @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
+  public InspectionDtos.Problem createProblem(@Valid @RequestBody InspectionDtos.CreateProblemRequest request) {
+    return service.createProblem(request);
+  }
+
+  @PatchMapping("/phytosanitary-problems/{code}")
+  public InspectionDtos.Problem updateProblem(@PathVariable String code,
+    @Valid @RequestBody InspectionDtos.UpdateProblemRequest request) {
+    return service.updateProblem(code, request);
+  }
+
+  @DeleteMapping("/phytosanitary-problems/{code}")
+  public InspectionDtos.Problem deactivateProblem(@PathVariable String code, @RequestParam long farmId) {
+    return service.deactivateProblem(code, farmId);
+  }
 
   @PostMapping("/inspections")
   public InspectionDtos.Inspection create(@Valid @RequestBody InspectionDtos.CreateRequest request) { return service.create(request); }

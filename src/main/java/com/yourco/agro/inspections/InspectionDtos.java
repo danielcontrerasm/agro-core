@@ -9,10 +9,25 @@ public final class InspectionDtos {
 
   public enum AssessmentStatus { SUSPECTED, CONFIRMED, DISCARDED }
 
+  public record Problem(String code, String name, String category, boolean active) {}
+
+  public record CreateProblemRequest(
+    @NotNull Long farmId,
+    @NotBlank @Size(max = 40) String code,
+    @NotBlank @Size(max = 120) String name,
+    @NotBlank @Size(max = 20) String category) {}
+
+  public record UpdateProblemRequest(
+    @NotNull Long farmId,
+    @NotBlank @Size(max = 120) String name,
+    @NotBlank @Size(max = 20) String category,
+    @NotNull Boolean active) {}
+
   public record CreateRequest(
     @NotNull Long blockId, Long rowId, @NotBlank String problemCode,
     @NotNull @PastOrPresent Instant inspectedAt,
     @NotNull @Min(1) Integer inspectedPlants, @NotNull @Min(0) Integer affectedPlants,
+    @NotNull @DecimalMin("0") Double affectedAreaHa,
     @NotBlank @Size(max = 4000) String symptoms,
     @NotNull @DecimalMin("0") @DecimalMax("100") Double severityPercent,
     @NotBlank @Size(max = 250) String severityMethod,
@@ -25,7 +40,7 @@ public final class InspectionDtos {
 
   public record Inspection(Long id, Long farmId, Long blockId, Long rowId,
     String problemCode, String problemName, Instant inspectedAt,
-    int inspectedPlants, int affectedPlants, double incidencePercent,
+    int inspectedPlants, int affectedPlants, Double affectedAreaHa, double incidencePercent,
     String symptoms, double severityPercent, String severityMethod,
     AssessmentStatus assessmentStatus, boolean resolved, LocalDate nextVisit,
     Long createdByUserId, String inspectorName, Long reviewedByUserId,

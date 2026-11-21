@@ -14,6 +14,21 @@ test('all dashboard views render without script errors or horizontal page overfl
   expect(errors).toEqual([]);
 });
 
+test('harvest records can be viewed and edited from the history', async ({ page }) => {
+  await page.goto('/#harvest');
+  const firstRow = page.locator('tbody tr').first();
+  await firstRow.getByRole('button', { name: /Ver cosecha/ }).click();
+  const detail = page.getByRole('dialog', { name: 'Detalle de cosecha' });
+  await expect(detail).toContainText('Cantidad cosechada');
+  await expect(detail).toContainText('Notas de cosecha');
+  await detail.getByRole('button', { name: 'Editar cosecha' }).click();
+  const editor = page.getByRole('dialog', { name: 'Editar cosecha' });
+  await editor.getByLabel('Cantidad cosechada').fill('1181');
+  await editor.getByRole('button', { name: 'Guardar cambios' }).click();
+  await expect(editor).not.toBeVisible();
+  await expect(page.locator('tbody')).toContainText('1.181 kg');
+});
+
 test('map controls, block selection and layer comparison are interactive', async ({ page }, testInfo) => {
   await page.goto('/#maps');
   await page.getByRole('button', { name: 'Humedad del suelo', exact: true }).click();
@@ -66,6 +81,25 @@ test('worker role hides management controls and narrows daily tasks', async ({ p
   await expect(page.locator('main h1')).toHaveText('Mi trabajo de hoy.');
   await expect(page.getByRole('button', { name: 'Nueva tarea', exact: true })).toHaveCount(0);
   await expect(page.locator('.task-card')).toHaveCount(3);
+});
+
+test('sanitary catalog can add, edit and deactivate a problem', async ({ page }) => {
+  await page.goto('/#settings');
+  await page.getByRole('button', { name: 'Catálogo fitosanitario', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo problema', exact: true }).click();
+  let dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Código interno').fill('TRIPS');
+  await dialog.getByLabel('Nombre visible').fill('Trips de prueba');
+  await dialog.getByLabel('Tipo').selectOption('PEST');
+  await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
+  const problemCard = page.locator('.list-card').filter({ hasText: 'Trips de prueba' });
+  await expect(problemCard).toBeVisible();
+  await problemCard.getByRole('button', { name: 'Desactivar', exact: true }).click();
+  await expect(problemCard.getByText('Inactivo', { exact: true })).toBeVisible();
+  await page.goto('/#disease');
+  await page.getByRole('button', { name: 'Nueva inspección', exact: true }).click();
+  dialog = page.getByRole('dialog');
+  await expect(dialog.getByLabel('Problema sospechado').locator('option', { hasText: 'Trips de prueba' })).toHaveCount(0);
 });
 
 test('report export includes only the filtered events', async ({ page }) => {

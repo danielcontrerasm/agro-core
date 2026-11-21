@@ -1,6 +1,7 @@
 package com.yourco.agro.monitoring;
 
 import com.yourco.agro.farm.entity.Block;
+import com.yourco.agro.farm.entity.Field;
 import com.yourco.agro.farm.entity.RowLine;
 import jakarta.persistence.*;
 
@@ -17,7 +18,11 @@ public class CropMonitoringRecord {
   @Column(name = "record_type", nullable = false)
   private MonitoringRecordType recordType;
 
-  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "field_id")
+  private Field field;
+
+  @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "block_id")
   private Block block;
 
@@ -30,6 +35,9 @@ public class CropMonitoringRecord {
 
   @Column(name = "created_by_user_id", nullable = false)
   private Long createdByUserId;
+
+  @Column(name = "crop_cycle_id")
+  private Long cropCycleId;
 
   private String crop;
   private String variety;
@@ -62,15 +70,22 @@ public class CropMonitoringRecord {
   private String resolutionStatus;
   private Double estimatedYield;
   private Double harvestedQuantity;
+  private Double harvestedAreaHa;
   private String yieldUnit;
   private String qualityGrade;
   private Double rejectedQuantity;
+  private String rejectedReason;
   private String notes;
 
   @Column(name = "created_at", nullable = false)
   private Instant createdAt = Instant.now();
 
   public Long getId() { return id; }
+  public Long getFieldId() { return field == null ? null : field.getId(); }
+  public Long getBlockId() { return block == null ? null : block.getId(); }
+  public Long getRowId() { return row == null ? null : row.getId(); }
+  public Field getField() { return field; }
+  public void setField(Field value) { field = value; }
   public MonitoringRecordType getRecordType() { return recordType; }
   public void setRecordType(MonitoringRecordType value) { recordType = value; }
   public Block getBlock() { return block; }
@@ -81,6 +96,8 @@ public class CropMonitoringRecord {
   public void setRecordedAt(Instant value) { recordedAt = value; }
   public Long getCreatedByUserId() { return createdByUserId; }
   public void setCreatedByUserId(Long value) { createdByUserId = value; }
+  public Long getCropCycleId() { return cropCycleId; }
+  public void setCropCycleId(Long value) { cropCycleId = value; }
   public String getCrop() { return crop; }
   public void setCrop(String value) { crop = value; }
   public String getVariety() { return variety; }
@@ -143,12 +160,16 @@ public class CropMonitoringRecord {
   public void setEstimatedYield(Double value) { estimatedYield = value; }
   public Double getHarvestedQuantity() { return harvestedQuantity; }
   public void setHarvestedQuantity(Double value) { harvestedQuantity = value; }
+  public Double getHarvestedAreaHa() { return harvestedAreaHa; }
+  public void setHarvestedAreaHa(Double value) { harvestedAreaHa = value; }
   public String getYieldUnit() { return yieldUnit; }
   public void setYieldUnit(String value) { yieldUnit = value; }
   public String getQualityGrade() { return qualityGrade; }
   public void setQualityGrade(String value) { qualityGrade = value; }
   public Double getRejectedQuantity() { return rejectedQuantity; }
   public void setRejectedQuantity(Double value) { rejectedQuantity = value; }
+  public String getRejectedReason() { return rejectedReason; }
+  public void setRejectedReason(String value) { rejectedReason = value; }
   public String getNotes() { return notes; }
   public void setNotes(String value) { notes = value; }
   public Instant getCreatedAt() { return createdAt; }

@@ -14,8 +14,15 @@ public class FertilizationController {
   private final FertilizationService service;
   public FertilizationController(FertilizationService service) { this.service=service; }
   @GetMapping public Map<String,Object> list(@RequestParam long farmId) { return service.list(farmId); }
+  @GetMapping("/profiles") public java.util.List<Map<String,Object>> profiles(@RequestParam long farmId) { return service.profiles(farmId); }
+  @PostMapping("/profiles") @ResponseStatus(HttpStatus.CREATED)
+  public Map<String,Object> profile(@Valid @RequestBody Profile request) { return service.createProfile(request); }
+  @GetMapping("/products") public java.util.List<Map<String,Object>> products(@RequestParam long farmId) { return service.products(farmId); }
+  @PostMapping("/products") @ResponseStatus(HttpStatus.CREATED)
+  public Map<String,Object> product(@Valid @RequestBody Product request) { return service.createProduct(request); }
   @PostMapping("/analyses") @ResponseStatus(HttpStatus.CREATED)
   public Map<String,Object> analysis(@Valid @RequestBody Analysis request) { return service.createAnalysis(request); }
+  @PostMapping("/analyses/{id}/review") public Map<String,Object> review(@PathVariable long id,@Valid @RequestBody Review request) { return service.review(id,request); }
   @PostMapping("/plans") @ResponseStatus(HttpStatus.CREATED)
   public Map<String,Object> plan(@Valid @RequestBody Plan request) { return service.createPlan(request); }
   @PostMapping("/plans/{id}/approve") public Map<String,Object> approve(@PathVariable long id,@Valid @RequestBody Decision request) { return service.decision(id,request,true); }

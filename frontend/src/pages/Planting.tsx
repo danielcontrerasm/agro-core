@@ -771,7 +771,7 @@ export default function Planting() {
           <div className="planting-summary-grid">
             <section className="panel planting-summary-map-card">
               <div className="planting-summary-card-heading"><div><h3>Área del ciclo</h3></div><Badge tone="neutral">{selectedBlock?.areaHa ?? '—'} ha</Badge></div>
-              <div className="planting-summary-map"><FarmMap blocks={selectedBlock ? [selectedBlock] : blocks} fields={selectedField ? [selectedField] : data.fields} layer="satellite" demo={mode === 'demo'} selected={selectedBlock?.id} /></div>
+              <div className="planting-summary-map"><FarmMap farm={data.farms[0]} blocks={selectedBlock ? [selectedBlock] : blocks} fields={selectedField ? [selectedField] : data.fields} rows={data.rows} layer="satellite" demo={mode === 'demo'} selected={selectedBlock?.id} baseLayer="satellite" /></div>
             </section>
             <section className="panel planting-cycle-status-card">
               <div className="planting-summary-card-heading"><div><h3>Estado del ciclo</h3></div></div>

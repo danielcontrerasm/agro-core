@@ -1,6 +1,5 @@
 package com.yourco.agro.monitoring;
 
-import com.yourco.agro.auth.FarmAccess;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -10,14 +9,9 @@ import java.time.Instant;
 @RequestMapping("/api/v1/monitoring-records")
 public class CropMonitoringRecordController {
   private final CropMonitoringRecordService service;
-  private final CropMonitoringRecordRepository records;
-  private final FarmAccess access;
 
-  public CropMonitoringRecordController(CropMonitoringRecordService service,
-                                        CropMonitoringRecordRepository records, FarmAccess access) {
+  public CropMonitoringRecordController(CropMonitoringRecordService service) {
     this.service = service;
-    this.records = records;
-    this.access = access;
   }
 
   @PostMapping
@@ -27,24 +21,29 @@ public class CropMonitoringRecordController {
 
   @GetMapping
   public java.util.List<CropMonitoringRecord> search(
+    @RequestParam(required = false) Long farmId,
     @RequestParam(required = false) Long blockId,
+    @RequestParam(required = false) Long fieldId,
+    @RequestParam(required = false) Long cropCycleId,
     @RequestParam(required = false) MonitoringRecordType recordType,
     @RequestParam(required = false) Instant from,
     @RequestParam(required = false) Instant to) {
-    return service.search(blockId, recordType, from, to);
+    return service.search(farmId, blockId, fieldId, cropCycleId, recordType, from, to);
   }
 
   @GetMapping("/{id}")
   public CropMonitoringRecord get(@PathVariable Long id) {
-    var record = records.findById(id).orElseThrow();
-    access.require(access.blockFarm(record.getBlock().getId()), false);
-    return record;
+    return service.get(id);
+  }
+
+  @PatchMapping("/{id}")
+  public CropMonitoringRecord update(@PathVariable Long id,
+                                     @Valid @RequestBody CropMonitoringRecordDtos.CreateRequest request) {
+    return service.update(id, request);
   }
 
   @DeleteMapping("/{id}")
   public void delete(@PathVariable Long id) {
-    var record = records.findById(id).orElseThrow();
-    access.requireAgronomic(access.blockFarm(record.getBlock().getId()));
-    records.delete(record);
+    service.delete(id);
   }
 }

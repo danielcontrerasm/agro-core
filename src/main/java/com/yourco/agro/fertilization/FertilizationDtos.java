@@ -13,6 +13,8 @@ public class FertilizationDtos {
   public enum Unit { PERCENT, MG_KG, CMOL_KG, PH }
   public enum DoseUnit { KG_HA, G_PLANT, L_HA, ML_PLANT }
   public enum SampleType { SOIL, FOLIAR }
+  public enum ReviewDecision { CONFIRMED, REQUIRES_FOLLOWUP, REJECTED }
+  public enum Recurrence { NONE, WEEKLY, BIWEEKLY, MONTHLY }
   public record Result(@NotNull Nutrient nutrient, @NotNull @DecimalMin("0") @DecimalMax("1000000") BigDecimal value,
     @NotNull Unit unit, @NotBlank @Size(max=150) String method) {}
   public record Analysis(@NotNull Long blockId, @NotNull SampleType sampleType, @NotNull @PastOrPresent LocalDate sampledOn,
@@ -26,12 +28,37 @@ public class FertilizationDtos {
     @NotBlank @Size(max=1000) String composition, @NotNull @DecimalMin(value="0",inclusive=false) @DecimalMax("1000000") BigDecimal dose,
     @NotNull DoseUnit doseUnit, @NotNull @DecimalMin(value="0",inclusive=false) @DecimalMax("10000000") BigDecimal coverage,
     @NotBlank @Size(max=1000) String method, @NotNull LocalDate scheduledOn, @NotNull LocalTime scheduledTime,
-    @NotNull Long assigneeId, @NotNull LocalDate followUpOn) {}
+    @NotNull Long assigneeId, @NotNull LocalDate followUpOn, Long productId, Recurrence recurrence,
+    LocalDate recurrenceUntil) {
+    public Plan(Long blockId, Long analysisId, Long inspectionId, String growthStage, String diagnosis,
+      String objective, String product, String composition, BigDecimal dose, DoseUnit doseUnit,
+      BigDecimal coverage, String method, LocalDate scheduledOn, LocalTime scheduledTime,
+      Long assigneeId, LocalDate followUpOn) {
+      this(blockId,analysisId,inspectionId,growthStage,diagnosis,objective,product,composition,dose,doseUnit,
+        coverage,method,scheduledOn,scheduledTime,assigneeId,followUpOn,null,Recurrence.NONE,null);
+    }
+  }
   public record Decision(@NotNull @Min(0) Long version, @NotBlank @Size(max=4000) String reason) {}
   public record Application(@NotNull Instant occurredAt,
     @NotNull @DecimalMin(value="0",inclusive=false) @Digits(integer=10,fraction=6) BigDecimal quantity,
     @NotNull @DecimalMin(value="0",inclusive=false) @Digits(integer=8,fraction=6) BigDecimal coverage,
     @NotBlank @Size(max=1000) String method, @NotBlank @Size(max=150) String lot,
-    @Size(max=4000) String notes) {}
+    @Size(max=4000) String notes, Long taskId) {
+    public Application(Instant occurredAt, BigDecimal quantity, BigDecimal coverage, String method, String lot, String notes) {
+      this(occurredAt,quantity,coverage,method,lot,notes,null);
+    }
+  }
   public record Followup(Long analysisId, @NotBlank @Size(max=4000) String observations) {}
+  public record Review(@NotNull ReviewDecision decision, @NotBlank @Size(max=4000) String notes) {}
+  public record Range(@NotNull Nutrient nutrient, @NotNull Unit unit,
+    @NotNull @DecimalMin("0") BigDecimal lowerBound,
+    @NotNull @DecimalMin("0") BigDecimal upperBound) {}
+  public record Profile(@NotNull Long farmId, @NotBlank @Size(max=150) String name,
+    @NotBlank @Size(max=100) String crop, @Size(max=100) String variety,
+    @NotNull SampleType sampleType, @NotBlank @Size(max=50) String version,
+    @NotBlank @Size(max=1000) String source,
+    @NotEmpty @Size(max=10) List<@Valid Range> ranges) {}
+  public record Product(@NotNull Long farmId, @NotBlank @Size(max=80) String code,
+    @NotBlank @Size(max=200) String name, @NotBlank @Size(max=1000) String composition,
+    @NotNull DoseUnit defaultDoseUnit, @Size(max=4000) String notes) {}
 }

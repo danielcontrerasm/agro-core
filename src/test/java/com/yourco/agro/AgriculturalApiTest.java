@@ -6,6 +6,7 @@ import com.yourco.agro.auth.AuthDtos;
 import com.yourco.agro.auth.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -28,6 +30,7 @@ class AgriculturalApiTest {
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
   @Autowired UserService users;
+  @Autowired JdbcTemplate jdbc;
 
   @Test
   void locationsEventsObservationsAndMediaRoundTripAsUsableJson() throws Exception {
@@ -60,20 +63,62 @@ class AgriculturalApiTest {
     mvc.perform(get("/api/v1/media").param("eventId", observation.get("id").asText()).with(authentication(login)))
       .andExpect(status().isOk()).andExpect(jsonPath("$[0].s3Key").value("events/test.jpg"));
 
+    long cycleId = jdbc.queryForObject("""
+      INSERT INTO crop_cycle(block_id,code,crop,variety,planned_planting_from,planned_planting_to,expected_harvest_on,created_by)
+      VALUES (?, 'CICLO-TEST-1', 'Banano', 'Cavendish', DATE '2026-01-01', DATE '2026-01-15', DATE '2027-01-15', ?)
+      RETURNING id
+      """, Long.class, block.get("id").asLong(), user.id());
     create("monitoring-records", Map.of(
       "recordType", "SOIL_SAMPLE", "recordedAt", "2026-10-16T14:00:00Z",
       "blockId", block.get("id").asLong(), "sampleType", "SURFACE",
       "ph", 6.2, "nitrogen", 18.4, "phosphorus", 11.0, "potassium", 205.0,
       "nutrientDeficiencies", "Magnesium"), login);
-    create("monitoring-records", Map.of(
-      "recordType", "HARVEST", "recordedAt", "2026-10-17T06:00:00Z",
-      "blockId", block.get("id").asLong(), "estimatedYield", 1200.0,
-      "harvestedQuantity", 1180.0, "yieldUnit", "kg", "qualityGrade", "A"), login);
+    var harvest = create("monitoring-records", Map.ofEntries(
+      Map.entry("recordType", "HARVEST"), Map.entry("recordedAt", "2026-10-17T06:00:00Z"),
+      Map.entry("fieldId", field.get("id").asLong()), Map.entry("blockId", block.get("id").asLong()),
+      Map.entry("rowId", row.get("id").asLong()), Map.entry("cropCycleId", cycleId),
+      Map.entry("actualHarvestDate", "2026-10-17"), Map.entry("harvestedAreaHa", 2.5),
+      Map.entry("estimatedYield", 1200.0), Map.entry("harvestedQuantity", 1180.0),
+      Map.entry("yieldUnit", "kg"), Map.entry("qualityGrade", "A"),
+      Map.entry("rejectedQuantity", 20.0), Map.entry("rejectedReason", "Daño mecánico")), login);
+    var fieldHarvest = create("monitoring-records", Map.ofEntries(
+      Map.entry("recordType", "HARVEST"), Map.entry("recordedAt", "2026-10-18T06:00:00Z"),
+      Map.entry("fieldId", field.get("id").asLong()), Map.entry("actualHarvestDate", "2026-10-18"),
+      Map.entry("harvestedAreaHa", 4.0), Map.entry("estimatedYield", 800.0),
+      Map.entry("harvestedQuantity", 760.0), Map.entry("yieldUnit", "kg"), Map.entry("qualityGrade", "B")), login);
+    assertThat(fieldHarvest.get("fieldId").asLong()).isEqualTo(field.get("id").asLong());
+    assertThat(fieldHarvest.get("blockId").isNull()).isTrue();
     mvc.perform(get("/api/v1/monitoring-records").param("blockId", block.get("id").asText())
         .param("recordType", "SOIL_SAMPLE").with(authentication(login)))
       .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
       .andExpect(jsonPath("$[0].ph").value(6.2))
       .andExpect(jsonPath("$[0].nutrientDeficiencies").value("Magnesium"));
+    mvc.perform(get("/api/v1/monitoring-records").param("cropCycleId", String.valueOf(cycleId))
+        .param("recordType", "HARVEST").with(authentication(login)))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
+      .andExpect(jsonPath("$[0].fieldId").value(field.get("id").asLong()))
+      .andExpect(jsonPath("$[0].blockId").value(block.get("id").asLong()))
+      .andExpect(jsonPath("$[0].rowId").value(row.get("id").asLong()))
+      .andExpect(jsonPath("$[0].cropCycleId").value(cycleId))
+      .andExpect(jsonPath("$[0].actualHarvestDate").value("2026-10-17"))
+      .andExpect(jsonPath("$[0].harvestedAreaHa").value(2.5))
+      .andExpect(jsonPath("$[0].rejectedQuantity").value(20.0))
+      .andExpect(jsonPath("$[0].rejectedReason").value("Daño mecánico"));
+    mvc.perform(patch("/api/v1/monitoring-records/" + harvest.get("id").asLong()).with(authentication(login)).with(csrf())
+        .contentType("application/json").content(json.writeValueAsString(Map.ofEntries(
+          Map.entry("recordType", "HARVEST"), Map.entry("recordedAt", "2026-10-17T07:00:00Z"),
+          Map.entry("fieldId", field.get("id").asLong()), Map.entry("blockId", block.get("id").asLong()),
+          Map.entry("rowId", row.get("id").asLong()), Map.entry("cropCycleId", cycleId),
+          Map.entry("actualHarvestDate", "2026-10-17"), Map.entry("harvestedAreaHa", 2.7),
+          Map.entry("estimatedYield", 1250.0), Map.entry("harvestedQuantity", 1210.0),
+          Map.entry("yieldUnit", "kg"), Map.entry("qualityGrade", "PREMIUM"),
+          Map.entry("rejectedQuantity", 12.0), Map.entry("rejectedReason", "Daño de transporte"),
+          Map.entry("notes", "Registro corregido por supervisión")))))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.recordedAt").value("2026-10-17T07:00:00Z"))
+      .andExpect(jsonPath("$.harvestedAreaHa").value(2.7))
+      .andExpect(jsonPath("$.qualityGrade").value("PREMIUM"))
+      .andExpect(jsonPath("$.rejectedReason").value("Daño de transporte"));
   }
 
   private JsonNode create(String resource, Map<String, ?> payload, UsernamePasswordAuthenticationToken login) throws Exception {

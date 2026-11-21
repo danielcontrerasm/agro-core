@@ -108,11 +108,99 @@ public class IrrigationService {
   }
   private Map<String,Object> presentPlan(Map<String,Object> row) {
     var value=present(row); value.put("version",row.get("version")); value.put("taskId",row.get("task_id")); value.put("status",row.get("status"));
+    value.put("recurringScheduleId",row.get("recurring_schedule_id")); value.put("occurrenceOn",row.get("occurrence_on"));
     value.put("canceledBy",row.get("canceled_by")); value.put("cancelReason",row.get("cancel_reason")); value.put("canceledAt",row.get("canceled_at"));
     value.put("actualVolumeM3",jdbc.queryForObject("SELECT COALESCE(SUM(volume_m3),0) FROM irrigation_execution WHERE plan_id=?",BigDecimal.class,row.get("id")));
     value.put("actualDurationMinutes",jdbc.queryForObject("SELECT COALESCE(SUM(duration_minutes),0) FROM irrigation_execution WHERE plan_id=?",BigDecimal.class,row.get("id")));
     if (row.get("task_id")!=null) value.put("taskStatus",jdbc.queryForObject("SELECT status FROM farm_task WHERE id=?",String.class,row.get("task_id")));
     return value;
+  }
+  private long scheduleFarm(Map<String,Object> row) {
+    return jdbc.queryForObject("SELECT f.farm_id FROM irrigation_sector s JOIN block b ON b.id=s.block_id JOIN field f ON f.id=b.field_id WHERE s.id=?",Long.class,row.get("sector_id"));
+  }
+  private Map<String,Object> recurringSchedule(long id,boolean manage,boolean lock) {
+    var current=row("irrigation_recurring_schedule",id); access.require(scheduleFarm(current),manage);
+    return lock ? jdbc.queryForMap("SELECT * FROM irrigation_recurring_schedule WHERE id=? FOR UPDATE",id) : current;
+  }
+  private LocalDate localDate(Object value) {
+    if (value instanceof LocalDate date) return date;
+    if (value instanceof java.sql.Date date) return date.toLocalDate();
+    return LocalDate.parse(value.toString());
+  }
+  private LocalTime localTime(Object value) {
+    if (value instanceof LocalTime time) return time;
+    if (value instanceof java.sql.Time time) return time.toLocalTime();
+    return LocalTime.parse(value.toString());
+  }
+  private void validateRecurringDates(LocalDate startDate,LocalDate endDate) {
+    if (endDate.isBefore(startDate)) throw bad("La fecha final debe ser igual o posterior a la fecha inicial");
+    if (startDate.plusDays(730).isBefore(endDate)) throw bad("La recurrencia no puede superar dos años");
+  }
+  private void validateRecurringWindow(LocalDate from,LocalDate until) {
+    if (until.isBefore(from)) throw bad("El final de la ventana debe ser posterior al inicio");
+    if (from.plusDays(366).isBefore(until)) throw bad("La ventana de generación no puede superar 366 días");
+  }
+  private void validateAssignee(long farmId,long assigneeId) {
+    if (jdbc.queryForObject("SELECT COUNT(*) FROM farm_membership WHERE farm_id=? AND user_id=?",Integer.class,farmId,assigneeId)!=1) throw bad("El responsable debe pertenecer a la finca");
+  }
+  private LocalDate nextDate(Map<String,Object> schedule,LocalDate date) {
+    int interval=((Number) schedule.get("recurrence_interval")).intValue();
+    return "WEEKLY".equals(schedule.get("recurrence_unit")) ? date.plusWeeks(interval) : date.plusDays(interval);
+  }
+  private List<LocalDate> occurrenceDates(Map<String,Object> schedule,LocalDate from,LocalDate until) {
+    if (until.isBefore(from)) return List.of();
+    LocalDate start=localDate(schedule.get("start_date")); LocalDate end=localDate(schedule.get("end_date"));
+    LocalDate cursor=start; while (cursor.isBefore(from) && !cursor.isAfter(end)) cursor=nextDate(schedule,cursor);
+    var dates=new ArrayList<LocalDate>();
+    while (!cursor.isAfter(until) && !cursor.isAfter(end)) { if (!cursor.isBefore(from)) dates.add(cursor); cursor=nextDate(schedule,cursor); }
+    return dates;
+  }
+  private List<Map<String,Object>> preview(Map<String,Object> schedule,LocalDate from,LocalDate until) {
+    var result=new ArrayList<Map<String,Object>>();
+    for (var date: occurrenceDates(schedule,from,until)) {
+      var value=new LinkedHashMap<String,Object>(); value.put("date",date.toString());
+      var generated=jdbc.queryForList("SELECT id,task_id,status FROM irrigation_plan WHERE recurring_schedule_id=? AND occurrence_on=?",schedule.get("id"),date).stream().findFirst().orElse(null);
+      value.put("generated",generated!=null); value.put("planId",generated==null?null:generated.get("id")); value.put("taskId",generated==null?null:generated.get("task_id")); value.put("status",generated==null?null:generated.get("status")); result.add(value);
+    }
+    return result;
+  }
+  private Map<String,Object> presentRecurringSchedule(Map<String,Object> row) {
+    var value=new LinkedHashMap<String,Object>();
+    value.put("id",row.get("id")); value.put("sectorId",row.get("sector_id")); value.put("startDate",row.get("start_date")); value.put("endDate",row.get("end_date"));
+    value.put("scheduledTime",row.get("scheduled_time")); value.put("recurrenceUnit",row.get("recurrence_unit")); value.put("recurrenceInterval",row.get("recurrence_interval"));
+    value.put("durationMinutes",row.get("duration_minutes")); value.put("volumeM3",row.get("volume_m3")); value.put("assigneeId",row.get("assignee_id"));
+    value.put("justification",row.get("justification")); value.put("instructions",row.get("instructions")); value.put("status",row.get("status")); value.put("version",row.get("version"));
+    value.put("createdBy",row.get("created_by")); value.put("createdAt",row.get("created_at")); value.put("cancelReason",row.get("cancel_reason")); value.put("canceledAt",row.get("canceled_at"));
+    var upcoming=preview(row,LocalDate.now(),LocalDate.now().plusDays(30)); value.put("upcoming",upcoming);
+    value.put("nextOccurrence",upcoming.stream().filter(item -> !Boolean.TRUE.equals(item.get("generated"))).map(item -> item.get("date")).findFirst().orElse(null));
+    value.put("generatedCount",jdbc.queryForObject("SELECT COUNT(*) FROM irrigation_plan WHERE recurring_schedule_id=?",Integer.class,row.get("id")));
+    value.put("taskCount",jdbc.queryForObject("SELECT COUNT(*) FROM irrigation_plan WHERE recurring_schedule_id=? AND task_id IS NOT NULL",Integer.class,row.get("id")));
+    value.put("historyCount",jdbc.queryForObject("SELECT COUNT(*) FROM irrigation_recurring_schedule_history WHERE schedule_id=?",Integer.class,row.get("id")));
+    return value;
+  }
+  private void history(long scheduleId,String action,String details,long userId) {
+    jdbc.update("INSERT INTO irrigation_recurring_schedule_history(schedule_id,action,details,created_by) VALUES (?,?,?,?)",scheduleId,action,details,userId);
+  }
+  private long recurringTask(Map<String,Object> schedule,Map<String,Object> sector,LocalDate date) {
+    long farmId=scheduleFarm(schedule); long blockId=number(sector,"block_id"); validateAssignee(farmId,number(schedule,"assignee_id"));
+    var config=decode(sector.get("details")); String name=Objects.toString(config.get("name"),"Sector "+blockId);
+    String title="Riego recurrente #"+schedule.get("id")+" · "+name; String instructions="Programación recurrente #"+schedule.get("id")+". Duración: "+schedule.get("duration_minutes")+" min. Volumen: "+schedule.get("volume_m3")+" m³. "+schedule.get("instructions")+". Justificación: "+schedule.get("justification");
+    return insert("INSERT INTO farm_task(farm_id,field_id,block_id,assignee_id,title,activity,scheduled_date,scheduled_time,priority,instructions,created_by_user_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)",farmId,null,blockId,number(schedule,"assignee_id"),title,"irrigation",date,localTime(schedule.get("scheduled_time")),"Media",instructions,number(schedule,"created_by"));
+  }
+  private int generateLocked(Map<String,Object> schedule,LocalDate from,LocalDate until,long actorId) {
+    if (!"ACTIVE".equals(schedule.get("status"))) throw bad("La recurrencia debe estar activa para generar tareas");
+    validateRecurringWindow(from,until); int created=0; var planIds=new ArrayList<Long>();
+    for (var date: occurrenceDates(schedule,from,until)) {
+      if (jdbc.queryForObject("SELECT COUNT(*) FROM irrigation_plan WHERE recurring_schedule_id=? AND occurrence_on=?",Integer.class,schedule.get("id"),date)>0) continue;
+      var sector=jdbc.queryForMap("SELECT * FROM irrigation_sector WHERE id=?",schedule.get("sector_id"));
+      var plan=new Plan(number(sector,"id"),date,localTime(schedule.get("scheduled_time")),decimal(schedule.get("duration_minutes")),decimal(schedule.get("volume_m3")),number(schedule,"assignee_id"),Objects.toString(schedule.get("justification")),Objects.toString(schedule.get("instructions")));
+      var details=json.convertValue(plan,new TypeReference<LinkedHashMap<String,Object>>() {}); details.put("sectorSnapshot",sectorStatus(sector));
+      long planId=insert("INSERT INTO irrigation_plan(sector_id,details,recurring_schedule_id,occurrence_on,created_by) VALUES (?,?,?,?,?)",number(sector,"id"),encode(details),schedule.get("id"),date,schedule.get("created_by"));
+      long taskId=recurringTask(schedule,sector,date); jdbc.update("UPDATE irrigation_plan SET task_id=?,version=version+1 WHERE id=?",taskId,planId);
+      planIds.add(planId); created++;
+    }
+    if (created>0) { var details=new LinkedHashMap<String,Object>(); details.put("from",from); details.put("until",until); details.put("planIds",planIds); history(number(schedule,"id"),"GENERATED",encode(details),actorId); }
+    return created;
   }
   private Map<String,Object> presentExecution(Map<String,Object> row) {
     var value=present(row); value.put("planId",row.get("plan_id")); value.put("eventId",row.get("event_id")); value.put("volumeM3",row.get("volume_m3")); value.put("durationMinutes",row.get("duration_minutes")); return value;
@@ -128,7 +216,44 @@ public class IrrigationService {
     var balances=jdbc.queryForList("SELECT b.id,b.sector_id AS \"sectorId\",b.balance_date AS \"balanceDate\",b.rainfall_mm AS \"rainfallMm\",b.et0_mm AS \"et0Mm\",b.crop_coefficient AS \"cropCoefficient\",b.root_depth_cm AS \"rootDepthCm\",b.available_water_mm AS \"availableWaterMm\",b.required_volume_m3 AS \"requiredVolumeM3\",b.applied_volume_m3 AS \"appliedVolumeM3\",b.deficit_mm AS \"deficitMm\",b.notes,b.version,b.created_by AS \"createdBy\",b.created_at AS \"createdAt\" FROM irrigation_water_balance b JOIN irrigation_sector s ON s.id=b.sector_id JOIN block bl ON bl.id=s.block_id JOIN field f ON f.id=bl.field_id WHERE f.farm_id=? ORDER BY b.balance_date DESC,b.id DESC",farmId);
     var maintenance=jdbc.queryForList("SELECT m.id,m.sector_id AS \"sectorId\",m.infrastructure_id AS \"infrastructureId\",m.maintenance_type AS \"maintenanceType\",m.scheduled_on AS \"scheduledOn\",m.completed_on AS \"completedOn\",m.status,m.pressure_kpa AS \"pressureKpa\",m.flow_m3h AS \"flowM3h\",m.notes,m.task_id AS \"taskId\",m.version,m.created_by AS \"createdBy\",m.created_at AS \"createdAt\" FROM irrigation_maintenance m LEFT JOIN irrigation_sector s ON s.id=m.sector_id LEFT JOIN block bl ON bl.id=s.block_id LEFT JOIN field f ON f.id=bl.field_id LEFT JOIN irrigation_infrastructure i ON i.id=m.infrastructure_id WHERE COALESCE(f.farm_id,i.farm_id)=? ORDER BY m.scheduled_on DESC,m.id DESC",farmId);
     var sensorChecks=jdbc.queryForList("SELECT c.id,c.sector_id AS \"sectorId\",c.sensor_device_id AS \"sensorDeviceId\",c.checked_on AS \"checkedOn\",c.calibration_status AS \"calibrationStatus\",c.reference_value AS \"referenceValue\",c.observed_value AS \"observedValue\",c.technician,c.notes,c.version,c.created_by AS \"createdBy\",c.created_at AS \"createdAt\" FROM irrigation_sensor_check c JOIN irrigation_sector s ON s.id=c.sector_id JOIN block bl ON bl.id=s.block_id JOIN field f ON f.id=bl.field_id WHERE f.farm_id=? ORDER BY c.checked_on DESC,c.id DESC",farmId);
-    return Map.of("sectors",sectors.stream().map(this::sectorStatus).toList(),"measurements",sectors.stream().flatMap(row -> measurements(row).stream()).toList(),"plans",plans,"executions",executions,"waterSources",sources,"waterQuality",quality,"infrastructure",infrastructure,"waterBalances",balances,"maintenance",maintenance,"sensorChecks",sensorChecks);
+    var recurringSchedules=jdbc.queryForList("SELECT r.* FROM irrigation_recurring_schedule r JOIN irrigation_sector s ON s.id=r.sector_id JOIN block b ON b.id=s.block_id JOIN field f ON f.id=b.field_id WHERE f.farm_id=? ORDER BY CASE r.status WHEN 'ACTIVE' THEN 0 WHEN 'PAUSED' THEN 1 ELSE 2 END,r.start_date,r.id",farmId).stream().map(this::presentRecurringSchedule).toList();
+    var result=new LinkedHashMap<String,Object>(); result.put("sectors",sectors.stream().map(this::sectorStatus).toList()); result.put("measurements",sectors.stream().flatMap(row -> measurements(row).stream()).toList()); result.put("plans",plans); result.put("executions",executions); result.put("recurringSchedules",recurringSchedules); result.put("waterSources",sources); result.put("waterQuality",quality); result.put("infrastructure",infrastructure); result.put("waterBalances",balances); result.put("maintenance",maintenance); result.put("sensorChecks",sensorChecks); return result;
+  }
+
+  @Transactional public Map<String,Object> createRecurringSchedule(RecurringSchedule request) {
+    var sector=sector(request.sectorId(),true,false); long farmId=access.blockFarm(number(sector,"block_id")); validateRecurringDates(request.startDate(),request.endDate()); validateAssignee(farmId,request.assigneeId());
+    long id=insert("INSERT INTO irrigation_recurring_schedule(sector_id,start_date,end_date,scheduled_time,recurrence_unit,recurrence_interval,duration_minutes,volume_m3,assignee_id,justification,instructions,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",request.sectorId(),request.startDate(),request.endDate(),request.scheduledTime(),request.recurrenceUnit().name(),request.recurrenceInterval(),request.durationMinutes(),request.volumeM3(),request.assigneeId(),request.justification().trim(),request.instructions().trim(),access.userId());
+    var current=row("irrigation_recurring_schedule",id); history(id,"CREATED",encode(request),access.userId());
+    if (!request.endDate().isBefore(LocalDate.now())) generateLocked(current,LocalDate.now(),LocalDate.now().plusDays(30),access.userId());
+    return presentRecurringSchedule(row("irrigation_recurring_schedule",id));
+  }
+  @Transactional public Map<String,Object> updateRecurringSchedule(long id,RecurringScheduleUpdate request) {
+    var current=recurringSchedule(id,true,true); if ("CANCELED".equals(current.get("status"))) throw bad("La recurrencia está anulada");
+    var target=sector(request.sectorId(),true,false); long currentFarm=scheduleFarm(current); if (access.blockFarm(number(target,"block_id"))!=currentFarm) throw bad("El sector no pertenece a la finca");
+    validateRecurringDates(request.startDate(),request.endDate()); validateAssignee(currentFarm,request.assigneeId()); requireVersion(current,request.version(),"La recurrencia cambió; actualiza la vista");
+    int changed=jdbc.update("UPDATE irrigation_recurring_schedule SET sector_id=?,start_date=?,end_date=?,scheduled_time=?,recurrence_unit=?,recurrence_interval=?,duration_minutes=?,volume_m3=?,assignee_id=?,justification=?,instructions=?,version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND version=?",request.sectorId(),request.startDate(),request.endDate(),request.scheduledTime(),request.recurrenceUnit().name(),request.recurrenceInterval(),request.durationMinutes(),request.volumeM3(),request.assigneeId(),request.justification().trim(),request.instructions().trim(),id,request.version());
+    if (changed==0) throw conflict("La recurrencia cambió; actualiza la vista"); history(id,"UPDATED",encode(request),access.userId()); return presentRecurringSchedule(row("irrigation_recurring_schedule",id));
+  }
+  @Transactional public Map<String,Object> generateRecurringSchedule(long id,LocalDate from,LocalDate until) {
+    var current=recurringSchedule(id,true,true); LocalDate start=from==null?LocalDate.now():from; LocalDate end=until==null?start.plusDays(30):until; int created=generateLocked(current,start,end,access.userId());
+    var result=presentRecurringSchedule(row("irrigation_recurring_schedule",id)); result.put("generatedNow",created); return result;
+  }
+  @Transactional public Map<String,Object> changeRecurringScheduleStatus(long id,String status,RecurringScheduleAction request) {
+    var current=recurringSchedule(id,true,true); requireVersion(current,request.version(),"La recurrencia cambió; actualiza la vista"); String previous=Objects.toString(current.get("status"));
+    if ("CANCELED".equals(previous) || previous.equals(status)) throw bad("El estado de la recurrencia no permite ese cambio");
+    if ("CANCELED".equals(status) && (request.reason()==null || request.reason().isBlank())) throw bad("Documenta el motivo de anulación");
+    String reason="CANCELED".equals(status)?request.reason().trim():null; int changed=jdbc.update("UPDATE irrigation_recurring_schedule SET status=?,version=version+1,cancel_reason=?,canceled_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND version=?",status,reason,"CANCELED".equals(status)?java.sql.Timestamp.from(Instant.now()):null,id,request.version());
+    if (changed==0) throw conflict("La recurrencia cambió; actualiza la vista"); history(id,"PAUSED".equals(status)?"PAUSED":"ACTIVE".equals(status)?"RESUMED":"CANCELED",encode(request),access.userId()); return presentRecurringSchedule(row("irrigation_recurring_schedule",id));
+  }
+  public List<Map<String,Object>> previewRecurringSchedule(long id,LocalDate from,LocalDate until) {
+    var current=recurringSchedule(id,false,false); LocalDate start=from==null?LocalDate.now():from; LocalDate end=until==null?start.plusDays(30):until; validateRecurringWindow(start,end); return preview(current,start,end);
+  }
+  public List<Map<String,Object>> recurringScheduleHistory(long id) {
+    recurringSchedule(id,false,false); return jdbc.queryForList("SELECT id,schedule_id AS \"scheduleId\",action,details,created_by AS \"createdBy\",created_at AS \"createdAt\" FROM irrigation_recurring_schedule_history WHERE schedule_id=? ORDER BY created_at DESC,id DESC",id);
+  }
+  public List<Long> activeRecurringScheduleIds() { return jdbc.queryForList("SELECT id FROM irrigation_recurring_schedule WHERE status='ACTIVE' AND end_date>=? ORDER BY id",Long.class,LocalDate.now()); }
+  @Transactional public void generateRecurringAutomatically(long id,LocalDate from,LocalDate until) {
+    var current=jdbc.queryForMap("SELECT * FROM irrigation_recurring_schedule WHERE id=? FOR UPDATE",id); if ("ACTIVE".equals(current.get("status"))) generateLocked(current,from,until,number(current,"created_by"));
   }
 
   @Transactional public Map<String,Object> createWaterSource(WaterSource request) {

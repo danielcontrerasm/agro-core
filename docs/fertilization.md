@@ -10,14 +10,18 @@ La sección **Fertilización** conserva el historial anterior y agrega tres vist
 - **Planes**: diagnóstico técnico, objetivo, etapa, análisis de referencia,
   inspección sanitaria opcional del mismo bloque, producto y composición,
   dosis, cobertura, método, fecha/hora, responsable y fecha de seguimiento.
+  Pueden seleccionar un producto del catálogo, validar su unidad estándar y
+  programar una aplicación única, semanal, quincenal o mensual hasta dos años.
   ADMIN/SUPERVISOR registran y aprueban con justificación y control de versión.
   La aprobación identifica al usuario de la aplicación; no certifica sus
   credenciales profesionales. Los registros son inmutables: para corregirlos se
   crea otro análisis/plan. Se puede anular un plan antes de generar su tarea.
 - **Aplicaciones**: desde un plan aprobado con tarea, el responsable asignado
   o un supervisor registra cantidades parciales, fecha real, lote de producto,
-  cobertura, método y notas. Se crea un evento agrícola al que se adjuntan
-  fotos mediante el módulo existente. La suma no puede superar el total aprobado.
+  cobertura, método y notas. En planes recurrentes se selecciona la ocurrencia
+  concreta; cada ocurrencia conserva su propia cantidad aplicada. Se crea un evento agrícola al que se adjuntan
+  fotos mediante el módulo existente. En cada ocurrencia, la suma no puede superar
+  la cantidad aprobada para esa aplicación.
   La cobertura describe cada pasada y no se suma: dos aplicaciones parciales
   pueden recorrer el mismo bloque. Una aplicación inicia la tarea, pero no la
   completa ni sustituye su revisión habitual.
@@ -31,14 +35,24 @@ pertenencia a la finca y los permisos correspondientes:
 | --- | --- | --- |
 | `GET` | `/fertilization?farmId={id}` | Consulta análisis, planes, aplicaciones y seguimientos de una finca. |
 | `POST` | `/fertilization/analyses` | Crea un análisis de suelo o foliar con resultados de nutrientes. |
+| `POST` | `/fertilization/analyses/{id}/review` | Registra o actualiza la revisión técnica de un análisis. |
 | `POST` | `/fertilization/analyses/{id}/report` | Adjunta el informe de laboratorio en PDF. |
 | `GET` | `/fertilization/analyses/{id}/report` | Descarga el informe de laboratorio. |
 | `POST` | `/fertilization/plans` | Crea un plan vinculado a un análisis. |
 | `POST` | `/fertilization/plans/{id}/approve` | Aprueba un plan con justificación. |
 | `POST` | `/fertilization/plans/{id}/cancel` | Anula un plan con justificación. |
-| `POST` | `/fertilization/plans/{id}/task` | Genera la tarea de campo del plan aprobado. |
+| `POST` | `/fertilization/plans/{id}/task` | Genera la tarea o las ocurrencias de campo del plan aprobado. |
 | `POST` | `/fertilization/plans/{id}/applications` | Registra una aplicación real, incluso parcial. |
 | `POST` | `/fertilization/plans/{id}/followups` | Registra el seguimiento técnico y un análisis posterior opcional. |
+| `GET` | `/fertilization/profiles?farmId={id}` | Consulta los perfiles de referencia activos de la finca. |
+| `POST` | `/fertilization/profiles` | Crea un perfil por cultivo, variedad, tipo de muestra y rangos de nutrientes. Requiere rol agronómico. |
+| `GET` | `/fertilization/products?farmId={id}` | Consulta el catálogo activo de productos fertilizantes de la finca. |
+| `POST` | `/fertilization/products` | Crea un producto con código, composición y unidad estándar. Requiere rol agronómico. |
+
+Un plan puede incluir `productId`, `recurrence` (`NONE`, `WEEKLY`, `BIWEEKLY` o
+`MONTHLY`) y `recurrenceUntil`. Al aprobar un plan recurrente se crean todas sus
+ocurrencias en `fertilization_plan_task`; repetir `POST /plans/{id}/task` es
+idempotente. Una aplicación recurrente debe enviar el `taskId` de su ocurrencia.
 
 Endpoints de apoyo:
 
@@ -62,9 +76,15 @@ los datos de fertilización se conservan localmente en el navegador:
     muestra unidades, métodos, laboratorio, muestra, informe e interpretación
     preliminar; permite abrir el detalle y descargar o adjuntar el PDF.
   - **Planes**: crea, consulta, aprueba, anula y convierte planes aprobados en
-    tareas; muestra diagnóstico, dosis, cobertura, aplicación acumulada y seguimiento.
+    tareas; muestra diagnóstico, dosis, cobertura, aplicación acumulada,
+    catálogo de productos y frecuencia de aplicación.
   - **Aplicaciones**: registra cantidad, fecha, cobertura, método, lote y notas;
-    muestra el detalle y permite adjuntar fotos de evidencia.
+    selecciona la ocurrencia de un plan recurrente, muestra el detalle y permite
+    adjuntar fotos de evidencia.
+  - **Perfiles y catálogo**: ADMIN, SUPERVISOR y AGRONOMIST pueden crear perfiles
+    activos por finca, cultivo, variedad y muestra, y registrar una decisión técnica
+    confirmada, pendiente de seguimiento o rechazada desde el detalle del análisis;
+    también pueden registrar productos con composición y unidad estándar.
 - **Mapas → Nutrientes** (`#/maps`): selecciona el nutriente y muestra valores
   por bloque, promedio, fecha de muestra, unidad, método, laboratorio, trazabilidad
   e interpretación preliminar. También permite comparar nutrientes con humedad.
@@ -91,7 +111,10 @@ mezclas o dosis.
 La composición se transcribe como texto de etiqueta; no se estima absorción.
 El técnico debe comprobarla con el informe y el contexto del cultivo.
 
-Generar la tarea es idempotente: repetir la solicitud devuelve el mismo vínculo.
+Generar tareas es idempotente: repetir la solicitud no duplica la tarea de una
+aplicación única ni las ocurrencias de un plan recurrente. En un plan recurrente,
+el total mostrado después de generar tareas es la suma de las cantidades previstas
+por ocurrencia, mientras cada aplicación se valida contra su propia tarea.
 Las tareas bloqueadas, en revisión o terminadas no admiten más aplicaciones.
 El plan muestra programado/aplicado con unidades separadas, vencimiento de revisión
 y seguimientos con autor, fecha, conclusión y nuevo análisis opcional. Los filtros
@@ -122,11 +145,14 @@ Las asociaciones se documentan, no se presentan como causalidad demostrada.
 
 ## Operación y límites
 
-Flyway aplica las migraciones V9 y V10 al reiniciar el backend. Los
+Flyway aplica las migraciones V9, V10, V19 y V21 al reiniciar el backend. Los
 registros, PDF e imágenes se guardan en PostgreSQL; deben incluirse en sus copias
-de seguridad. El perfil base todavía no es configurable por finca ni por variedad.
-No hay integración automática con laboratorios, inventario, costos,
+de seguridad. Los perfiles de referencia ya son configurables por finca, cultivo,
+variedad y tipo de muestra; su contenido debe ser validado por el responsable técnico.
+No hay integración automática con laboratorios, inventario o costos,
 análisis foliar comparativo ni correlaciones causales con rendimiento o sanidad.
+El catálogo no controla existencias ni compras. Todavía no hay validación específica
+por método de laboratorio, niveles de confianza ni recomendaciones automáticas de fertilización.
 La fecha de seguimiento se muestra en el módulo, no envía notificaciones externas.
 Los permisos se verifican en cada endpoint; archivos PDF se entregan como descarga,
 no se ejecutan ni se muestran embebidos. No hay escáner antivirus integrado.

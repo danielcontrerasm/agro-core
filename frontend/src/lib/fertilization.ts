@@ -6,16 +6,21 @@ export const nutrientNames = { N: 'Nitrógeno (N)', P: 'Fósforo (P)', K: 'Potas
 export type Nutrient = keyof typeof nutrientNames;
 export const units = { PERCENT: '%', MG_KG: 'mg/kg', CMOL_KG: 'cmol(+)/kg', PH: 'pH' };
 export const doseUnits = { KG_HA: 'kg/ha', G_PLANT: 'g/planta', L_HA: 'L/ha', ML_PLANT: 'mL/planta' };
+export const recurrenceLabels = { NONE: 'Una sola aplicación', WEEKLY: 'Semanal', BIWEEKLY: 'Cada dos semanas', MONTHLY: 'Mensual' } as const;
+export type FertilizerRecurrence = keyof typeof recurrenceLabels;
 export interface SoilResult { nutrient: Nutrient; value: number; unit: keyof typeof units; method: string }
-export interface Analysis { id: number; blockId: number; sampleType: 'SOIL' | 'FOLIAR'; sampledOn: string; laboratory: string; reference: string; depthCm: number; latitude?: number; longitude?: number; results: SoilResult[]; notes?: string; createdBy: number; hasReport?: boolean; reportData?: string }
+export interface NutrientReview { decision: 'CONFIRMED' | 'REQUIRES_FOLLOWUP' | 'REJECTED'; notes: string; reviewedBy: number; reviewedAt: string }
+export interface Analysis { id: number; blockId: number; sampleType: 'SOIL' | 'FOLIAR'; sampledOn: string; laboratory: string; reference: string; depthCm: number; latitude?: number; longitude?: number; results: SoilResult[]; notes?: string; createdBy: number; hasReport?: boolean; reportData?: string; interpretations?: NutrientInterpretation[]; review?: NutrientReview }
 export type NutrientStatus = 'LOW' | 'ADEQUATE' | 'HIGH' | 'UNKNOWN';
 export interface NutrientRange { nutrient: Nutrient; unit: keyof typeof units; lower: number; upper: number }
-export interface NutrientReferenceProfile { id: string; name: string; version: string; cropAliases: readonly string[]; sampleType: Analysis['sampleType']; source: string; ranges: readonly NutrientRange[] }
-export interface NutrientInterpretation { nutrient: Nutrient; value: number; unit: keyof typeof units; status: NutrientStatus; label: string; reason: string; profileId?: string; profileName?: string; profileVersion?: string; source?: string; requiresTechnicalReview: true }
+export interface NutrientReferenceProfile { id: number | string; farmId?: number; name: string; crop?: string; variety?: string; cropAliases?: readonly string[]; version: string; sampleType: Analysis['sampleType']; source: string; ranges: readonly NutrientRange[]; active?: boolean }
+export interface NutrientInterpretation { nutrient: Nutrient; value: number; unit: keyof typeof units; status: NutrientStatus; label: string; reason: string; profileId?: string | number; profileName?: string; profileVersion?: string; source?: string; requiresTechnicalReview: true }
 export interface InterpretationSummary { interpretations: NutrientInterpretation[]; low: number; adequate: number; high: number; unknown: number; attention: number }
 export interface Followup { id: number; analysisId?: number; observations: string; reviewedBy: number; reviewedAt: string }
-export interface FertilizationPlan { id: number; blockId: number; analysisId: number; inspectionId?: number; growthStage: string; diagnosis: string; objective: string; product: string; composition: string; dose: number; doseUnit: keyof typeof doseUnits; coverage: number; method: string; scheduledOn: string; scheduledTime: string; assigneeId: number; followUpOn: string; totalQuantity: number; appliedQuantity: number; status: 'DRAFT' | 'APPROVED' | 'CANCELED'; version: number; taskId?: number; createdBy: number; approvedBy?: number; approvedAt?: string; decisionReason?: string; followups: Followup[] }
-export interface FertilizationApplication { id: number; planId: number; eventId: number; occurredAt: string; quantity: number; coverage: number; method: string; lot: string; notes?: string; createdBy: number }
+export interface FertilizerProduct { id: number; farmId: number; code: string; name: string; composition: string; defaultDoseUnit: keyof typeof doseUnits; notes?: string; active: boolean; createdBy: number; createdAt: string }
+export interface FertilizationTask { taskId: number; occurrenceOn: string }
+export interface FertilizationPlan { id: number; blockId: number; analysisId: number; inspectionId?: number; growthStage: string; diagnosis: string; objective: string; product: string; composition: string; dose: number; doseUnit: keyof typeof doseUnits; coverage: number; method: string; scheduledOn: string; scheduledTime: string; assigneeId: number; followUpOn: string; totalQuantity: number; appliedQuantity: number; status: 'DRAFT' | 'APPROVED' | 'CANCELED'; version: number; taskId?: number; productId?: number; recurrence?: FertilizerRecurrence; recurrenceUntil?: string; tasks?: FertilizationTask[]; createdBy: number; approvedBy?: number; approvedAt?: string; decisionReason?: string; followups: Followup[] }
+export interface FertilizationApplication { id: number; planId: number; eventId: number; taskId?: number; occurredAt: string; quantity: number; coverage: number; method: string; lot: string; notes?: string; createdBy: number }
 export interface FertilizationData { analyses: Analysis[]; plans: FertilizationPlan[]; applications: FertilizationApplication[] }
 export const quantityUnit = (unit: keyof typeof doseUnits) => unit === 'L_HA' || unit === 'ML_PLANT' ? 'L' : 'kg';
 export const coverageUnit = (unit: keyof typeof doseUnits) => unit === 'G_PLANT' || unit === 'ML_PLANT' ? 'plantas' : 'ha';
@@ -48,7 +53,7 @@ const normalized = (value: string) => value.toLocaleLowerCase('es').normalize('N
 const profileFor = (crop: string | undefined, sampleType: Analysis['sampleType']) => {
   if (!crop) return undefined;
   const cropName = normalized(crop);
-  return nutrientReferenceProfiles.find(profile => profile.sampleType === sampleType && profile.cropAliases.some(alias => normalized(alias) === cropName));
+  return nutrientReferenceProfiles.find(profile => profile.sampleType === sampleType && profile.cropAliases?.some(alias => normalized(alias) === cropName));
 };
 
 const interpretationLabel = (nutrient: Nutrient, status: NutrientStatus) => {
@@ -69,7 +74,7 @@ export function interpretNutrient(result: SoilResult, crop?: string, sampleType:
 }
 
 export function interpretAnalysis(analysis: Analysis, crop?: string): InterpretationSummary {
-  const interpretations = analysis.results.map(result => interpretNutrient(result, crop, analysis.sampleType));
+  const interpretations = analysis.interpretations?.length ? analysis.interpretations : analysis.results.map(result => interpretNutrient(result, crop, analysis.sampleType));
   return {
     interpretations,
     low: interpretations.filter(item => item.status === 'LOW').length,

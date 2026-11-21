@@ -14,6 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.*;
 import static com.yourco.agro.fertilization.FertilizationDtos.*;
 
@@ -61,26 +62,152 @@ public class FertilizationService {
   }
   private Map<String,Object> presentAnalysis(Map<String,Object> row) {
     var result = decode((String) row.get("details")); result.put("id",row.get("id")); result.put("createdBy",row.get("created_by"));
-    result.put("hasReport",row.get("report_type") != null); return result;
+    result.put("hasReport",row.get("report_type") != null);
+    result.put("interpretations", interpretations(row));
+    result.put("review", reviewRow(number(row,"id")));
+    return result;
   }
   private Map<String,Object> presentPlan(Map<String,Object> row) {
     var result = decode((String) row.get("details"));
-    for (var entry : Map.of("id","id","status","status","version","version","taskId","task_id","totalQuantity","total_quantity","createdBy","created_by","approvedBy","approved_by","approvedAt","approved_at","decisionReason","decision_reason").entrySet()) {
+    for (var entry : Map.ofEntries(Map.entry("id","id"),Map.entry("status","status"),Map.entry("version","version"),Map.entry("taskId","task_id"),Map.entry("totalQuantity","total_quantity"),Map.entry("createdBy","created_by"),Map.entry("approvedBy","approved_by"),Map.entry("approvedAt","approved_at"),Map.entry("decisionReason","decision_reason"),Map.entry("productId","product_id"),Map.entry("recurrence","recurrence"),Map.entry("recurrenceUntil","recurrence_until")).entrySet()) {
       Object value = row.get(entry.getValue()); result.put(entry.getKey(),value == null ? null : value instanceof java.time.temporal.TemporalAccessor ? value.toString() : value);
     }
     result.put("appliedQuantity",jdbc.queryForObject("SELECT COALESCE(SUM(quantity),0) FROM fertilization_application WHERE plan_id=?",BigDecimal.class,row.get("id")));
+    result.put("tasks",jdbc.queryForList("SELECT task_id AS \"taskId\", occurrence_on AS \"occurrenceOn\" FROM fertilization_plan_task WHERE plan_id=? ORDER BY occurrence_on",row.get("id")));
+    if (!"NONE".equals(row.get("recurrence"))) {
+      var occurrences = jdbc.queryForObject("SELECT COUNT(*) FROM fertilization_plan_task WHERE plan_id=?",Integer.class,row.get("id"));
+      if (occurrences != null && occurrences > 0) result.put("totalQuantity",((BigDecimal) row.get("total_quantity")).multiply(BigDecimal.valueOf(occurrences)));
+    }
     result.put("canceledBy",row.get("canceled_by")); result.put("canceledAt",row.get("canceled_at"));
     result.put("followups",jdbc.queryForList("SELECT id, analysis_id AS \"analysisId\", observations, reviewed_by AS \"reviewedBy\", reviewed_at AS \"reviewedAt\" FROM fertilization_followup WHERE plan_id=? ORDER BY id DESC",row.get("id")));
     return result;
   }
   public Map<String,Object> list(long farmId) {
     access.require(farmId,false);
-    var analyses = jdbc.queryForList("SELECT a.id,a.details,a.created_by,a.report_type FROM soil_analysis a JOIN block b ON b.id=a.block_id JOIN field f ON f.id=b.field_id WHERE f.farm_id=? ORDER BY sampled_on DESC,a.id DESC",farmId).stream().map(this::presentAnalysis).toList();
+    var analyses = jdbc.queryForList("SELECT a.id,a.block_id,a.details,a.created_by,a.report_type FROM soil_analysis a JOIN block b ON b.id=a.block_id JOIN field f ON f.id=b.field_id WHERE f.farm_id=? ORDER BY sampled_on DESC,a.id DESC",farmId).stream().map(this::presentAnalysis).toList();
     var plans = jdbc.queryForList("SELECT p.* FROM fertilization_plan p JOIN block b ON b.id=p.block_id JOIN field f ON f.id=b.field_id WHERE f.farm_id=? ORDER BY p.id DESC",farmId).stream().map(this::presentPlan).toList();
     var applications = jdbc.queryForList("SELECT a.* FROM fertilization_application a JOIN fertilization_plan p ON p.id=a.plan_id JOIN block b ON b.id=p.block_id JOIN field f ON f.id=b.field_id WHERE f.farm_id=? ORDER BY a.id DESC",farmId).stream().map(row -> {
-      var result = decode((String) row.get("details")); result.put("id",row.get("id")); result.put("planId",row.get("plan_id")); result.put("eventId",row.get("event_id")); result.put("createdBy",row.get("created_by")); return result;
+      var result = decode((String) row.get("details")); result.put("id",row.get("id")); result.put("planId",row.get("plan_id")); result.put("taskId",row.get("task_id")); result.put("eventId",row.get("event_id")); result.put("createdBy",row.get("created_by")); return result;
     }).toList();
     return Map.of("analyses",analyses,"plans",plans,"applications",applications);
+  }
+  public List<Map<String,Object>> profiles(long farmId) {
+    access.require(farmId,false);
+    return jdbc.queryForList("SELECT id FROM nutrient_reference_profile WHERE farm_id=? AND active=TRUE ORDER BY id DESC",farmId)
+      .stream().map(row -> profile(number(row,"id"))).toList();
+  }
+  public List<Map<String,Object>> products(long farmId) {
+    access.require(farmId,false);
+    return jdbc.queryForList("SELECT id FROM fertilizer_product WHERE farm_id=? AND active=TRUE ORDER BY name,id",farmId)
+      .stream().map(row -> product(number(row,"id"))).toList();
+  }
+  @Transactional
+  public Map<String,Object> createProduct(Product request) {
+    access.requireAgronomic(request.farmId());
+    try {
+      long id = insert("INSERT INTO fertilizer_product(farm_id,code,name,composition,default_dose_unit,notes,created_by) VALUES (?,?,?,?,?,?,?)",
+        request.farmId(),request.code().trim(),request.name().trim(),request.composition().trim(),request.defaultDoseUnit().name(),request.notes(),access.userId());
+      return product(id);
+    } catch (org.springframework.dao.DuplicateKeyException exception) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT,"El código del producto ya existe en la finca");
+    }
+  }
+  private Map<String,Object> product(long id) {
+    var rows = jdbc.queryForList("SELECT id,farm_id,code,name,composition,default_dose_unit,notes,active,created_by,created_at FROM fertilizer_product WHERE id=?",id);
+    if (rows.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Producto fertilizante no encontrado");
+    var row = rows.get(0); var result = new LinkedHashMap<String,Object>();
+    result.put("id",row.get("id")); result.put("farmId",row.get("farm_id")); result.put("code",row.get("code")); result.put("name",row.get("name"));
+    result.put("composition",row.get("composition")); result.put("defaultDoseUnit",row.get("default_dose_unit")); result.put("notes",row.get("notes"));
+    result.put("active",row.get("active")); result.put("createdBy",row.get("created_by")); result.put("createdAt",row.get("created_at")); return result;
+  }
+  private Map<String,Object> productForPlan(Long productId, long farmId) {
+    if (productId == null) return null;
+    var rows = jdbc.queryForList("SELECT * FROM fertilizer_product WHERE id=? AND farm_id=? AND active=TRUE",productId,farmId);
+    if (rows.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Producto fertilizante no encontrado en la finca");
+    return rows.get(0);
+  }
+  private Recurrence recurrence(Plan plan) { return plan.recurrence()==null ? Recurrence.NONE : plan.recurrence(); }
+  @Transactional
+  public Map<String,Object> createProfile(Profile request) {
+    access.requireAgronomic(request.farmId());
+    var nutrients = new HashSet<Nutrient>();
+    for (var range : request.ranges()) {
+      if (!nutrients.add(range.nutrient())) throw bad("No repitas un nutriente en el perfil");
+      validateRange(range);
+    }
+    long id = insert("INSERT INTO nutrient_reference_profile(farm_id,name,crop,variety,sample_type,version,source,created_by) VALUES (?,?,?,?,?,?,?,?)",
+      request.farmId(),request.name(),request.crop(),request.variety(),request.sampleType().name(),request.version(),request.source(),access.userId());
+    for (var range : request.ranges()) {
+      jdbc.update("INSERT INTO nutrient_reference_range(profile_id,nutrient,unit,lower_bound,upper_bound) VALUES (?,?,?,?,?)",
+        id,range.nutrient().name(),range.unit().name(),range.lowerBound(),range.upperBound());
+    }
+    return profile(id);
+  }
+  private void validateRange(Range range) {
+    if (range.lowerBound().compareTo(range.upperBound()) >= 0) throw bad("El límite inferior debe ser menor que el superior");
+    if ((range.nutrient()==Nutrient.PH)!=(range.unit()==Unit.PH)) throw bad("Unidad de pH incorrecta en el perfil");
+    if (range.nutrient()==Nutrient.PH && range.upperBound().compareTo(BigDecimal.valueOf(14))>0) throw bad("pH debe estar entre 0 y 14");
+    if (range.unit()==Unit.PERCENT && range.upperBound().compareTo(BigDecimal.valueOf(100))>0) throw bad("Porcentaje fuera de rango");
+  }
+  private Map<String,Object> profile(long id) {
+    var rows = jdbc.queryForList("SELECT p.id,p.farm_id,p.name,p.crop,p.variety,p.sample_type,p.version,p.source,p.active,r.nutrient,r.unit,r.lower_bound,r.upper_bound FROM nutrient_reference_profile p JOIN nutrient_reference_range r ON r.profile_id=p.id WHERE p.id=? ORDER BY r.id",id);
+    if (rows.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Perfil nutricional no encontrado");
+    var first = rows.get(0); var result = new LinkedHashMap<String,Object>();
+    result.put("id",first.get("id")); result.put("farmId",first.get("farm_id")); result.put("name",first.get("name"));
+    result.put("crop",first.get("crop")); result.put("variety",first.get("variety")); result.put("sampleType",first.get("sample_type"));
+    result.put("version",first.get("version")); result.put("source",first.get("source")); result.put("active",first.get("active"));
+    result.put("ranges",rows.stream().map(row -> {
+      var range = new LinkedHashMap<String,Object>(); range.put("nutrient",row.get("nutrient")); range.put("unit",row.get("unit"));
+      range.put("lowerBound",row.get("lower_bound")); range.put("upperBound",row.get("upper_bound")); return range;
+    }).toList());
+    return result;
+  }
+  @Transactional
+  public Map<String,Object> review(long id, Review request) {
+    var sample = analysisRow(id); access.requireAgronomic(access.blockFarm(number(sample,"block_id")));
+    if (jdbc.update("UPDATE nutrient_analysis_review SET decision=?,notes=?,reviewed_by=?,reviewed_at=CURRENT_TIMESTAMP WHERE analysis_id=?",
+      request.decision().name(),request.notes(),access.userId(),id)==0) {
+      jdbc.update("INSERT INTO nutrient_analysis_review(analysis_id,decision,notes,reviewed_by) VALUES (?,?,?,?)",
+        id,request.decision().name(),request.notes(),access.userId());
+    }
+    return Objects.requireNonNull(reviewRow(id));
+  }
+  private Map<String,Object> reviewRow(long analysisId) {
+    var rows = jdbc.queryForList("SELECT decision,notes,reviewed_by,reviewed_at FROM nutrient_analysis_review WHERE analysis_id=?",analysisId);
+    if (rows.isEmpty()) return null;
+    var row = rows.get(0); var result = new LinkedHashMap<String,Object>();
+    result.put("decision",row.get("decision")); result.put("notes",row.get("notes")); result.put("reviewedBy",row.get("reviewed_by"));
+    result.put("reviewedAt",row.get("reviewed_at")); return result;
+  }
+  @SuppressWarnings("unchecked")
+  private List<Map<String,Object>> interpretations(Map<String,Object> row) {
+    var analysis = decode((String) row.get("details"));
+    var context = jdbc.queryForMap("SELECT b.crop,b.variety,f.farm_id FROM block b JOIN field f ON f.id=b.field_id WHERE b.id=?",row.get("block_id"));
+    var profileRows = jdbc.queryForList("""
+      SELECT p.id,p.name,p.version,p.source,r.nutrient,r.unit,r.lower_bound,r.upper_bound
+      FROM nutrient_reference_profile p JOIN nutrient_reference_range r ON r.profile_id=p.id
+      WHERE p.farm_id=? AND LOWER(p.crop)=LOWER(?) AND p.sample_type=? AND p.active=TRUE
+        AND (p.variety IS NULL OR LOWER(p.variety)=LOWER(?))
+      ORDER BY CASE WHEN p.variety IS NULL THEN 1 ELSE 0 END,p.id DESC
+      """,context.get("farm_id"),context.get("crop"),analysis.get("sampleType"),context.get("variety"));
+    Long selectedProfile = profileRows.isEmpty() ? null : number(profileRows.get(0),"id");
+    var selected = selectedProfile == null ? List.<Map<String,Object>>of() : profileRows.stream().filter(item -> number(item,"id")==selectedProfile).toList();
+    var results = (List<Map<String,Object>>) analysis.get("results");
+    return results.stream().<Map<String,Object>>map(item -> {
+      var interpretation = new LinkedHashMap<String,Object>(); interpretation.put("nutrient",item.get("nutrient"));
+      interpretation.put("value",item.get("value")); interpretation.put("unit",item.get("unit"));
+      var range = selected.stream().filter(candidate -> candidate.get("nutrient").equals(item.get("nutrient")) && candidate.get("unit").equals(item.get("unit"))).findFirst().orElse(null);
+      String status = "UNKNOWN"; String reason;
+      if (range == null) reason = selected.isEmpty() ? "No hay un perfil activo compatible con este cultivo y tipo de muestra." : "No hay un rango compatible para este nutriente y unidad.";
+      else {
+        var value = new BigDecimal(item.get("value").toString()); var lower = new BigDecimal(range.get("lower_bound").toString()); var upper = new BigDecimal(range.get("upper_bound").toString());
+        status = value.compareTo(lower)<0 ? "LOW" : value.compareTo(upper)>0 ? "HIGH" : "ADEQUATE";
+        reason = "Rango de referencia: "+lower+"–"+upper+" "+range.get("unit")+". Requiere revisión técnica.";
+        interpretation.put("profileId",range.get("id")); interpretation.put("profileName",range.get("name")); interpretation.put("profileVersion",range.get("version")); interpretation.put("source",range.get("source"));
+      }
+      String label = "UNKNOWN".equals(status) ? "Sin interpretar" : "PH".equals(item.get("nutrient")) ? "LOW".equals(status) ? "pH ácido" : "HIGH".equals(status) ? "pH alcalino" : "pH en rango" : "LOW".equals(status) ? "Bajo" : "HIGH".equals(status) ? "Alto" : "En rango";
+      interpretation.put("status",status); interpretation.put("label",label); interpretation.put("requiresTechnicalReview",true); interpretation.put("reason",reason); return interpretation;
+    }).toList();
   }
   @Transactional
   public Map<String,Object> createAnalysis(Analysis request) {
@@ -117,8 +244,17 @@ public class FertilizationService {
       if (number(inspection,"block_id")!=request.blockId() || inspection.get("canceled_at")!=null) throw bad("La inspección debe estar vigente y pertenecer al bloque");
     }
     if (jdbc.queryForObject("SELECT COUNT(*) FROM farm_membership WHERE farm_id=? AND user_id=?",Integer.class,farmId,request.assigneeId())!=1) throw bad("El responsable debe pertenecer a la finca");
+    Recurrence recurrence = recurrence(request);
+    if (recurrence==Recurrence.NONE && request.recurrenceUntil()!=null) throw bad("Una aplicación única no puede tener fecha de recurrencia");
+    if (recurrence!=Recurrence.NONE && (request.recurrenceUntil()==null || request.recurrenceUntil().isBefore(request.scheduledOn()) || request.recurrenceUntil().isAfter(request.scheduledOn().plusYears(2)))) throw bad("La recurrencia debe terminar entre la fecha programada y dos años después");
+    var catalogProduct = productForPlan(request.productId(),farmId);
+    if (catalogProduct!=null && !request.doseUnit().name().equals(catalogProduct.get("default_dose_unit"))) throw bad("La unidad de dosis no coincide con la unidad estándar del producto");
     BigDecimal total = total(request); if (total.signum()<=0 || total.precision()-total.scale()>10) throw bad("Cantidad total fuera de rango");
-    long id = insert("INSERT INTO fertilization_plan(block_id,analysis_id,inspection_id,details,total_quantity,created_by) VALUES (?,?,?,?,?,?)",request.blockId(),request.analysisId(),request.inspectionId(),encode(request),total,access.userId());
+    var details = new LinkedHashMap<String,Object>(json.convertValue(request,new TypeReference<Map<String,Object>>() {}));
+    if (catalogProduct!=null) { details.put("product",catalogProduct.get("name")); details.put("composition",catalogProduct.get("composition")); }
+    details.put("recurrence",recurrence.name());
+    long id = insert("INSERT INTO fertilization_plan(block_id,analysis_id,inspection_id,details,total_quantity,product_id,recurrence,recurrence_until,created_by) VALUES (?,?,?,?,?,?,?,?,?)",
+      request.blockId(),request.analysisId(),request.inspectionId(),encode(details),total,request.productId(),recurrence.name(),request.recurrenceUntil(),access.userId());
     return presentPlan(planRow(id,true,false));
   }
   @Transactional
@@ -128,19 +264,32 @@ public class FertilizationService {
     if (!approve && row.get("task_id")!=null) throw bad("Un plan con tarea no puede anularse; bloquea la tarea y conserva la trazabilidad");
     if (approve) jdbc.update("UPDATE fertilization_plan SET status='APPROVED',version=version+1,decision_reason=?,approved_by=?,approved_at=CURRENT_TIMESTAMP WHERE id=?",request.reason(),access.userId(),id);
     else jdbc.update("UPDATE fertilization_plan SET status='CANCELED',version=version+1,decision_reason=?,canceled_by=?,canceled_at=CURRENT_TIMESTAMP WHERE id=?",request.reason(),access.userId(),id);
+    if (approve && !"NONE".equals(row.get("recurrence"))) task(id);
     return presentPlan(planRow(id,true,false));
   }
   @Transactional
   public Map<String,Object> task(long id) {
     var row = planRow(id,true,true);
     if (!"APPROVED".equals(row.get("status"))) throw bad("Aprueba el plan antes de generar tareas");
-    if (row.get("task_id")==null) {
-      Plan plan = json.convertValue(decode((String) row.get("details")),Plan.class);
-      var task = tasks.create(new TaskDtos.CreateRequest(access.blockFarm(plan.blockId()),null,plan.blockId(),plan.assigneeId(),"Fertilización #"+id+" · "+plan.product().substring(0,Math.min(100,plan.product().length())),TaskDtos.Activity.fertilization,plan.scheduledOn(),plan.scheduledTime(),TaskDtos.Priority.Media,
-        "Plan aprobado #"+id+". Producto: "+plan.product()+". Composición: "+plan.composition()+". Dosis: "+plan.dose()+" "+plan.doseUnit()+". Cobertura: "+plan.coverage()+". Total: "+row.get("total_quantity")+" "+quantityUnit(plan.doseUnit())+". Método: "+plan.method()+". Seguimiento: "+plan.followUpOn()));
-      jdbc.update("UPDATE fertilization_plan SET task_id=?,version=version+1 WHERE id=?",Long.valueOf(task.id()),id);
+    Plan plan = json.convertValue(decode((String) row.get("details")),Plan.class);
+    Recurrence recurrence = recurrence(plan);
+    var occurrence = plan.scheduledOn(); var last = recurrence==Recurrence.NONE ? occurrence : plan.recurrenceUntil();
+    Long firstTask = row.get("task_id") == null ? null : number(row,"task_id");
+    while (!occurrence.isAfter(last)) {
+      var existing = jdbc.queryForList("SELECT task_id FROM fertilization_plan_task WHERE plan_id=? AND occurrence_on=?",id,occurrence);
+      if (existing.isEmpty()) {
+        var task = tasks.create(new TaskDtos.CreateRequest(access.blockFarm(plan.blockId()),null,plan.blockId(),plan.assigneeId(),"Fertilización #"+id+" · "+plan.product().substring(0,Math.min(100,plan.product().length())),TaskDtos.Activity.fertilization,occurrence,plan.scheduledTime(),TaskDtos.Priority.Media,
+          "Plan aprobado #"+id+". Producto: "+plan.product()+". Composición: "+plan.composition()+". Dosis: "+plan.dose()+" "+plan.doseUnit()+". Cobertura: "+plan.coverage()+". Total: "+row.get("total_quantity")+" "+quantityUnit(plan.doseUnit())+". Método: "+plan.method()+". Seguimiento: "+plan.followUpOn()+"."));
+        jdbc.update("INSERT INTO fertilization_plan_task(plan_id,task_id,occurrence_on) VALUES (?,?,?)",id,Long.valueOf(task.id()),occurrence);
+        if (firstTask==null) firstTask=Long.valueOf(task.id());
+      } else if (firstTask==null) firstTask=number(existing.get(0),"task_id");
+      occurrence = nextOccurrence(occurrence,recurrence);
     }
+    if (row.get("task_id")==null && firstTask!=null) jdbc.update("UPDATE fertilization_plan SET task_id=?,version=version+1 WHERE id=?",firstTask,id);
     return presentPlan(planRow(id,true,false));
+  }
+  private LocalDate nextOccurrence(LocalDate date, Recurrence recurrence) {
+    return switch (recurrence) { case WEEKLY -> date.plusWeeks(1); case BIWEEKLY -> date.plusWeeks(2); case MONTHLY -> date.plusMonths(1); case NONE -> date.plusYears(10); };
   }
   public static String quantityUnit(DoseUnit unit) { return unit==DoseUnit.L_HA || unit==DoseUnit.ML_PLANT ? "L":"kg"; }
   @Transactional
@@ -148,18 +297,24 @@ public class FertilizationService {
     var row = planRow(id,false,true);
     if (!"APPROVED".equals(row.get("status")) || row.get("task_id")==null) throw bad("Se requiere un plan aprobado con tarea");
     Plan plan = json.convertValue(decode((String) row.get("details")),Plan.class);
-    var task = jdbc.queryForMap("SELECT assignee_id,status FROM farm_task WHERE id=? FOR UPDATE",row.get("task_id"));
+    Recurrence recurrence = recurrence(plan);
+    Long taskId = request.taskId() == null ? number(row,"task_id") : request.taskId();
+    if (recurrence!=Recurrence.NONE && request.taskId()==null) throw bad("Selecciona la ocurrencia de la tarea recurrente");
+    if (request.taskId()!=null && jdbc.queryForObject("SELECT COUNT(*) FROM fertilization_plan_task WHERE plan_id=? AND task_id=?",Integer.class,id,request.taskId())!=1) throw bad("La tarea no pertenece a la ocurrencia del plan");
+    var task = jdbc.queryForMap("SELECT assignee_id,status FROM farm_task WHERE id=? FOR UPDATE",taskId);
     access.require(access.blockFarm(plan.blockId()),false);
     if (number(task,"assignee_id")!=access.userId()) access.require(access.blockFarm(plan.blockId()),true);
     if (!Set.of("pending","progress").contains(task.get("status"))) throw bad("La tarea debe estar pendiente o en progreso");
     if (request.occurredAt().isAfter(Instant.now()) || request.occurredAt().atZone(java.time.ZoneOffset.UTC).toLocalDate().isBefore(json.convertValue(decode((String) analysisRow(plan.analysisId()).get("details")),Analysis.class).sampledOn())) throw bad("Fecha de aplicación inválida");
     if (request.coverage().compareTo(plan.coverage())>0 || ((plan.doseUnit()==DoseUnit.G_PLANT || plan.doseUnit()==DoseUnit.ML_PLANT) && request.coverage().stripTrailingZeros().scale()>0)) throw bad("Cobertura inválida");
-    BigDecimal applied = jdbc.queryForObject("SELECT COALESCE(SUM(quantity),0) FROM fertilization_application WHERE plan_id=?",BigDecimal.class,id);
+    BigDecimal applied = recurrence==Recurrence.NONE
+      ? jdbc.queryForObject("SELECT COALESCE(SUM(quantity),0) FROM fertilization_application WHERE plan_id=?",BigDecimal.class,id)
+      : jdbc.queryForObject("SELECT COALESCE(SUM(quantity),0) FROM fertilization_application WHERE plan_id=? AND task_id=?",BigDecimal.class,id,taskId);
     if (applied.add(request.quantity()).compareTo((BigDecimal) row.get("total_quantity"))>0) throw bad("La cantidad acumulada supera el plan aprobado; requiere un nuevo plan");
     long eventId = insert("INSERT INTO field_event(event_type,occurred_at,created_by_user_id,block_id,notes) VALUES ('FERTILIZER_APPLICATION',?,?,?,?)",java.sql.Timestamp.from(request.occurredAt()),access.userId(),plan.blockId(),"Plan #"+id+" · "+plan.product()+" · "+request.quantity()+" "+quantityUnit(plan.doseUnit())+" · "+Objects.toString(request.notes(),""));
-    long applicationId = insert("INSERT INTO fertilization_application(plan_id,event_id,quantity,details,created_by) VALUES (?,?,?,?,?)",id,eventId,request.quantity(),encode(request),access.userId());
-    jdbc.update("UPDATE farm_task SET status='progress',version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'",row.get("task_id"));
-    var result = new LinkedHashMap<String,Object>(json.convertValue(request,new TypeReference<Map<String,Object>>() {})); result.put("id",applicationId); result.put("planId",id); result.put("eventId",eventId); result.put("createdBy",access.userId()); return result;
+    long applicationId = insert("INSERT INTO fertilization_application(plan_id,event_id,task_id,quantity,details,created_by) VALUES (?,?,?,?,?,?)",id,eventId,taskId,request.quantity(),encode(request),access.userId());
+    jdbc.update("UPDATE farm_task SET status='progress',version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'",taskId);
+    var result = new LinkedHashMap<String,Object>(json.convertValue(request,new TypeReference<Map<String,Object>>() {})); result.put("id",applicationId); result.put("planId",id); result.put("taskId",taskId); result.put("eventId",eventId); result.put("createdBy",access.userId()); return result;
   }
   @Transactional
   public void followup(long id, Followup request) {
@@ -187,7 +342,7 @@ public class FertilizationService {
     var row = analysisRow(id); if (row.get("report_type")==null) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Sin informe adjunto"); return jdbc.queryForObject("SELECT report FROM soil_analysis WHERE id=?",byte[].class,id);
   }
   public Map<String,Object> latestSoil(long blockId) {
-    var rows = jdbc.queryForList("SELECT id,details,created_by,report_type FROM soil_analysis WHERE block_id=? ORDER BY sampled_on DESC,id DESC",blockId);
+    var rows = jdbc.queryForList("SELECT id,block_id,details,created_by,report_type FROM soil_analysis WHERE block_id=? ORDER BY sampled_on DESC,id DESC",blockId);
     for (var row : rows) {
       var sample = decode((String) row.get("details"));
       if ("SOIL".equals(sample.get("sampleType"))) return presentAnalysis(row);

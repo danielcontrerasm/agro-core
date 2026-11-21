@@ -10,6 +10,7 @@ test('inspection persists, computes incidence and updates the health map after r
   await dialog.getByLabel('Problema sospechado').selectOption('WEEVILS');
   await dialog.getByLabel('Plantas inspeccionadas').fill('20');
   await dialog.getByLabel('Plantas afectadas').fill('5');
+  await dialog.getByLabel('Área afectada (ha)').fill('1.25');
   await expect(dialog.getByRole('status')).toHaveText('Incidencia: 25 %');
   await dialog.getByLabel('Síntomas observados').fill('Daños de picudo para seguimiento.');
   await dialog.getByLabel('Severidad del daño (%)').fill('10');
@@ -19,6 +20,7 @@ test('inspection persists, computes incidence and updates the health map after r
   await page.reload();
   const record = page.locator('tbody tr').filter({ hasText: 'Picudos' });
   await expect(record).toContainText('25 %');
+  await expect(record).toContainText('1,25 ha');
   await expect(record).toContainText('Sospechosa');
   await page.goto('/#maps');
   await page.getByRole('button', { name: 'Salud del cultivo', exact: true }).click();

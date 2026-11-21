@@ -3,10 +3,31 @@ import { Plus, Minus, LocateFixed, Layers, Maximize, Navigation, X, ArrowUpRight
 import { blockHealth } from '../lib/demo';
 import { moistureLabels, moistureUnits } from '../lib/irrigation';
 import { interpretNutrient, units } from '../lib/fertilization';
-import type { AnalyticsLayer, Block, DiseaseLayer, Field, PolygonGeometry } from '../lib/types';
+import type { AnalyticsLayer, Block, DiseaseLayer, Farm, Field, PolygonGeometry, Row } from '../lib/types';
 import { healthLabels } from '../lib/inspections';
+import RealFarmMap from './RealFarmMap';
 
 export type MapLayer = 'satellite' | 'health' | 'moisture' | 'nutrients';
+export interface FarmMapProps {
+  blocks: Block[];
+  farm?: Farm;
+  fields?: Field[];
+  rows?: Row[];
+  layer?: MapLayer;
+  comparisonLayer?: MapLayer;
+  nutrient?: string;
+  large?: boolean;
+  selected?: number;
+  onSelect?: (id: number) => void;
+  onLayerChange?: (layer: MapLayer) => void;
+  toolsOpen?: boolean;
+  onToolsChange?: (open: boolean) => void;
+  expandSignal?: number;
+  demo?: boolean;
+  disease?: DiseaseLayer;
+  analytics?: AnalyticsLayer;
+  baseLayer?: 'satellite' | 'hybrid' | 'map';
+}
 const plots = [
   { points: '80,70 410,32 454,230 90,275', center: [260, 150] },
   { points: '410,32 700,83 760,255 454,230', center: [585, 145] },
@@ -27,7 +48,7 @@ const nutrientPalette = ['#ef6b53', '#f4a449', '#edcf50', '#73b96b', '#5386f5'];
 const moistureShortUnits = { VWC_PERCENT: '%', GRAV_PERCENT: '%', KPA: 'kPa' };
 const layerLabels: Record<MapLayer, string> = { satellite: 'Vista de la finca', health: 'Salud del cultivo', moisture: 'Humedad del suelo', nutrients: 'Nutrientes del suelo' };
 
-export default function FarmMap({ blocks, fields = [], layer = 'satellite', comparisonLayer, nutrient = 'Nitrógeno (N)', large = false, selected, onSelect, onLayerChange, toolsOpen, onToolsChange, expandSignal, demo = true, disease, analytics }: { blocks: Block[]; fields?: Field[]; layer?: MapLayer; comparisonLayer?: MapLayer; nutrient?: string; large?: boolean; selected?: number; onSelect?: (id: number) => void; onLayerChange?: (layer: MapLayer) => void; toolsOpen?: boolean; onToolsChange?: (open: boolean) => void; expandSignal?: number; demo?: boolean; disease?: DiseaseLayer; analytics?: AnalyticsLayer }) {
+function IllustratedFarmMap({ blocks, fields = [], layer = 'satellite', comparisonLayer, nutrient = 'Nitrógeno (N)', large = false, selected, onSelect, onLayerChange, toolsOpen, onToolsChange, expandSignal, demo = true, disease, analytics }: FarmMapProps) {
   const [zoom, setZoom] = useState(1);
   const [layersOpen, setLayersOpen] = useState(large);
   const [boundaries, setBoundaries] = useState(true);
@@ -157,4 +178,8 @@ export default function FarmMap({ blocks, fields = [], layer = 'satellite', comp
     <div className="map-attribution">{demo ? 'Vista ilustrativa · No georreferenciada' : 'Plano geográfico · SRID 4326 · Sin mapa base'}</div>
     <div className="map-north"><span>N</span><Navigation size={22} fill="white" /></div>
   </div>;
+}
+
+export default function FarmMap(props: FarmMapProps) {
+  return props.demo === false ? <RealFarmMap {...props} /> : <IllustratedFarmMap {...props} />;
 }

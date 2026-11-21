@@ -60,13 +60,15 @@ la temporada invernal](<../cartilla-platano-ICA-final-BAJA.pdf>), ICA, Colombia,
 **Aplicación en el proyecto:**
 
 - **Implementado:** inspecciones estructuradas con ubicación, fecha, muestra,
-  plantas afectadas, incidencia calculada, severidad, método, síntomas y próxima visita.
+  plantas afectadas, área afectada en hectáreas, incidencia calculada, severidad,
+  método, síntomas y próxima visita.
 - **Implementado:** separación entre hallazgo sospechado, confirmado o descartado;
   una observación de campo no se presenta como diagnóstico confirmado.
 - **Implementado:** revisiones por supervisor, seguimientos enlazados, tratamientos
   ejecutados, evidencias, fotografías y conservación de registros anulados.
-- **Implementado:** catálogo inicial de Sigatoka, moko, Fusarium, bacteriosis,
-  picudos y nematodos.
+- **Implementado:** catálogo inicial administrable de Sigatoka, moko, Fusarium,
+  bacteriosis, picudos y nematodos; los problemas pueden crearse, editarse y
+  activarse/desactivarse conservando las referencias históricas.
 - **Parcial:** la ubicación llega a bloque y surco; todavía no se almacena el punto o
   polígono exacto de cada foco fitosanitario.
 - **Planificado:** resultados de laboratorio, cadena de muestras, zonas de contención
@@ -168,6 +170,7 @@ Desarrollo Rural y Tierras y entidades asociadas, Bolivia.
 
 - [Migración del flujo de riego](../src/main/resources/db/migration/V11__irrigation_workflow.sql)
 - [Migración de agua, infraestructura y mantenimiento](../src/main/resources/db/migration/V13__irrigation_water_and_maintenance.sql)
+- [Migración de recurrencias de riego](../src/main/resources/db/migration/V17__irrigation_recurring_schedules.sql)
 - [Servicio de riego](../src/main/java/com/yourco/agro/irrigation/IrrigationService.java)
 - [Pantalla de riego](../frontend/src/pages/Irrigation.tsx)
 - [Guía detallada de gestión del agua](water-management.md)

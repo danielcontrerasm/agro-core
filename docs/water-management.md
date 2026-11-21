@@ -15,8 +15,8 @@ agronomic prescription, open valves automatically, or replace technical review.
 | WM-01 | Define irrigation areas with their crop block, area, irrigation system, water source, reference flow, measurement unit, measurement depth, and optional sensor. | Implemented | Irrigation sectors are persisted and displayed with block, area, system, source, flow, moisture unit, depth, sensor, and technical configuration. | Richer hydraulic topology and map layers are still pending. |
 | WM-02 | Record soil-moisture measurements with date, value, unit, depth, instrument, rainfall, drainage, and notes. | Implemented | Manual measurements are stored per sector and retain the sector unit and depth. Sensor readings can also be associated with a sector. | Reliable production telemetry and broader data-quality workflows remain pending. |
 | WM-03 | Configure technically justified moisture thresholds and reading freshness. | Implemented | Each sector supports lower and upper limits, maximum reading age, technical basis, versioning, and revision history. | Threshold recommendations and farm/variety-specific agronomic profiles are not automated. |
-| WM-04 | Schedule irrigation for a sector with a date, time, planned duration, planned volume, responsible person, justification, and instructions. | Implemented for one-time plans | Managers can create plans, generate a farm task, review the preserved sector context, and cancel a plan before task generation. | Recurrence, approval workflow, calendar integration, and schedule optimization remain pending. |
-| WM-05 | Record actual irrigation and water consumption. | Implemented | Execution records capture actual start/end, interruptions, effective duration, volume measured by meter or estimated from flow, notes, and variance reasons. Executions create an irrigation event and accumulate against the plan. | Automated meter reconciliation and advanced water-use analytics remain pending. |
+| WM-04 | Schedule irrigation for a sector with a date, time, planned duration, planned volume, responsible person, justification, and instructions. | Implemented for one-time and recurring plans | Managers can create one-time plans or daily/weekly recurring rules, preview upcoming occurrences, generate idempotent plans/tasks, edit future rules, pause, resume, and cancel them. | Approval workflow, calendar integration, and schedule optimization remain pending. |
+| WM-05 | Record actual irrigation and water consumption. | Implemented | Execution records capture actual start/end, interruptions, effective duration, volume measured by meter or estimated from flow, notes, and variance reasons. Reports compare planned and actual volume by sector and block, separate measured and estimated consumption, and relate it to rainfall, balance requirements, deficits, and soil-moisture readings. | Automated meter reconciliation and weather-service integration remain pending. |
 | WM-06 | Detect moisture and irrigation exceptions that need review. | Implemented for operational alerts | The UI flags below-range, above-range, stale, or missing moisture readings, overdue plans, plan deviations, and blocked maintenance. | Alert-to-irrigation automation, escalation, and external notification delivery remain pending. |
 | WM-07 | Manage water sources, quality, and hydraulic assets. | Implemented for records and edits | Sources support type, capacity, coordinates, notes, active status, and versioned edits. Quality records support pH, conductivity, salinity, suspended solids, laboratory reference, notes, and versioned edits. Assets support pumps, valves, pipes, filters, meters, drains, canals, reservoirs, status, block/source links, coordinates, and versioned edits. | Permits and a complete map of hydraulic connections remain pending. |
 | WM-08 | Track water balance, maintenance, and sensor calibration. | Implemented for records and edits | Balances store rainfall, ET0, crop coefficient, root depth, available water, required/applied volume, deficit, and versioned edits. Maintenance stores sector or asset, activity, date, status, pressure, flow, notes, completion date, and versioned edits. Sensor checks store calibration status, reference/observed values, technician, notes, and versioned edits. | Automated balance calculations, maintenance task integration, and calibration-driven data suppression remain pending. |
@@ -36,16 +36,25 @@ agronomic prescription, open valves automatically, or replace technical review.
    available. It does not infer an agronomic recommendation from that classification.
 5. **Schedule irrigation.** A manager creates a one-time plan with the target
    sector, planned date/time, duration, volume, assignee, technical justification,
-   and execution instructions.
-6. **Generate and execute the task.** The plan can generate one farm task. The
+   and execution instructions, or creates a recurring rule with a daily/weekly
+   interval and start/end dates.
+6. **Generate repeated work.** Active recurring rules materialize each occurrence
+   as a normal irrigation plan and farm task. The schedule/date uniqueness key and
+   the daily generator prevent duplicate plans or tasks. Managers can preview the
+   next 30 days and pause, resume, edit, or cancel future generation.
+7. **Generate and execute the task.** The plan can generate one farm task. The
    assigned worker or an authorized manager records execution using a meter or a
    flow estimate. Overlapping executions for the same sector are rejected.
-7. **Verify and preserve history.** Actual volume and duration accumulate against
+8. **Verify and preserve history.** Actual volume and duration accumulate against
    the plan. Exceeding the planned amount requires a reason, and the execution is
    linked to an `IRRIGATION_EVENT` with optional photo evidence.
-8. **Correct operational records.** Authorized managers can edit water sources,
+9. **Correct operational records.** Authorized managers can edit water sources,
    quality analyses, hydraulic assets, balances, maintenance, and sensor checks.
    Updates are farm-scoped and use optimistic version checks to reject stale edits.
+10. **Analyze usage.** The Reports screen filters water usage by date range and
+    sector/block, presents planned versus applied volume and measured versus
+    estimated origin, compares rainfall and balance deficits, and exports the
+    visible sector report as CSV.
 
 ## Water-management records
 
@@ -107,6 +116,10 @@ The **Riego** screen is organized into four tabs:
 - **Administración de agua:** sources, quality, hydraulic infrastructure, balances,
   maintenance, and sensor calibration checks.
 
+The **Reportes** screen also includes a water-use report with period and sector/block
+filters, KPI cards, a sector comparison table, and CSV export. It reads the same
+farm-scoped irrigation records as the Riego screen and labels demo values as fictitious.
+
 The demo mode uses local browser storage and clearly labels its initial data as
 fictitious. Real mode reads and writes through the server API.
 
@@ -124,6 +137,14 @@ The irrigation controller is rooted at `/api/v1/irrigation`.
 | Generate task | `POST /api/v1/irrigation/plans/{id}/task` |
 | Cancel plan | `POST /api/v1/irrigation/plans/{id}/cancel` |
 | Record execution | `POST /api/v1/irrigation/plans/{id}/executions` |
+| Create recurring schedule | `POST /api/v1/irrigation/recurring-schedules` |
+| Update recurring schedule | `PATCH /api/v1/irrigation/recurring-schedules/{id}` |
+| Generate upcoming recurring plans/tasks | `POST /api/v1/irrigation/recurring-schedules/{id}/generate` |
+| Pause recurring schedule | `POST /api/v1/irrigation/recurring-schedules/{id}/pause` |
+| Resume recurring schedule | `POST /api/v1/irrigation/recurring-schedules/{id}/resume` |
+| Cancel recurring schedule | `POST /api/v1/irrigation/recurring-schedules/{id}/cancel` |
+| Preview recurring schedule | `GET /api/v1/irrigation/recurring-schedules/{id}/preview` |
+| Read recurring schedule history | `GET /api/v1/irrigation/recurring-schedules/{id}/history` |
 | Create water source | `POST /api/v1/irrigation/water-sources` |
 | Update water source | `PATCH /api/v1/irrigation/water-sources/{id}` |
 | Record water quality | `POST /api/v1/irrigation/water-sources/{id}/quality` |
@@ -137,6 +158,12 @@ The irrigation controller is rooted at `/api/v1/irrigation`.
 | Record sensor check | `POST /api/v1/irrigation/sensor-checks` |
 | Update sensor check | `PATCH /api/v1/irrigation/sensor-checks/{id}` |
 
+The analytics controller is rooted at `/api/v1/analytics`.
+
+| Operation | Endpoint |
+| --- | --- |
+| Water-use report | `GET /api/v1/analytics/water-usage?farmId={farmId}&from={yyyy-mm-dd}&until={yyyy-mm-dd}` |
+
 Farm membership and manager permissions are enforced by the backend. Sensor device
 registration and raw telemetry ingestion are provided by the sensor endpoints and
 are consumed by irrigation sectors when associated.
@@ -148,15 +175,20 @@ are consumed by irrigation sectors when associated.
 - `src/main/java/com/yourco/agro/irrigation/IrrigationDtos.java`
 - `src/main/resources/db/migration/V11__irrigation_workflow.sql`
 - `src/main/resources/db/migration/V13__irrigation_water_and_maintenance.sql`
-- `src/main/resources/db/migration/V16__irrigation_management_updates.sql`
+- `src/main/resources/db/migration/V23__irrigation_management_updates.sql`
+- `src/main/resources/db/migration/V17__irrigation_recurring_schedules.sql`
+- `src/main/java/com/yourco/agro/irrigation/IrrigationRecurrenceJob.java`
+- `src/main/java/com/yourco/agro/analytics/AnalyticsController.java`
+- `src/main/java/com/yourco/agro/analytics/AnalyticsService.java`
 - `frontend/src/pages/Irrigation.tsx`
+- `frontend/src/pages/Operations.tsx`
+- `frontend/src/lib/analytics.ts`
 - `frontend/tests/irrigation.spec.ts`
 
 ## Remaining gaps
 
-- Recurring irrigation schedules and automatic repeated task generation.
 - Full approval, calendar, escalation, and notification workflows.
-- Automated meter/telemetry reconciliation and richer water-use reporting.
+- Automated meter/telemetry reconciliation and weather-service integration.
 - Complete hydraulic map showing sources, pipes, valves, drains, and relationships.
 - Permission policies for water-source, infrastructure, and technical-threshold administration.
 - Offline capture and synchronization for field operations.
@@ -175,4 +207,6 @@ The frontend irrigation workflow can be verified from `frontend` with:
 ```text
 npm run build
 npm run test:e2e -- tests/irrigation.spec.ts -g "water management records"
+npm run test:e2e -- tests/irrigation.spec.ts -g "recurring irrigation schedules"
+npm run test:e2e -- tests/irrigation.spec.ts -g "water usage report"
 ```

@@ -41,7 +41,9 @@ class FertilizationApiTest {
         .addScript("db/migration/V6__phytosanitary_inspections.sql")
         .addScript("db/migration/V7__inspection_treatments_and_evidence.sql")
         .addScript("db/migration/V9__fertilization_workflow.sql")
-        .addScript("db/migration/V10__fertilization_cancellation_audit.sql").build();
+        .addScript("db/migration/V10__fertilization_cancellation_audit.sql")
+        .addScript("db/migration/V19__nutrient_profiles_and_reviews.sql")
+        .addScript("db/migration/V21__fertilizer_products_and_recurring_plans.sql").build();
     }
     @Bean JdbcTemplate jdbcTemplate(DataSource dataSource) { return new JdbcTemplate(dataSource); }
     @Bean JdbcTransactionManager transactionManager(DataSource dataSource) { return new JdbcTransactionManager(dataSource); }
@@ -54,10 +56,10 @@ class FertilizationApiTest {
     return UsernamePasswordAuthenticationToken.authenticated(new AuthDtos.User(id,"Operator","user@example.com"),null,List.of());
   }
   @BeforeEach void seed() {
-    for (String table : List.of("fertilization_followup","fertilization_application","fertilization_plan","soil_analysis","farm_task","field_event","farm_membership","app_user","block","field","farm")) jdbc.update("DELETE FROM "+table);
+    for (String table : List.of("nutrient_analysis_review","nutrient_reference_range","nutrient_reference_profile","fertilization_plan_task","fertilization_followup","fertilization_application","fertilization_plan","fertilizer_product","soil_analysis","farm_task","field_event","farm_membership","app_user","block","field","farm")) jdbc.update("DELETE FROM "+table);
     jdbc.update("INSERT INTO farm VALUES (10,'North'),(20,'South')");
     jdbc.update("INSERT INTO field VALUES (11,10),(21,20)");
-    jdbc.update("INSERT INTO block VALUES (12,11,28),(15,11,18),(22,21,10)");
+    jdbc.update("INSERT INTO block VALUES (12,11,28,'banana','Valery'),(15,11,18,'banana','Valery'),(22,21,10,'banana','Valery')");
     jdbc.update("INSERT INTO app_user(id,name,email,password_hash) VALUES (1,'Worker','worker@test.local','hash'),(2,'Manager','manager@test.local','hash'),(3,'Other','other@test.local','hash')");
     jdbc.update("INSERT INTO farm_membership VALUES (10,1,'WORKER'),(10,2,'ADMIN'),(10,3,'WORKER')");
   }
@@ -95,6 +97,18 @@ class FertilizationApiTest {
     postAs("plans",plan(sampleId),1).andExpect(status().isForbidden());
     var wrong=plan(sampleId); wrong.put("blockId",15); postAs("plans",wrong,2).andExpect(status().isBadRequest());
     mvc.perform(get("/api/v1/fertilization?farmId=20").with(authentication(login(2)))).andExpect(status().isForbidden());
+  }
+  @Test void agronomistCanCreateProfileAndReviewAnalysis() throws Exception {
+    var profile = Map.of("farmId",10,"name","Banano suelo","crop","banana","variety","Valery","sampleType","SOIL","version","2026.1","source","Laboratorio local",
+      "ranges",List.of(Map.of("nutrient","K","unit","CMOL_KG","lowerBound",0.3,"upperBound",0.6),Map.of("nutrient","PH","unit","PH","lowerBound",5.5,"upperBound",6.5)));
+    mvc.perform(post("/api/v1/fertilization/profiles").with(authentication(login(2))).with(csrf()).contentType("application/json").content(json.writeValueAsString(profile)))
+      .andExpect(status().isCreated()).andExpect(jsonPath("$.ranges.length()").value(2));
+    long sampleId=created("analyses",analysis(),1).get("id").asLong();
+    mvc.perform(get("/api/v1/fertilization?farmId=10").with(authentication(login(1))))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.analyses[0].interpretations[0].status").value("ADEQUATE"));
+    postAs("analyses/"+sampleId+"/review",Map.of("decision","CONFIRMED","notes","Revisado con el informe de laboratorio"),2)
+      .andExpect(status().isOk()).andExpect(jsonPath("$.decision").value("CONFIRMED"));
+    postAs("analyses/"+sampleId+"/review",Map.of("decision","CONFIRMED","notes","No autorizado"),1).andExpect(status().isForbidden());
   }
   @Test void approvalIsVersionedAndTaskGenerationIsIdempotent() throws Exception {
     long sampleId=created("analyses",analysis(),1).get("id").asLong();
@@ -149,5 +163,37 @@ class FertilizationApiTest {
     long id=approved(false);
     postAs("plans/"+id+"/cancel",Map.of("version",1,"reason","Revisión del plan"),2).andExpect(status().isOk()).andExpect(jsonPath("$.approvedBy").value(2)).andExpect(jsonPath("$.canceledBy").value(2));
     postAs("plans/"+id+"/task",Map.of(),2).andExpect(status().isBadRequest());
+  }
+  @Test void productCatalogAndRecurringPlansGenerateIdempotentOccurrences() throws Exception {
+    var product = Map.of("farmId",10,"code","NPK-20","name","NPK Desarrollo","composition","20-10-20",
+      "defaultDoseUnit","KG_HA","notes","Producto estandarizado para validación técnica");
+    var createdProduct = json.readTree(postAs("products",product,2).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+    assertThat(createdProduct.get("defaultDoseUnit").asText()).isEqualTo("KG_HA");
+    mvc.perform(get("/api/v1/fertilization/products?farmId=10").with(authentication(login(1))))
+      .andExpect(status().isOk()).andExpect(jsonPath("$[0].code").value("NPK-20"));
+
+    long sampleId=created("analyses",analysis(),1).get("id").asLong();
+    var mismatch=plan(sampleId); mismatch.put("productId",createdProduct.get("id").asLong());
+    postAs("plans",mismatch,2).andExpect(status().isBadRequest());
+
+    var recurring=plan(sampleId);
+    recurring.put("productId",createdProduct.get("id").asLong()); recurring.put("product","Texto ignorado por catálogo"); recurring.put("composition","Texto ignorado por catálogo");
+    recurring.put("dose",50); recurring.put("doseUnit","KG_HA"); recurring.put("coverage",2); recurring.put("recurrence","WEEKLY"); recurring.put("recurrenceUntil","2026-01-25");
+    long planId=created("plans",recurring,2).get("id").asLong();
+    postAs("plans/"+planId+"/approve",Map.of("version",0,"reason","Plan recurrente revisado"),2)
+      .andExpect(status().isOk()).andExpect(jsonPath("$.recurrence").value("WEEKLY")).andExpect(jsonPath("$.tasks.length()").value(3)).andExpect(jsonPath("$.totalQuantity").value(300));
+    postAs("plans/"+planId+"/task",Map.of(),2).andExpect(status().isOk()).andExpect(jsonPath("$.tasks.length()").value(3));
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM farm_task",Integer.class)).isEqualTo(3);
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM fertilization_plan_task WHERE plan_id=?",Integer.class,planId)).isEqualTo(3);
+
+    var taskIds=jdbc.queryForList("SELECT task_id FROM fertilization_plan_task WHERE plan_id=? ORDER BY occurrence_on",Long.class,planId);
+    var firstApplication=new HashMap<String,Object>();
+    firstApplication.put("occurredAt","2026-01-11T13:00:00Z"); firstApplication.put("quantity",100); firstApplication.put("coverage",2);
+    firstApplication.put("method","Aplicación manual"); firstApplication.put("lot","L-001"); firstApplication.put("taskId",taskIds.get(0));
+    created("plans/"+planId+"/applications",firstApplication,1);
+    var secondApplication=new HashMap<>(firstApplication); secondApplication.put("taskId",taskIds.get(1)); secondApplication.put("occurredAt","2026-01-18T13:00:00Z"); secondApplication.put("lot","L-002");
+    created("plans/"+planId+"/applications",secondApplication,1);
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM fertilization_application WHERE plan_id=?",Integer.class,planId)).isEqualTo(2);
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM fertilization_application WHERE plan_id=? AND task_id=?",Integer.class,planId,taskIds.get(1))).isEqualTo(1);
   }
 }

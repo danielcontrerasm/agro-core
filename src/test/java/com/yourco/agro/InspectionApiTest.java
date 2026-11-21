@@ -40,7 +40,8 @@ class InspectionApiTest {
         .addScript("auth-schema.sql").addScript("db/migration/V2__users_and_memberships.sql")
         .addScript("db/migration/V6__phytosanitary_inspections.sql")
         .addScript("db/migration/V7__inspection_treatments_and_evidence.sql")
-        .addScript("db/migration/V8__photos.sql").build();
+        .addScript("db/migration/V8__photos.sql")
+        .addScript("db/migration/V22__phytosanitary_catalog_and_inspection_area.sql").build();
     }
     @Bean JdbcTemplate jdbcTemplate(DataSource dataSource) { return new JdbcTemplate(dataSource); }
   }
@@ -69,7 +70,7 @@ class InspectionApiTest {
 
   private Map<String, Object> payload() {
     return new HashMap<>(Map.of("blockId", 12, "problemCode", "SIGATOKA", "inspectedAt", "2026-01-10T12:00:00Z",
-      "inspectedPlants", 20, "affectedPlants", 4, "symptoms", "Manchas foliares", "severityPercent", 15,
+      "inspectedPlants", 20, "affectedPlants", 4, "affectedAreaHa", 2.5, "symptoms", "Manchas foliares", "severityPercent", 15,
       "severityMethod", "Porcentaje visual de tejido afectado", "nextVisit", "2026-01-20"));
   }
 
@@ -84,10 +85,10 @@ class InspectionApiTest {
 
   @Test void roundTripFiltersReviewPermissionsAndStaleVersion() throws Exception {
     long id = create(payload());
-    mvc.perform(get("/api/v1/phytosanitary-problems").with(authentication(login(1))))
+    mvc.perform(get("/api/v1/phytosanitary-problems").param("farmId", "10").with(authentication(login(1))))
       .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(6));
     mvc.perform(get("/api/v1/inspections").param("farmId", "10").param("problemCode", "SIGATOKA").with(authentication(login(1))))
-      .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+      .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].affectedAreaHa").value(2.5));
     mvc.perform(get("/api/v1/inspections").param("problemCode", "MOKO").with(authentication(login(1))))
       .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
     mvc.perform(get("/api/v1/inspections").param("from", "2026-02-01T00:00:00Z").with(authentication(login(1))))
@@ -100,7 +101,7 @@ class InspectionApiTest {
   }
 
   @Test void rejectsInvalidCountsMethodsTargetsAndMissingCsrf() throws Exception {
-    for (var invalid : List.of(Map.of("affectedPlants", 21), Map.of("inspectedPlants", 0), Map.of("severityPercent", 101),
+    for (var invalid : List.of(Map.of("affectedPlants", 21), Map.of("affectedAreaHa", -1), Map.of("inspectedPlants", 0), Map.of("severityPercent", 101),
       Map.of("severityMethod", " "), Map.of("problemCode", "UNKNOWN"), Map.of("rowId", 16), Map.of("nextVisit", "2025-12-01"))) {
       var request = payload(); request.putAll(invalid);
       mvc.perform(post("/api/v1/inspections").with(authentication(login(1))).with(csrf()).contentType("application/json").content(json.writeValueAsString(request))).andExpect(status().isBadRequest());
@@ -109,6 +110,25 @@ class InspectionApiTest {
     mvc.perform(post("/api/v1/inspections").with(authentication(login(1))).with(csrf()).contentType("application/json").content(json.writeValueAsString(request))).andExpect(status().isForbidden());
     mvc.perform(get("/api/v1/inspections").param("farmId", "20").with(authentication(login(1)))).andExpect(status().isForbidden());
     mvc.perform(post("/api/v1/inspections").with(authentication(login(1))).contentType("application/json").content(json.writeValueAsString(payload()))).andExpect(status().isForbidden());
+  }
+
+  @Test void sanitaryCatalogCanBeManagedWithoutDeletingHistory() throws Exception {
+    mvc.perform(post("/api/v1/phytosanitary-problems").with(authentication(login(2))).with(csrf())
+        .contentType("application/json").content("{\"farmId\":10,\"code\":\"trips\",\"name\":\"Trips\",\"category\":\"PEST\"}"))
+      .andExpect(status().isCreated()).andExpect(jsonPath("code").value("TRIPS"));
+    mvc.perform(post("/api/v1/phytosanitary-problems").with(authentication(login(1))).with(csrf())
+        .contentType("application/json").content("{\"farmId\":10,\"code\":\"APHIDS\",\"name\":\"Áfidos\",\"category\":\"PEST\"}"))
+      .andExpect(status().isForbidden());
+    mvc.perform(get("/api/v1/phytosanitary-problems").param("farmId", "10").with(authentication(login(1))))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(7));
+    mvc.perform(patch("/api/v1/phytosanitary-problems/TRIPS").with(authentication(login(2))).with(csrf())
+        .contentType("application/json").content("{\"farmId\":10,\"name\":\"Trips de la hoja\",\"category\":\"PEST\",\"active\":false}"))
+      .andExpect(status().isOk()).andExpect(jsonPath("name").value("Trips de la hoja")).andExpect(jsonPath("active").value(false));
+    mvc.perform(get("/api/v1/phytosanitary-problems").param("farmId", "10").with(authentication(login(1))))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(6));
+    mvc.perform(get("/api/v1/phytosanitary-problems").param("farmId", "10").param("includeInactive", "true").with(authentication(login(1))))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(7)).andExpect(jsonPath("$[6].code").value("TRIPS"))
+      .andExpect(jsonPath("$[6].active").value(false));
   }
 
   @Test void mapSeparatesMissingStaleActiveAndResolvedInspections() throws Exception {

@@ -1,6 +1,7 @@
 package com.yourco.agro.farm.entity;
 
 import jakarta.persistence.*;
+import org.locationtech.jts.geom.Polygon;
 import java.time.Instant;
 
 @Entity
@@ -14,6 +15,9 @@ public class Farm {
 
   private String country;
   private String region;
+
+  @Column(columnDefinition = "geometry(Polygon,4326)")
+  private Polygon geom;
 
   @Column(name="created_at", nullable = false)
   private Instant createdAt = Instant.now();
@@ -29,6 +33,9 @@ public class Farm {
 
   public String getRegion() { return region; }
   public void setRegion(String region) { this.region = region; }
+
+  public Polygon getGeom() { return geom; }
+  public void setGeom(Polygon geom) { this.geom = geom; }
 
   public Instant getCreatedAt() { return createdAt; }
   public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

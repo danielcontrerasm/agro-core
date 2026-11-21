@@ -10,8 +10,10 @@ public final class CropMonitoringRecordDtos {
 
   public static class CreateRequest {
     @NotNull public MonitoringRecordType recordType;
-    @NotNull public Long blockId;
+    public Long fieldId;
+    public Long blockId;
     public Long rowId;
+    public Long cropCycleId;
     @NotNull public Instant recordedAt;
     public String crop;
     public String variety;
@@ -44,9 +46,11 @@ public final class CropMonitoringRecordDtos {
     public String resolutionStatus;
     public Double estimatedYield;
     public Double harvestedQuantity;
+    public Double harvestedAreaHa;
     public String yieldUnit;
     public String qualityGrade;
     public Double rejectedQuantity;
+    public String rejectedReason;
     public String notes;
   }
 }

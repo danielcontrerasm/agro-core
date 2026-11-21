@@ -5,6 +5,8 @@ import type { Photo, PhotoTarget } from './photos';
 import type { CropCatalog, CropVariety } from './catalog';
 import type { CalendarRule, CalendarSuggestion, CalendarRequest } from './calendar';
 import type { PreventiveMeasureTemplate, PreventiveAssignment, PreventiveEvidence, PreventiveAssignmentStatus } from './preventive';
+import type { ProductionRecord } from './production';
+import type { WaterUsageReport } from './analytics';
 
 export class ApiError extends Error {
   constructor(message: string, public status: number) { super(message); }
@@ -51,14 +53,21 @@ export const api = {
   irrigationUpdate: <T,>(path: string, payload: unknown) => request<T>(`/irrigation/${path}`, 'PATCH', payload),
   fertilization: (farmId: number) => request<import('./fertilization').FertilizationData>(`/fertilization?farmId=${farmId}`),
   fertilizerAction: <T,>(path: string, payload?: unknown) => request<T>(`/fertilization/${path}`, 'POST', payload),
+  nutrientProfiles: (farmId: number) => request<import('./fertilization').NutrientReferenceProfile[]>(`/fertilization/profiles?farmId=${farmId}`),
+  fertilizerProducts: (farmId: number) => request<import('./fertilization').FertilizerProduct[]>(`/fertilization/products?farmId=${farmId}`),
   planting: (farmId: number) => request<import('./planting').PlantingData>(`/planting?farmId=${farmId}`),
+  productionRecords: (farmId: number, params = '') => request<ProductionRecord[]>(`/monitoring-records?farmId=${farmId}&recordType=HARVEST${params}`),
+  createProductionRecord: (payload: unknown) => request<ProductionRecord>('/monitoring-records', 'POST', payload),
+  updateProductionRecord: (id: number, payload: unknown) => request<ProductionRecord>(`/monitoring-records/${id}`, 'PATCH', payload),
   plantingAction: <T,>(path: string, payload?: unknown) => request<T>(`/planting/${path}`, 'POST', payload),
   photos: (target: PhotoTarget) => request<Photo[]>(`/photos?${photoQuery(target)}`),
   uploadPhoto: (target: PhotoTarget, blob: Blob, name: string) => {
     const form = new FormData(); form.append('file', blob, name);
     return request<Photo>(`/photos?${photoQuery(target)}`, 'POST', form);
   },
-  sanitaryProblems: () => request<SanitaryProblem[]>('/phytosanitary-problems'),
+  sanitaryProblems: (farmId: number, includeInactive = false) => request<SanitaryProblem[]>(`/phytosanitary-problems?farmId=${farmId}${includeInactive ? '&includeInactive=true' : ''}`),
+  createSanitaryProblem: (payload: unknown) => request<SanitaryProblem>('/phytosanitary-problems', 'POST', payload),
+  updateSanitaryProblem: (code: string, payload: unknown) => request<SanitaryProblem>(`/phytosanitary-problems/${encodeURIComponent(code)}`, 'PATCH', payload),
   inspections: (farmId: number) => request<Inspection[]>(`/inspections?farmId=${farmId}`),
   createInspection: (payload: NewInspection) => request<Inspection>('/inspections', 'POST', payload),
   reviewInspection: (id: number, payload: InspectionReview) => request<Inspection>(`/inspections/${id}`, 'PATCH', payload),
@@ -98,6 +107,7 @@ export const api = {
   disease: (farmId: number) => request<DiseaseLayer>(`/map/rows/disease?farmId=${farmId}`),
   analyticsMap: (farmId: number, layer = 'conditions') => request<AnalyticsLayer>(`/analytics/map?farmId=${farmId}&layer=${layer}`),
   dashboardAnalytics: (farmId: number) => request<DashboardAnalytics>(`/analytics/dashboard?farmId=${farmId}`),
+  waterUsageAnalytics: (farmId: number, from: string, until: string) => request<WaterUsageReport>(`/analytics/water-usage?farmId=${farmId}&from=${encodeURIComponent(from)}&until=${encodeURIComponent(until)}`),
   sensorDevices: (farmId: number) => request('/sensors?farmId=' + farmId),
   alerts: (farmId: number, status = 'OPEN') => request('/alerts?farmId=' + farmId + '&status=' + status),
   media: (eventId: number) => request<{ id: number; kind: string; s3Key: string; contentType?: string }[]>(`/media?eventId=${eventId}`),

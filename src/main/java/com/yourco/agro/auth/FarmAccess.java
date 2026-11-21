@@ -73,8 +73,9 @@ public class FarmAccess {
   public Long monitoringRecordFarm(Long recordId) {
     return targetFarm("""
       SELECT f.farm_id FROM crop_monitoring_record r
-      JOIN block b ON b.id = r.block_id
-      JOIN field f ON f.id = b.field_id WHERE r.id = ?
+      LEFT JOIN block b ON b.id = r.block_id
+      JOIN field f ON f.id = COALESCE(r.field_id, b.field_id)
+      WHERE r.id = ?
       """, recordId);
   }
 

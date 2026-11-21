@@ -34,16 +34,16 @@ class IrrigationApiTest {
     @Bean DataSource dataSource() { return new EmbeddedDatabaseBuilder().generateUniqueName(true).setType(EmbeddedDatabaseType.H2)
       .addScript("fertilization-schema.sql").addScript("db/migration/V2__users_and_memberships.sql")
       .addScript("db/migration/V3__farm_tasks.sql").addScript("irrigation-test-options.sql").addScript("db/migration/V5__telemetry_alerts.sql")
-      .addScript("db/migration/V11__irrigation_workflow.sql").addScript("db/migration/V13__irrigation_water_and_maintenance.sql").addScript("db/migration/V16__irrigation_management_updates.sql").build(); }
+      .addScript("db/migration/V11__irrigation_workflow.sql").addScript("db/migration/V13__irrigation_water_and_maintenance.sql").addScript("db/migration/V17__irrigation_recurring_schedules.sql").addScript("db/migration/V23__irrigation_management_updates.sql").build(); }
     @Bean JdbcTemplate jdbcTemplate(DataSource dataSource) { return new JdbcTemplate(dataSource); }
     @Bean JdbcTransactionManager transactionManager(DataSource dataSource) { return new JdbcTransactionManager(dataSource); }
   }
   @Autowired MockMvc mvc; @Autowired ObjectMapper json; @Autowired JdbcTemplate jdbc;
   private UsernamePasswordAuthenticationToken login(long id) { return UsernamePasswordAuthenticationToken.authenticated(new AuthDtos.User(id,"Operator","operator@test.local"),null,List.of()); }
   @BeforeEach void seed() {
-    for (String table : List.of("irrigation_sensor_check","irrigation_maintenance","irrigation_water_balance","irrigation_water_quality","irrigation_infrastructure","irrigation_water_source","irrigation_execution","irrigation_plan","irrigation_measurement","irrigation_sector_revision","irrigation_sector","sensor_reading","sensor_device","farm_task","field_event","farm_membership","app_user","block","field","farm")) jdbc.update("DELETE FROM "+table);
+    for (String table : List.of("irrigation_sensor_check","irrigation_maintenance","irrigation_water_balance","irrigation_water_quality","irrigation_infrastructure","irrigation_water_source","irrigation_execution","irrigation_plan","irrigation_recurring_schedule_history","irrigation_recurring_schedule","irrigation_measurement","irrigation_sector_revision","irrigation_sector","sensor_reading","sensor_device","farm_task","field_event","farm_membership","app_user","block","field","farm")) jdbc.update("DELETE FROM "+table);
     jdbc.update("INSERT INTO farm VALUES(10,'North'),(20,'South')"); jdbc.update("INSERT INTO field VALUES(11,10),(21,20)");
-    jdbc.update("INSERT INTO block VALUES(12,11,28),(15,11,18),(22,21,10)");
+    jdbc.update("INSERT INTO block(id,field_id,area_ha) VALUES(12,11,28),(15,11,18),(22,21,10)");
     jdbc.update("INSERT INTO app_user(id,name,email,password_hash) VALUES(1,'Worker','worker@test.local','hash'),(2,'Manager','manager@test.local','hash'),(3,'Other','other@test.local','hash')");
     jdbc.update("INSERT INTO farm_membership VALUES(10,1,'WORKER'),(10,2,'ADMIN'),(10,3,'WORKER')");
     jdbc.update("INSERT INTO sensor_device(id,farm_id,block_id,name,device_key) VALUES(31,10,12,'Moisture','sensor-1'),(32,20,22,'Foreign','sensor-2')");
@@ -144,5 +144,21 @@ class IrrigationApiTest {
     assertThat(jdbc.queryForObject("SELECT active FROM irrigation_water_source WHERE id=?",Boolean.class,sourceId)).isFalse();
     assertThat(jdbc.queryForObject("SELECT status FROM irrigation_maintenance WHERE id=?",String.class,maintenanceId)).isEqualTo("COMPLETED");
     assertThat(jdbc.queryForObject("SELECT version FROM irrigation_sensor_check WHERE id=?",Long.class,checkId)).isEqualTo(1L);
+  }
+  @Test void recurringSchedulesGenerateIdempotentPlansAndSupportStateChanges() throws Exception {
+    long sectorId=created("sectors",sector(),2).get("id").asLong(); LocalDate today=LocalDate.now();
+    var request=new HashMap<String,Object>(); request.put("sectorId",sectorId); request.put("startDate",today.toString()); request.put("endDate",today.plusDays(8).toString()); request.put("scheduledTime","08:00"); request.put("recurrenceUnit","DAILY"); request.put("recurrenceInterval",2); request.put("durationMinutes",60); request.put("volumeM3",12); request.put("assigneeId",1); request.put("justification","Turno recurrente revisado"); request.put("instructions","Registrar contador");
+    var schedule=created("recurring-schedules",request,2); long scheduleId=schedule.get("id").asLong();
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM irrigation_plan WHERE recurring_schedule_id=?",Integer.class,scheduleId)).isEqualTo(5);
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM farm_task",Integer.class)).isEqualTo(5);
+    postAs("recurring-schedules/"+scheduleId+"/generate",Map.of(),2).andExpect(status().isOk());
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM irrigation_plan WHERE recurring_schedule_id=?",Integer.class,scheduleId)).isEqualTo(5);
+    mvc.perform(get("/api/v1/irrigation/recurring-schedules/"+scheduleId+"/preview").with(authentication(login(1)))).andExpect(status().isOk()).andExpect(jsonPath("$[0].generated").value(true)).andExpect(jsonPath("$",org.hamcrest.Matchers.hasSize(5)));
+    postAs("recurring-schedules/"+scheduleId+"/pause",Map.of("version",0),2).andExpect(status().isOk());
+    postAs("recurring-schedules/"+scheduleId+"/generate",Map.of(),2).andExpect(status().isBadRequest());
+    postAs("recurring-schedules/"+scheduleId+"/resume",Map.of("version",1),2).andExpect(status().isOk());
+    postAs("recurring-schedules/"+scheduleId+"/cancel",Map.of("version",2,"reason","Cambio de turno"),2).andExpect(status().isOk());
+    postAs("recurring-schedules/"+scheduleId+"/resume",Map.of("version",3),2).andExpect(status().isBadRequest());
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM irrigation_recurring_schedule_history WHERE schedule_id=?",Integer.class,scheduleId)).isGreaterThanOrEqualTo(4);
   }
 }
