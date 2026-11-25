@@ -1,20 +1,53 @@
-# Agro Core (MVP) — Banana rows + plant-range events
+# Agro Core and AgroVision
 
-Fertilización: análisis de laboratorio, interpretación preliminar revisable, perfiles, catálogo de productos,
-planes aprobados únicos o recurrentes, tareas por ocurrencia, aplicaciones parciales con fotos y seguimiento técnico.
-[Proceso y límites](docs/fertilization.md).
+Agro Core is a farm-scoped agricultural operations API, and AgroVision is its
+Spanish-language web interface. Together they cover farm setup, field work,
+crop cycles, irrigation, nutrient management, inspections, production records,
+and agricultural maps.
 
-Water management: irrigation sectors, moisture monitoring, schedules, execution,
-water usage, sources, quality, infrastructure, balances, maintenance, and sensor
-checks. [Implementation details](docs/water-management.md).
+This repository contains an MVP with a local demonstration mode and a
+server-backed mode. Demo data is visibly labeled and isolated from real farm
+records. The system records agricultural workflows and technical reviews; it
+does not claim to automate agronomic diagnosis, prescriptions, or decisions.
 
-Agro Core is a Java 17 / Spring Boot REST backend for organizing farms and
-recording agricultural work and observations by block, row, and plant range.
-It currently provides authentication, farm access control, agricultural event
-records, and geospatial data. The `frontend/` directory contains a Spanish-language
-AgroVision interface inspired by the supplied dashboard and map references. It
-supports the current API and includes a separately labeled local demonstration
-of daily task planning, alongside persistent server-side farm tasks.
+## Project handbook
+
+Open the [Agro Core project handbook](docs/project-handbook/index.html) for a
+searchable, chapter-based view of the project overview, architecture diagrams,
+requirements, implementation details, agronomic and module guides, frontend
+workflows, and operations notes. Every guide has its own page and table of
+contents, and includes the full contents of the maintained Markdown guide.
+After updating those guides, refresh the handbook with
+`python3 scripts/generate_project_handbook.py` from the repository root.
+
+## Module guides
+
+- **Fertilización:** análisis de laboratorio, interpretación preliminar
+  revisable, perfiles, catálogo de productos, planes aprobados únicos o
+  recurrentes, tareas por ocurrencia, aplicaciones parciales con fotos y
+  seguimiento técnico. [Proceso y límites](docs/fertilization.md).
+- **Water management:** irrigation sectors, moisture monitoring, schedules,
+  execution, water usage, sources, quality, infrastructure, balances,
+  maintenance, and sensor checks. [Implementation details](docs/water-management.md).
+
+## Current implementation snapshot
+
+| Area | Available now | Important boundary |
+| --- | --- | --- |
+| Farm access | Registration, session login, farm creation, per-farm `ADMIN`, `SUPERVISOR`, `AGRONOMIST`, and `WORKER` roles. | Password recovery, email verification, and membership removal are not implemented. |
+| Farm structure | Farm → field → block → row, with SRID 4326 polygons and row lines. | Measurements are supplied or estimated values; there are no update endpoints for fields, blocks, or rows. |
+| Work tasks | Persistent task assignment and status flow for field/block work, blockers, notes, review, and approval. | No row targeting, rescheduling, structured execution quantities, task evidence, or offline synchronization. |
+| Planting | Catalogs, crop cycles, site assessments, planting-material lots, approved plans, execution, establishment checks, stage history, and regional calendars. | Calendar/stage automation, complete catalog lifecycle, and cycle audit history remain open gaps. |
+| Irrigation | Moisture records, thresholds, one-time plans, daily/weekly recurring schedules, execution, water records, and sensor checks. | No automatic valves, weather optimization, external telemetry gateway, or complete hydraulic map. |
+| Fertilization | Soil/foliar analysis, configurable profiles, provisional interpretation, agronomist review, product catalogs, approved recurring/one-time plans, applications, and follow-up. | No fertilizer prescription, inventory, cost management, or lab integration. |
+| Inspections and prevention | Managed pest/disease catalog, inspections, review, follow-ups, treatments, manual preventive assignments, and evidence. | Records are not a verified diagnosis; risk-triggered treatment workflows are not implemented. |
+| Harvest | Structured, editable `HARVEST` records linked to field/block/row and crop cycle, with quantities, units, quality, rejection, and variance. | Harvest planning and bunch-level traceability remain open gaps. |
+| Sensors and analytics | Sensor/readings APIs, configurable threshold alerts, dashboard and map summaries, and water-use analytics. | No physical IoT gateway or predictive recommendations. |
+| Photos | Authenticated JPEG/PNG upload, view, and download for events and inspections/treatments. | Photo bytes are stored in PostgreSQL; S3 uploads and presigned URLs are not implemented. |
+
+See [system requirements](docs/system-requirements.md) for the full FR-01–FR-29
+and NFR-01–NFR-16 status matrix, and the module documents below for workflow
+details and evidence.
 
 ## AgroVision frontend
 
@@ -24,14 +57,22 @@ layouts, a sidebar, global view search, farm selection, and these screens:
 - Dashboard with farm metrics, recent activity, interactive map, and charts.
 - Daily work with filtering, farm-member assignment, field/block targeting,
   creation, execution, blocking, review, and approval persisted in PostgreSQL.
-- Farm maps with interactive blocks, zoom, layer controls, comparison, and
-  illustrative health, moisture, and nutrient layers; real mode uses the disease
-  row geometries provided by the API.
+- Farm maps with interactive fields, blocks, and rows, zoom, filters, layer
+  controls, and health, moisture, nutrient, and disease-observation views. Demo
+  layers are illustrative. Real mode draws stored field/block polygons and row
+  lines over OpenStreetMap, with Esri World Imagery satellite and hybrid options.
 - Fields, blocks, and rows with creation forms, parent filters, and confirmed
   deletion according to the current user's permissions.
-- Irrigation, fertilization, pest/disease observations, and harvest event history.
-- Event creation, detail inspection, media-reference registration, filtered CSV
-  export, and deletion for authorized users.
+- Planting cycles, site/material approvals, planting execution, establishment, and
+  regional planting calendars.
+- Irrigation sectors, moisture readings, recurring scheduling, execution, water
+  administration, and usage reports.
+- Soil/foliar analyses, nutrient profiles, approved fertilizer plans, and
+  application follow-up.
+- Pest/disease inspections, preventive assignments, treatments, and event history.
+- Structured crop-cycle harvest records alongside legacy harvest events.
+- Event creation and detail, authenticated photo uploads, legacy media references,
+  filtered CSV export, and authorized deletion.
 - Agronomic center, account details, farm information, and team role assignment.
 - Registration and login with session cookies and automatic CSRF handling.
 
@@ -221,8 +262,9 @@ See the permissions table and onboarding examples below for the complete flow.
 - Point, polygon, and line input DTOs, with automatic closure of polygon rings;
   only the outer polygon ring is supported.
 - Spring Data JPA persistence, Hibernate Spatial, and JTS geometry conversion.
-- Flyway migrations: V1 creates agricultural/spatial tables; V2 adds users and
-  farm memberships.
+- Flyway migrations evolve the schema from core farm/identity tables through
+  planting, task, irrigation, fertilization, inspections, photos, and production
+  workflows (currently through V24, with version gaps).
 - Basic request validation for required fields and authentication inputs.
 - Swagger/OpenAPI documentation and interactive API exploration.
 - Spring Boot Actuator health endpoint at `/actuator/health`.
@@ -240,10 +282,15 @@ that still needs development:
 
 - **Implemented:** available in the current backend.
 - **In progress:** the core workflow exists, but important capabilities remain incomplete.
+- **Partial:** some of the requirement is available, while one or more specified behaviors remain missing.
 - **Missing:** no usable end-to-end implementation exists yet.
 - **Planned:** missing work that is identified for a future delivery.
 
-For the detailed crop-management audit, including evidence, status, and remaining gaps, see [Crop Management Requirements](docs/crop-management-requirements.md). Detailed module documentation is available for [fertilization](docs/fertilization.md) and [water management](docs/water-management.md).
+For cross-product functional and non-functional requirements, status, and open
+gaps, see [System Requirements](docs/system-requirements.md). The detailed
+[crop-management audit](docs/crop-management-requirements.md) tracks its own
+workflow, endpoint inventory, and evidence. Module documentation is available
+for [fertilization](docs/fertilization.md) and [water management](docs/water-management.md).
 
 ### Accounts and farm access
 
@@ -253,7 +300,7 @@ For the detailed crop-management audit, including evidence, status, and remainin
 | FR-02 | A registered user can log in, retrieve their profile and farm roles, and log out. Invalid credentials are rejected; logout invalidates the session. | Implemented |
 | FR-03 | An authenticated user can create a farm and automatically become its administrator. | Implemented |
 | FR-04 | A farm administrator can assign an existing registered user to their farm as ADMIN, SUPERVISOR, AGRONOMIST, or WORKER and change that role. Changes apply to existing sessions; self-demotion is rejected. | Implemented |
-| FR-05 | A user can read only farm resources allowed by their memberships and perform only operations allowed by their farm role. | Implemented |
+| FR-05 | A user can read only farm resources allowed by their memberships and perform only operations allowed by their farm role. | Partial: farm scoping is enforced across the current API, but role-specific administrative permissions are not yet uniform across every module. |
 | FR-06 | A user can recover a forgotten password and verify their email; an administrator can remove a farm membership. | Planned |
 
 ### Agricultural records and location
@@ -272,12 +319,12 @@ For the detailed crop-management audit, including evidence, status, and remainin
 
 | ID | Requirement and expected behavior | Status |
 | --- | --- | --- |
-| FR-14 | A supervisor or administrator can create a task with activity type, field/block and optional row, planned date, instructions, priority, and assigned worker. | Partial: server-backed field/block tasks implemented; row targeting pending |
-| FR-15 | A supervisor can assign work to workers or crews who belong to the same farm as the task. Cross-farm assignments are rejected. | Partial: farm-member assignment implemented; crews pending |
+| FR-14 | An authorized manager can create a task with activity type, field or block, planned date/time, instructions, priority, and assigned worker. | Partial: server-backed tasks support field/block targets; row targeting, editing, and rescheduling are pending. ADMIN, SUPERVISOR, and AGRONOMIST can manage tasks. |
+| FR-15 | A manager can assign work to members of the same farm as the task. Cross-farm assignments are rejected. | Implemented for individual farm members; crews are not supported. |
 | FR-16 | A worker can open “My work today” to see their assigned tasks for the farm's local date and their outstanding overdue tasks, grouped or filtered by field/block. | Partial: server-backed lists, filters and search implemented; device calendar used, farm timezone pending |
 | FR-17 | A worker can start a task, report a blocker with a reason, and submit work for review with actual quantities, units, notes, time, and evidence as applicable. | Partial: persisted transitions and notes implemented; quantities, execution time and evidence pending |
-| FR-18 | A supervisor can approve submitted work or return it with a reason. Approved execution is linked to the agricultural event history without creating duplicate completion records. | Partial: server-side approval/return and notes implemented; mandatory return reason and agricultural event linkage pending |
-| FR-19 | Authorized managers can reschedule or cancel tasks and inspect task history, assignment, status changes, and completion evidence. | Planned |
+| FR-18 | An authorized manager can approve submitted work or return it with a reason. Approved execution is linked to agricultural history without duplicate completion records. | Partial: ADMIN, SUPERVISOR, and AGRONOMIST can complete or return reviewed tasks; a return reason is not mandatory and task completion does not create/link an agricultural event. |
+| FR-19 | Authorized managers can reschedule or cancel tasks and inspect task history, assignment, status changes, and completion evidence. | Partial: managers can inspect current task assignment/status and update task status/notes; rescheduling, cancellation, reassignment, transition history, and completion evidence are unavailable. |
 | FR-20 | An agronomist or authorized manager can configure crop/variety catalogs and production cycles by block, including growth stages and planned/actual planting and harvest dates. | In progress: core farm-scoped catalogs, cycle records, workflow controls, and AGRONOMIST approvals implemented; richer catalog lifecycle, automatic stages, and reconciliation remain |
 | FR-21 | Managers can configure planting windows by region, crop, and variety, and plan preparation, planting, and replanting. Perennial crops support continuous production without an annual-season requirement. | In progress: regional rules, suggestions, perennial support, and cycle-window validation implemented; reusable templates, weather context, and automatic task generation remain |
 | FR-22 | Approved fertilization plans specify products, doses, units, quantities, dates or recurrence, and target areas; workers record actual applications. | Implemented for farm-scoped product catalog, approved plans, recurring occurrence tasks, task-linked applications, and evidence; inventory and cost controls remain pending |
@@ -285,13 +332,16 @@ For the detailed crop-management audit, including evidence, status, and remainin
 | FR-24 | Irrigation plans specify target sectors, dates, and duration or volume; execution records actual watering. Water management records sources, quality, infrastructure, balances, maintenance, and sensor checks. Soil moisture is recorded manually or through sensors with configurable thresholds and alerts. | Implemented for sectors, one-time and recurring plans, idempotent task generation, pause/resume/cancel, execution, water usage, moisture monitoring, alerts, sources, quality, infrastructure, balances, maintenance, sensor checks, and versioned management edits; permissions and complete hydraulic mapping remain pending |
 | FR-25 | Soil sample records include structured laboratory results and can inform approved agronomic plans. | Partial: nutrient levels, configurable farm/crop/variety profiles, provisional statuses, persisted agronomist review, and plan linkage are implemented; laboratory integration, method-aware confidence, and recommendations remain pending |
 | FR-26 | Harvest plans identify target blocks, expected windows and instructions; execution records harvested quantities and quality. | In progress: structured harvest capture by field/block/row and crop cycle is implemented; harvest planning remains pending |
-| FR-27 | The system generates tasks from approved plans, dates, recurrence, and crop stages, and flags observations for review. Repeated generation must not duplicate tasks. | Partial: approved fertilization recurrence is idempotent; calendar/stage-driven generation and observation alerts remain planned |
-| FR-28 | Workers and supervisors receive assignment, overdue-work, and blocker notifications relevant to their responsibilities. | Planned |
+| FR-27 | The system generates tasks from approved plans, dates, recurrence, and crop stages, and flags observations for review. Repeated generation must not duplicate tasks. | Partial: fertilizer and irrigation recurrence generation is idempotent; planting tasks can be generated manually from approved plans. Calendar/stage-driven crop work and observation alerts remain planned. |
+| FR-28 | Workers and supervisors receive assignment, overdue-work, and blocker notifications relevant to their responsibilities. | Planned for task notifications; sensor threshold alerts and acknowledgment are separate implemented features. |
 | FR-29 | A worker can capture work without connectivity and synchronize it later, with a visible synchronization state and conflict handling. | Planned |
 
-The next delivery should implement FR-14 through FR-19 using manually created
-tasks. Automatic planning depends on approved agronomic data; existing event
-types alone do not supply doses, planting calendars, or treatment decisions.
+FR-14 through FR-19 now have a server-backed manual task workflow for field and
+block work. Remaining gaps include row targeting, structured execution data,
+evidence, task history, rescheduling, cancellation, and notifications. Automatic
+crop planning depends on approved agronomic data; generic event types alone do not
+supply doses, planting calendars, or treatment decisions. See the detailed
+[system requirements matrix](docs/system-requirements.md).
 
 ## Non-functional requirements
 
@@ -307,21 +357,21 @@ that needs agreement and measurement, not a current service guarantee.
 | ID | Quality requirement | Current evidence and remaining work | Status |
 | --- | --- | --- | --- |
 | NFR-01 | Protect credentials and authenticated sessions. | BCrypt hashes, HTTP-only cookies, CSRF checks, login session/token rotation, and an eight-hour idle timeout exist. Production requires HTTPS with secure cookies; login abuse protection and account recovery are not implemented. | Partial |
-| NFR-02 | Isolate data and permissions by farm on every operation. | Agricultural and task APIs check membership and farm roles; workers only access their own tasks. Access tests cover cross-farm rejection. | Implemented for current API scope |
+| NFR-02 | Isolate data and permissions by farm on every operation. | Membership and role checks are used across current APIs and cross-farm cases have automated coverage. Some domain-specific management permission policies remain incomplete. | Partial |
 | NFR-03 | Preserve data integrity and atomic writes. | Foreign keys, unique constraints, and transactions protect selected operations, including farm/owner creation and event/observation creation. Broader validation of plant ranges, measurements, severity, and geometry validity still needs definition and tests. | Partial |
 | NFR-04 | Keep common worker operations responsive under expected load. | No load benchmark exists. Proposed target: p95 response time at most 2 seconds for login, daily-task listing, and task submission with 50 concurrent active users on a documented deployment and representative dataset, excluding file transfer. | Proposed target |
 | NFR-05 | Bound resource usage as agricultural history grows. | Spatial indexes and selected relation/time indexes exist. Collection endpoints lack pagination; event/map reads can issue repeated lookups. Add bounded queries and benchmark growing datasets before claiming scalability. | Partial |
 | NFR-06 | Provide predictable service availability. | A health endpoint exists, but uptime is not measured and no highly available deployment is configured. Proposed production target: 99.5% monthly availability, with measurement and maintenance rules agreed before rollout. | Proposed target |
-| NFR-07 | Recover agricultural data after infrastructure failure. | Docker storage persists across container recreation, but it is not a backup. Implement scheduled backups and restore exercises. Proposed initial targets: at most 24 hours of data loss (RPO) and restoration within 4 hours (RTO). | Proposed target |
+| NFR-07 | Recover agricultural data after infrastructure failure. | Docker storage persists across container recreation, but it is not a backup. Scheduled backups and restore exercises are not configured. Proposed initial targets: at most 24 hours of data loss (RPO) and restoration within 4 hours (RTO). | Partial |
 | NFR-08 | Preserve or clearly recover worker sessions during deployment. | Sessions are currently stored in one API process and disappear on restart. Multi-instance deployment needs shared sessions or a deliberate session strategy and user-visible reauthentication behavior. | Partial |
-| NFR-09 | Avoid duplicate or lost work during retries and concurrent updates. | Task transitions are server-validated and use optimistic versions to reject stale updates. Creation idempotency and offline synchronization remain pending. | Partial |
-| NFR-10 | Record accountable operational history. | Events store author and occurrence/creation times. There is no complete audit log for login, membership changes, edits, deletions, or future task transitions. Define audit retention and access controls. | Partial |
+| NFR-09 | Avoid duplicate or lost work during retries and concurrent updates. | Task and domain transitions use optimistic versions; fertilizer and irrigation recurrence generation is idempotent. General request idempotency and offline synchronization remain pending. | Partial |
+| NFR-10 | Record accountable operational history. | Events and workflow records retain authors and timestamps; selected decisions are versioned. There is no unified immutable audit log for login, membership, edits, deletions, and all workflow transitions. | Partial |
 | NFR-11 | Make failures diagnosable and API errors predictable. | Health reporting, basic logging, and authentication/access status codes exist. Add consistent error bodies, correlation IDs, metrics, and alerting while keeping credentials and sensitive payloads out of logs. | Partial |
 | NFR-12 | Support maintainable, testable changes. | Domain packages, Flyway migrations, the Gradle wrapper, OpenAPI documentation, and automated tests exist. Add CI checks and meaningful tests alongside new workflows. | Partial |
 | NFR-13 | Provide understandable, accessible field workflows. | The frontend provides responsive Spanish layouts, labeled controls, keyboard-accessible dialogs, and visible task/block/status information. Browser tests cover desktop and mobile flows; evaluation with workers and a full accessibility audit remain pending. | Partial |
-| NFR-14 | Handle agricultural dates and units consistently. | Existing events use timestamp instants, geometry uses SRID 4326, and several fields name their units. Add a farm timezone, explicit task-local dates, and validated quantity/unit pairs before daily scheduling. | Partial |
-| NFR-15 | Deploy reproducibly with environment-specific configuration. | Database Compose setup, migrations, and configurable session/CORS settings exist. API packaging/deployment, secret management, and production configuration need completion; the existing Hibernate dialect override is documented below. | Partial |
-| NFR-16 | Minimize and protect personal and operational data. | Farm access controls exist, but data retention, account lifecycle, export/deletion policy, and protection of future uploaded files still need definition and implementation. | Partial |
+| NFR-14 | Handle agricultural dates and units consistently. | Events use timestamps and tasks use explicit dates/times; geometry uses SRID 4326 and many measurements name their units. Farm time zones and broader quantity/unit-pair validation remain missing. | Partial |
+| NFR-15 | Deploy reproducibly with environment-specific configuration. | Database Compose setup, Flyway migrations, and configurable session/CORS settings exist. Production packaging/deployment, secret management, and production configuration need completion. | Partial |
+| NFR-16 | Minimize and protect personal and operational data. | Farm authorization and access-controlled PostgreSQL photo storage exist. Data retention, account deletion/export policy, backup access, and formal data lifecycle controls remain undefined. | Partial |
 
 Performance, availability, and recovery targets must be confirmed against the
 expected farm count, worker count, data volume, connectivity, deployment budget,
@@ -330,12 +380,13 @@ by the current automated tests.
 
 ## System diagrams
 
-These diagrams describe the backend and migrations V1–V2. The local frontend is
-an API client. Migration V3 adds `farm_task`, linked to a farm, one field or block,
-an assigned farm member, and its creator; it is not shown in the V1–V2 diagrams.
-Crop cycles and agronomic plans remain roadmap items.
-The diagrams use Mermaid; open this file in a Markdown viewer with Mermaid
-support to render them.
+These diagrams preserve a useful view of the core identity, farm, geometry, and
+event model. They are conceptual and do not show every domain table or relationship.
+The current Flyway schema spans migrations V1 through V24 (with gaps), including
+tasks, planting, irrigation, fertilization, inspections, photos, and production.
+The architecture and component diagrams show the current single API service at
+a high level. The diagrams use Mermaid; open this file in a Markdown viewer with
+Mermaid support to render them.
 
 ### Entity relationship diagram
 
@@ -414,7 +465,7 @@ erDiagram
   }
   observation_detail {
     bigint event_id PK, FK
-    bigint suspected_catalog_id "No catalog table or foreign key"
+    bigint suspected_catalog_id "Legacy reference; not linked to current inspection catalog"
     int severity
     text symptoms
     jsonb ai_diagnosis_json "Storage only; no AI workflow"
@@ -506,8 +557,11 @@ user's membership, or an operation outside their role, returns 403.
 
 ### Architecture diagram
 
-The application is a single Spring Boot service. PostgreSQL stores agricultural
-and identity data; HTTP authentication sessions remain in application memory.
+The application is a single Spring Boot service with domain modules for identity,
+farm structure, tasks, planting, events, inspections/prevention, monitoring,
+irrigation, fertilization, telemetry, analytics, media, and photos. PostgreSQL
+stores agricultural and identity data; HTTP authentication sessions remain in
+application memory.
 
 ```mermaid
 flowchart TB
@@ -515,13 +569,13 @@ flowchart TB
 
   subgraph API["Agro Core — Spring Boot / Java 17"]
     Security["Spring Security: session authentication, CSRF, CORS"]
-    Controllers["REST controllers: authentication, membership, farm, events, map, media"]
-    Services["Services: users, farm access, farm creation, event creation"]
+    Controllers["REST controllers: auth, farms, tasks, events, planting, inspections, irrigation, fertilization, monitoring, analytics, media"]
+    Services["Domain services: access, tasks, crop planning, water, nutrient, inspection, production, analytics"]
     JPA["Spring Data JPA + Hibernate Spatial"]
     JDBC["JdbcTemplate: users, memberships, access checks"]
     Geometry["GeoMapper + JTS: point, polygon, line conversion"]
     Sessions[("In-memory HTTP sessions")]
-    Flyway["Flyway migrations: V1 and V2"]
+    Flyway["Flyway schema migrations: V1–V24 (version gaps)"]
   end
 
   subgraph Docker["Docker Compose database service"]
@@ -551,8 +605,9 @@ separately through Vite or its static production build.
 
 ### Component diagram
 
-This component view uses a Mermaid flowchart to show the main Java components
-and their actual dependencies. Some controllers read/write repositories directly;
+This component view uses a Mermaid flowchart to show the core identity, farm,
+event, geometry, and persistence dependencies. It is not an exhaustive map of
+the current domain packages. Some controllers read/write repositories directly;
 there is not a service layer between every controller and persistence.
 
 ```mermaid
@@ -633,22 +688,39 @@ inserts the creator's administrator membership through JDBC in the same
 transaction as the JPA farm insert. `FarmAccess` resolves resource ownership and
 checks farm roles against the database on each request that uses it.
 
-## Prereqs
-- Java 17
-- Docker (for PostGIS)
+## Prerequisites
 
-## Run DB
+- JDK 17. The Gradle toolchain requires Java 17 specifically; a newer JDK alone
+  does not satisfy it.
+- Docker with Docker Compose for the local PostgreSQL/PostGIS database.
+- Node.js 22.18 or newer and npm to run the frontend.
+
+The Gradle wrapper downloads Gradle 8.14 and dependencies on first use, so the
+first build needs access to the configured artifact repositories.
+
+## Start the database
 ```bash
 docker compose up -d
 ```
 
-## Run API
+## Run the API
 ```bash
-SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.PostgreSQLDialect ./gradlew bootRun
+./gradlew bootRun
 ```
 
-API: http://localhost:8080  
-OpenAPI UI: http://localhost:8080/swagger-ui/index.html
+| Service | URL |
+| --- | --- |
+| API | `http://localhost:8080` |
+| OpenAPI UI | `http://localhost:8080/swagger-ui/index.html` |
+| OpenAPI document | `http://localhost:8080/v3/api-docs` |
+| Health | `http://localhost:8080/actuator/health` |
+
+The Compose database uses the local development database `agro` with user and
+password `agro` on port 5432. Do not use these credentials in production.
+Override Spring settings with environment properties such as
+`SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`,
+`SPRING_DATASOURCE_PASSWORD`, and `SERVER_PORT`. Set
+`SESSION_COOKIE_SECURE=true` when serving over HTTPS.
 
 ## Main endpoints
 
@@ -661,8 +733,13 @@ OpenAPI UI: http://localhost:8080/swagger-ui/index.html
 | Planting calendars | `/api/v1/planting-calendars?farmId={id}` | GET, POST | GET `/api/v1/planting-calendars/suggestions`, PUT/DELETE `/api/v1/planting-calendars/{id}` |
 | Planting workflow | `/api/v1/planting?farmId={id}` | GET, POST | All cycle, assessment, material, plan, execution, establishment, and stage routes are listed in the [complete crop endpoint inventory](docs/crop-management-requirements.md#complete-endpoint-inventory) |
 | Rows | `/api/v1/rows` | POST, GET | GET, DELETE `/api/v1/rows/{id}` |
+| Tasks | `/api/v1/tasks?farmId={id}` | GET, POST | PATCH `/api/v1/tasks/{id}` |
 | Events | `/api/v1/events` | POST, GET | GET, DELETE `/api/v1/events/{id}` |
-| Crop monitoring records | `/api/v1/monitoring-records` | POST, GET | GET, DELETE `/api/v1/monitoring-records/{id}` |
+| Monitoring and harvest records | `/api/v1/monitoring-records` | POST, GET | GET, PATCH, DELETE `/api/v1/monitoring-records/{id}` |
+| Irrigation and water management | `/api/v1/irrigation` | GET, POST, PATCH | Recurring-schedule actions, executions, and water-record routes; see [water management](docs/water-management.md) |
+| Fertilization | `/api/v1/fertilization` | GET, POST | Analysis, product/profile, plan, application, review, and follow-up routes; see [fertilization](docs/fertilization.md) |
+| Inspections and treatments | `/api/v1/inspections`, `/api/v1/phytosanitary-problems` | GET, POST, PATCH | Review, cancellation, treatment, and evidence subresources |
+| Photos | `/api/v1/photos` | GET, multipart POST | GET `/api/v1/photos/{id}/content` |
 | Sensor devices | `/api/v1/sensors` | POST, GET | None |
 | Sensor readings | `/api/v1/sensors/{deviceId}/readings` | POST, GET | None |
 | Alert rules | `/api/v1/alert-rules` | POST | None |
@@ -917,6 +994,8 @@ for that farm. Roles are assigned independently per farm:
 | Create/delete fields, blocks, and rows; delete events | Yes | Yes | No | No |
 | List farm members | Yes | Yes | No | No |
 | Assign/change member roles; delete farm | Yes | No | No | No |
+| Create and review farm tasks | Yes | Yes | Yes | No |
+| Update task status/notes | Yes | Yes | Yes | Yes, assigned tasks only |
 | Manage crop catalogs, regional calendars, and planting approvals | Yes | Yes | Yes | No |
 | Manage preventive-measure templates | Yes | Yes | Yes | No |
 | Assign, execute, and document preventive measures | Yes | Yes | Yes | Yes |
@@ -1002,11 +1081,12 @@ SELECT 1, id, 'ADMIN' FROM app_user WHERE email = 'owner@example.com';
 
 ## Persistent work tasks
 
-Migration V3 adds tasks stored in PostgreSQL. Administrators and supervisors create
-tasks assigned to a member of the same farm, targeting exactly one field or block.
-Workers list and update only their assignments; managers list all tasks in their
-farms. The UI includes today's tasks and outstanding overdue work using the device
-calendar. Tasks are separate from agricultural events and from browser demo data.
+Migration V3 introduced tasks stored in PostgreSQL. Administrators, supervisors,
+and agronomists can create tasks assigned to a member of the same farm, targeting
+exactly one field or block. Workers list and update their assignments; agronomic
+managers list and review tasks in their farms. The UI includes selected-day and
+outstanding overdue work using the device calendar. Tasks are separate from
+agricultural events and from browser demo data.
 
 | Endpoint | Behavior |
 | --- | --- |
@@ -1017,41 +1097,53 @@ calendar. Tasks are separate from agricultural events and from browser demo data
 Activities: `fertilization`, `irrigation`, `scouting`, `planting`, `harvest`.
 Priorities: `Alta`, `Media`, `Baja`. States: `pending` → `progress` → `review` →
 `completed`. Pending/in-progress tasks can become `blocked` with a reason and resume
-as `progress`. Only managers approve or return reviewed tasks to `progress`.
-Completing a task does not create an agricultural event. No task edit, reassignment,
-reschedule, delete, cancel, evidence upload or transition-history endpoint exists yet.
+as `progress`. ADMIN, SUPERVISOR, and AGRONOMIST can approve or return reviewed tasks
+to `progress`; a return reason is not currently required. Completing a task does not
+create an agricultural event. The PATCH endpoint changes task status and notes with
+an optimistic `version`; it does not edit assignment/details, reschedule, cancel,
+delete, attach evidence, or expose transition history.
 
-## Planned features — not yet implemented
+## Remaining requirements and planned work
 
-The basic workflow **Login → My work today → Instructions by field/block → Notes
-and execution → Supervisor review** is implemented. Extensions remain:
+The core manual workflow **Login → My work today → Instructions by field/block →
+Notes and execution → Manager review** is implemented. The table summarizes known
+gaps; the complete requirement IDs and non-functional requirements remain in the
+[system requirements matrix](docs/system-requirements.md).
 
-| Module | Planned functionality |
-| --- | --- |
-| Work tasks | Row targeting, editing, rescheduling, reassignment and creation idempotency |
-| Assignments and crews | Assign crews to work areas and tasks |
-| My work today | Farm timezone, grouping and dedicated field/block filters |
-| Task lifecycle | Cancellation and transition history |
-| Execution and review | Record actual quantities, time, notes, and evidence; link execution to agricultural events; supervisor validation |
-| Crop catalog and production cycles | Manage crops, varieties, planting dates, growth stages, and expected harvest windows by block | In progress: core catalog, planting-cycle workflow, and AGRONOMIST approvals implemented; richer attributes, lifecycle automation, and reconciliation remain |
-| Planting seasons / época de siembra | Configure planting windows by region, crop, and variety; plan preparation, planting, and replanting work | In progress: regional rules, suggestions, perennial support, and cycle-window validation implemented; templates and automatic work generation remain |
-| Perennial crops | Support established blocks and continuous production, including banana, without requiring an annual season | Implemented at the calendar-rule level; continuous cycle planning and automated follow-up remain in progress |
-| Fertilization plans | Schedule approved products, doses, units, quantities, and application dates; record actual applications | Farm-scoped product catalog, standardized units, approved one-time/recurring plans, idempotent occurrence tasks, and task-linked applications implemented; inventory/cost controls remain planned |
-| Pest and disease management | Manage catalogs, monitoring follow-ups, intervention criteria, and approved treatment plans | Structured observations with affected area, managed catalogs, follow-ups, and preventive templates/assignments implemented; risk rules and treatment approval remain planned |
-| Irrigation and water management | Schedule sectors, dates, duration or volume; record actual water usage and soil moisture; manage sources, quality, infrastructure, balances, maintenance, and sensor checks | Implemented for operational records, versioned management edits, recurring schedules, and idempotent task generation; permissions and complete hydraulic mapping remain planned |
-| Soil analysis | Store sample results, identify provisional nutrient deficiencies, and link them to agronomic planning | Nutrient tracking, configurable profiles, provisional interpretation, agronomist confirmation, and plan linkage are implemented; method-aware confidence and recommendations remain planned |
-| Harvest planning | Schedule harvest work; record quantities, quality, and yield | Structured harvest capture by field/block/row and cycle implemented; harvest planning remains planned |
-| Automatic task generation | Generate tasks from approved plans, dates, recurrence, growth stages, and observations requiring review | Missing for calendar- and stage-driven crop work; planned after the manual planting workflow is stable |
-| Notifications | Notify workers and supervisors about assignments, overdue tasks, and issues | Partial: sensor threshold alerts and acknowledgement implemented; delivery channels pending |
-| Field connectivity | Offline work capture and later synchronization |
-| Worker interface integration | Evidence upload and offline synchronization |
-| Account lifecycle | Password recovery, email verification, and membership removal |
+| Area | Remaining work | Current status |
+| --- | --- | --- |
+| Work tasks | Row targeting; edit task details; reschedule, reassign, cancel; transition history; creation idempotency. | Partial |
+| Assignments and crews | Assign crews to work areas and tasks. | Missing |
+| Daily work | Farm time zone and richer task history. | Partial; device calendar is used. |
+| Execution and review | Capture structured quantities/time/evidence and link approval to agricultural history. | Partial; task notes and state transitions exist. |
+| Crop catalog and production cycles | Complete crop/variety lifecycle, automatic stage changes, reconciliation, and audit trail. | In progress; see [crop-management audit](docs/crop-management-requirements.md). |
+| Regional planting | Reusable templates, weather context, and automatic preparation/replanting work. | In progress. |
+| Perennial crops | Continuous cycle planning and automated follow-up. | Partial; perennial planting-calendar rules are available. |
+| Fertilization | Inventory, cost controls, lab integration, method-aware confidence, and recommendations. | Workflow implemented; these controls are missing. |
+| Pest and disease management | Risk criteria, formal treatment approval, lab confirmation, and automatic interventions. | Partial; structured inspections, follow-ups, and manual preventive work exist. |
+| Irrigation and water | Complete hydraulic map, weather/meter integrations, broader administrative permissions, and offline work. | Operational records and recurring generation implemented; these integrations/controls remain incomplete. |
+| Soil analysis | Laboratory integration and validated, method-aware interpretation. | Partial; profiles and provisional review are available. |
+| Harvest | Harvest planning, bunch tracking, and full crop-cycle closeout. | Partial; structured cycle-linked harvest capture is implemented. |
+| Automatic task generation | Generate crop work from regional calendars, stages, and review flags. | Missing; fertilizer and irrigation recurrence generation is implemented. |
+| Notifications | Deliver assignment, overdue, and blocker notifications to workers/managers. | Task notifications are planned; sensor threshold alerts and acknowledgment are available separately. |
+| Field connectivity | Offline capture and later synchronization with conflict handling. | Planned. |
+| Account lifecycle | Password recovery, email verification, and membership removal. | Planned. |
 
-Extend the manual task workflow before automatic agronomic scheduling.
-Doses and treatments must come from approved
-agronomic plans; the existing records do not calculate recommendations.
+Doses and treatments must come from reviewed agronomic plans. Existing records
+do not calculate agronomic recommendations.
 
 ## Tests
+
+Run the backend suite, frontend checks, and automated farm walkthrough with one
+command from the repository root. The browser tests open in Google Chrome, and
+the runner creates a disposable local QA database and farm.
+
+```bash
+python3 scripts/run_qa_tests.py
+```
+
+See the [automated QA walkthrough](frontend/tests/manual-agricultural-workflow.md#pruebas-automatizadas-en-chrome)
+for prerequisites, playback speed, and report locations.
 
 Authentication, CSRF, session rotation, and access checks can run without PostGIS:
 
@@ -1066,11 +1158,7 @@ against the configured PostGIS database:
 ./gradlew test
 ```
 
-The existing Hibernate dialect setting references a class absent from Hibernate 6.
-Until that configuration is updated, supply the compatible dialect when running
-the application or full database tests:
-
-```bash
-SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.PostgreSQLDialect ./gradlew bootRun
-SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.PostgreSQLDialect ./gradlew test
-```
+Run the Gradle commands with JDK 17 selected. The build uses a Java 17 toolchain;
+setting `JAVA_HOME` or the IDE Gradle JVM to a newer JDK does not provide that
+toolchain. The frontend checks are documented in the
+[frontend README](frontend/README.md).

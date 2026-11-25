@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#183b31">
+  <meta name="description" content="The Guasita test-map fixture, its geographic reference, and how its example geometry is created.">
+  <title>Plano de prueba de Guasita · Agro Core Handbook</title>
+  <link rel="stylesheet" href="handbook.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to handbook content</a>
+  <div class="site-grid">
+    <aside class="sidebar" aria-label="Handbook navigation">
+      <a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">A</span><span><span class="brand-name">AGRO CORE</span><span class="brand-subtitle">Project handbook</span></span></a>
+      <div class="search-wrap">
+        <label for="handbook-search">Search all guides</label>
+        <input id="handbook-search" type="search" placeholder="Try “irrigation” or “FR-20”" autocomplete="off" aria-controls="search-results">
+        <div class="search-results" id="search-results" role="status" aria-live="polite" hidden></div>
+      </div>
+      <nav aria-label="Guides"><a class="nav-home" href="index.html"><span class="nav-home-icon" aria-hidden="true">⌂</span><span>Handbook home</span></a><div class="nav-group"><p>Project overview</p><a class="nav-link" href="project-overview.html">Repository overview and implementation</a></div><div class="nav-group"><p>Requirements and design</p><a class="nav-link" href="system-requirements.html">System requirements</a><a class="nav-link" href="crop-management.html">Crop-management requirements</a><a class="nav-link" href="agronomic-guides.html">Applied agronomic guides</a></div><div class="nav-group"><p>Module guides</p><a class="nav-link" href="fertilization.html">Fertilization</a><a class="nav-link" href="water-management.html">Water management</a></div><div class="nav-group"><p>User interface and operations</p><a class="nav-link" href="frontend.html">AgroVision frontend</a><a class="nav-link" href="manual-workflow.html">QA tests and farm walkthrough</a><a class="nav-link active" href="map-fixture.html" aria-current="page">Guasita map fixture</a><a class="nav-link" href="aerial-image.html">Demonstration aerial image</a></div></nav>
+      <p class="sidebar-note">Search project guides, jump to a section, or use the contents panel on each guide page.</p>
+    </aside>
+    <main class="main-area" id="main-content">
+      <div class="topline"><a href="index.html">AGRO CORE <span aria-hidden="true">/</span> HANDBOOK</a><span class="topline-date">Updated from project docs · 25 November 2026</span></div>
+      <div class="breadcrumb"><a href="index.html">Handbook home</a><span class="breadcrumb-separator">/</span><span>User interface and operations</span><span class="breadcrumb-separator">/</span><span>Guasita map fixture</span></div>
+<header class="guide-heading">
+  <div class="guide-heading-copy"><p class="guide-number">Project guide · User interface and operations</p><h1 id="doc-scripts-readme-md--plano-de-prueba-de-guasita">Plano de prueba de Guasita</h1><p class="guide-deck">The Guasita test-map fixture, its geographic reference, and how its example geometry is created.</p><p class="source-note">Source · scripts/README.md</p></div>
+  <div class="guide-actions"><button class="button" type="button" data-print>Print / PDF</button></div>
+</header>
+<div class="reader-layout">
+  <aside class="guide-toc" aria-label="Table of contents for Plano de prueba de Guasita"><div class="toc-panel"><p class="toc-kicker">Navigate this guide</p><h2>Contents <span>(1)</span></h2><nav class="toc-nav"><a class="toc-link level-1" href="#doc-scripts-readme-md--plano-de-prueba-de-guasita"><span class="toc-index">01</span><span>Overview</span></a></nav><p class="toc-note">Choose a section to jump to its implementation notes, tables, or requirement details.</p></div></aside>
+  <article class="doc-body" aria-label="Plano de prueba de Guasita guide content"><p><code>guasita-test-map.sql</code> crea siete campos en la finca existente Guasita: cuatro de 10 ha y tres de 14, 13 y 13 ha, para un total nominal de 80 ha. Todos se identifican con <code>[PRUEBA]</code>. No se crean cultivos, bloques, surcos ni observaciones.</p>
+<p>El centro aproximado es longitud -74.82109, latitud 10.02539, como referencia de <a href="https://mapcarta.com/es/19680432" target="_blank" rel="noopener noreferrer">Tasajera, El Guamo, Bolívar</a>. La posición de Guasita, su perímetro y sus divisiones son ficticios; requieren coordenadas reales para representar la finca. El plano no es un levantamiento topográfico.</p>
+<p>Los rectángulos se construyen en UTM 18N y se guardan en WGS84/SRID 4326. La escala se ajusta con el área geodésica del conjunto para aproximar 80 ha.</p>
+<p>Desde la raíz del proyecto, con PostgreSQL iniciado:</p>
+<pre><code class="language-sh">docker compose exec -T db psql -U agro -d agro &lt; scripts/guasita-test-map.sql</code></pre>
+<p>El script solo trabaja si hay exactamente una finca llamada Guasita y no tiene campos. Si ya existen los siete campos de prueba, no los duplica. Si hay otros campos, se detiene. No elimina ni reemplaza datos existentes.</p>
+<p>Después, recargar el frontend y abrir <strong>Mapas</strong>. El plano dibuja las geometrías de campos y bloques almacenadas en el API, aunque no tengan observaciones. Los campos se pueden seleccionar para ver su área. El script solo crea geometrías ficticias: no incluye imágenes aéreas ni cartografía propia. La vista real muestra OpenStreetMap como mapa base y ofrece capas satelital e híbrida de Esri; esas teselas son independientes de los datos de prueba. Las geometrías pueden sustituirse más adelante mediante un flujo de edición; el API actual solo permite crear, consultar y eliminar campos.</p></article>
+</div>
+<nav class="page-navigation" aria-label="Guide pagination"><a class="page-nav-card" href="manual-workflow.html"><span class="page-nav-label">← Previous guide</span><span class="page-nav-title">Recorrido visible de la finca</span></a><a class="page-nav-card next" href="aerial-image.html"><span class="page-nav-label">Next guide →</span><span class="page-nav-title">Imagen aérea de demostración</span></a></nav>
+      <footer class="site-footer">Generated from maintained Markdown guides. Refresh with <code>python3 scripts/generate_project_handbook.py</code> from the repository root. <a href="index.html">Handbook home</a></footer>
+    </main>
+  </div>
+  <script src="search-index.js" defer></script>
+<script src="handbook.js" defer></script>
+
+</body>
+</html>

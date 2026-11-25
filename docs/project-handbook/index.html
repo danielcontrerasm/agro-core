@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#183b31">
+  <meta name="description" content="A chapter-based, searchable reference to Agro Core and AgroVision architecture, requirements, implementation, agronomic guidance, module workflows, and operations.">
+  <title>Agro Core · Project Handbook</title>
+  <link rel="stylesheet" href="handbook.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to handbook content</a>
+  <div class="site-grid">
+    <aside class="sidebar" aria-label="Handbook navigation">
+      <a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">A</span><span><span class="brand-name">AGRO CORE</span><span class="brand-subtitle">Project handbook</span></span></a>
+      <div class="search-wrap">
+        <label for="handbook-search">Search all guides</label>
+        <input id="handbook-search" type="search" placeholder="Try “irrigation” or “FR-20”" autocomplete="off" aria-controls="search-results">
+        <div class="search-results" id="search-results" role="status" aria-live="polite" hidden></div>
+      </div>
+      <nav aria-label="Guides"><a class="nav-home active" href="index.html" aria-current="page"><span class="nav-home-icon" aria-hidden="true">⌂</span><span>Handbook home</span></a><div class="nav-group"><p>Project overview</p><a class="nav-link" href="project-overview.html">Repository overview and implementation</a></div><div class="nav-group"><p>Requirements and design</p><a class="nav-link" href="system-requirements.html">System requirements</a><a class="nav-link" href="crop-management.html">Crop-management requirements</a><a class="nav-link" href="agronomic-guides.html">Applied agronomic guides</a></div><div class="nav-group"><p>Module guides</p><a class="nav-link" href="fertilization.html">Fertilization</a><a class="nav-link" href="water-management.html">Water management</a></div><div class="nav-group"><p>User interface and operations</p><a class="nav-link" href="frontend.html">AgroVision frontend</a><a class="nav-link" href="manual-workflow.html">QA tests and farm walkthrough</a><a class="nav-link" href="map-fixture.html">Guasita map fixture</a><a class="nav-link" href="aerial-image.html">Demonstration aerial image</a></div></nav>
+      <p class="sidebar-note">Search project guides, jump to a section, or use the contents panel on each guide page.</p>
+    </aside>
+    <main class="main-area" id="main-content">
+      <div class="topline"><a href="index.html">AGRO CORE <span aria-hidden="true">/</span> HANDBOOK</a><span class="topline-date">Updated from project docs · 25 November 2026</span></div>
+      <section class="hero" aria-labelledby="home-title">
+  <div class="hero-content">
+    <p class="eyebrow">Product · design · implementation · field operations</p>
+    <h1 id="home-title">A clear view of the whole system.</h1>
+    <p class="hero-lede">A curated guide to Agro Core and AgroVision. Browse the implementation, architecture, requirements, agronomic references, and workflows as individual chapters, each with its own table of contents.</p>
+    <div class="hero-meta"><span class="pill">10 project guides</span><span class="pill">4 system diagrams</span><span class="pill">Requirements FR-01–FR-29 · NFR-01–NFR-16</span></div>
+    <div class="hero-actions"><a class="button" href="project-overview.html">Start with the project overview</a><a class="button secondary" href="system-requirements.html">Browse requirements</a></div>
+  </div>
+</section>
+
+<section class="section-block" aria-labelledby="architecture-title">
+  <div class="section-heading"><div><p class="eyebrow">System at a glance</p><h2 id="architecture-title">Architecture and implementation flow</h2></div><p>The browser experience calls farm-scoped APIs, which run agricultural workflows and store operational and spatial records.</p></div>
+  <div class="architecture-flow" role="img" aria-label="Architecture flow from the AgroVision browser client through the Agro Core REST API and agricultural modules to PostgreSQL and PostGIS"><div class="architecture-node"><p class="step">01 · Web client</p><h3>AgroVision</h3><strong>React · TypeScript · Vite</strong><span>Demonstration mode or authenticated farm workspace</span></div><span class="architecture-arrow" aria-hidden="true">→</span><div class="architecture-node"><p class="step">02 · Application API</p><h3>Agro Core</h3><strong>Spring Boot · Java 17 · REST</strong><span>Sessions · CSRF · farm-scoped permissions</span></div><span class="architecture-arrow" aria-hidden="true">→</span><div class="architecture-node"><p class="step">03 · Domain workflows</p><h3>Agricultural modules</h3><strong>Farms · tasks · planting · irrigation</strong><span>Fertilization · inspections · harvest · analytics</span></div><span class="architecture-arrow" aria-hidden="true">→</span><div class="architecture-node"><p class="step">04 · Persistence</p><h3>PostgreSQL + PostGIS</h3><strong>JPA / JDBC · Flyway migrations</strong><span>Operational records · spatial data · photos</span></div></div>
+  <div class="architecture-note"><span>Map tiles · OpenStreetMap and Esri imagery</span><span>Spatial storage · PostGIS</span><span>Schema changes · Flyway</span><span>Photos · PostgreSQL-backed storage</span></div>
+  <p class="architecture-caption">Demo mode is visibly labeled and isolated in browser storage. Real mode uses session-based authentication and farm records. See the overview guide for implementation detail and the original relationship, sequence, architecture, and component diagrams.</p>
+</section>
+
+<section class="section-block" aria-labelledby="guides-title">
+  <div class="section-heading"><div><p class="eyebrow">Explore the chapters</p><h2 id="guides-title">Project documentation</h2></div><p>Every maintained Markdown guide is included in full. Pick a chapter below, or use the sidebar search to jump directly to a matching section.</p></div>
+  <section class="guide-group" aria-labelledby="group-1"><div class="group-heading"><h3 id="group-1">Project overview</h3><span>1 guide</span></div><div class="guide-grid"><a class="guide-card" href="project-overview.html"><span class="card-kicker"><span>Guide 01</span><span class="card-mark" aria-hidden="true">↗</span></span><h4>Agro Core and AgroVision</h4><p>Product scope, current implementation, feature behavior, API routes, architecture diagrams, setup, and remaining work.</p><span class="card-footer"><span>49 sections · 8,955 words</span><span>Open guide</span></span></a></div></section><section class="guide-group" aria-labelledby="group-4"><div class="group-heading"><h3 id="group-4">Requirements and design</h3><span>3 guides</span></div><div class="guide-grid"><a class="guide-card" href="system-requirements.html"><span class="card-kicker"><span>Guide 02</span><span class="card-mark" aria-hidden="true">↗</span></span><h4>Agro Core System Requirements</h4><p>Functional and non-functional requirements, implementation status, security boundaries, and farm authorization model.</p><span class="card-footer"><span>9 sections · 2,051 words</span><span>Open guide</span></span></a><a class="guide-card" href="crop-management.html"><span class="card-kicker"><span>Guide 03</span><span class="card-mark" aria-hidden="true">↗</span></span><h4>Crop Management Requirements Audit</h4><p>Crop catalog, planting, crop-cycle coverage, endpoint inventory, and remaining requirements.</p><span class="card-footer"><span>11 sections · 1,452 words</span><span>Open guide</span></span></a><a class="guide-card" href="agronomic-guides.html"><span class="card-kicker"><span>Guide 04</span><span class="card-mark" aria-hidden="true">↗</span></span><h4>Guías agronómicas aplicadas en Agro Core</h4><p>Agronomic source material and how its guidance maps to implemented workflows and future decisions.</p><span class="card-footer"><span>24 sections · 4,160 words</span><span>Open guide</span></span></a></div></section><section class="guide-group" aria-labelledby="group-6"><div class="group-heading"><h3 id="group-6">Module guides</h3><span>2 guides</span></div><div class="guide-grid"><a class="guide-card" href="fertilization.html"><span class="card-kicker"><span>Guide 05</span><span class="card-mark" aria-hidden="true">↗</span></span><h4>Fertilización: diagnóstico → aprobación → aplicación → seguimiento</h4><p>The analysis, review, approval, application, recurrence, and follow-up workflow with its technical limits.</p><span class="card-footer"><span>5 sections · 1,768 words</span><span>Open guide</span></span></a><a class="guide-card" href="water-management.html"><span class="card-kicker"><span>Guide 06</span><span class="card-mark" aria-hidden="true">↗</span></span><h4>Water Management</h4><p>Irrigation planning and execution, moisture, water records, persistence, API, and open gaps.</p><span class="card-footer"><span>12 sections · 1,870 words</span><span>Open guide</span></span></a></div></section><section class="guide-group" aria-labelledby="group-10"><div class="group-heading"><h3 id="group-10">User interface and operations</h3><span>4 guides</span></div><div class="guide-grid"><a class="guide-card" href="frontend.html"><span class="card-kicker"><span>Guide 07</span><span class="card-mark" aria-hidden="true">↗</span></span><h4>AgroVision frontend</h4><p>AgroVision screens, demo and real modes, authentication, setup, build, and frontend organization.</p><span class="card-footer"><span>6 sections · 1,565 words</span><span>Open guide</span></span></a><a class="guide-card" href="manual-workflow.html"><span class="card-kicker"><span>Guide 08</span><span class="card-mark" aria-hidden="true">↗</span></span><h4>Recorrido visible de la finca</h4><p>Run the backend and frontend suites and watch an automated QA farm walkthrough in Chrome.</p><span class="card-footer"><span>8 sections · 1,171 words</span><span>Open guide</span></span></a><a class="guide-card" href="map-fixture.html"><span class="card-kicker"><span>Guide 09</span><span class="card-mark" aria-hidden="true">↗</span></span><h4>Plano de prueba de Guasita</h4><p>The Guasita test-map fixture, its geographic reference, and how its example geometry is created.</p><span class="card-footer"><span>0 sections · 274 words</span><span>Open guide</span></span></a><a class="guide-card" href="aerial-image.html"><span class="card-kicker"><span>Guide 10</span><span class="card-mark" aria-hidden="true">↗</span></span><h4>Imagen aérea de demostración</h4><p>Provenance and intended use of the demonstration aerial image.</p><span class="card-footer"><span>0 sections · 197 words</span><span>Open guide</span></span></a></div></section>
+</section>
+
+<div class="home-bottom">
+  <section class="info-panel"><h3>A useful reading path</h3><ol><li>Start with the overview for product scope and current implementation.</li><li>Read the requirements and crop audit to see coverage and remaining gaps.</li><li>Use the module guides for day-to-day workflows, API details, and limits.</li><li>Finish with the frontend and runbook guides for setup and manual operation.</li></ol></section>
+  <section class="info-panel"><h3>Keep the handbook current</h3><p>The Markdown files remain the maintained source. After changing a guide, regenerate the site from the repository root:</p><p><code>python3 scripts/generate_project_handbook.py</code></p></section>
+</div>
+      <footer class="site-footer">Generated from maintained Markdown guides. Refresh with <code>python3 scripts/generate_project_handbook.py</code> from the repository root. <a href="index.html">Handbook home</a></footer>
+    </main>
+  </div>
+  <script src="search-index.js" defer></script>
+<script src="handbook.js" defer></script>
+
+</body>
+</html>

@@ -40,8 +40,11 @@ agronomic prescription, open valves automatically, or replace technical review.
    interval and start/end dates.
 6. **Generate repeated work.** Active recurring rules materialize each occurrence
    as a normal irrigation plan and farm task. The schedule/date uniqueness key and
-   the daily generator prevent duplicate plans or tasks. Managers can preview the
-   next 30 days and pause, resume, edit, or cancel future generation.
+   the daily generator prevent duplicate plans or tasks. The background job runs
+   daily (default cron: 00:15 in the API server's time zone) and fills the next 30
+   days; managers can also preview or generate occurrences and pause, resume, edit,
+   or cancel future generation. Set `AGRO_IRRIGATION_RECURRING_CRON` through the
+   Spring property `agro.irrigation.recurring.cron` to change the job schedule.
 7. **Generate and execute the task.** The plan can generate one farm task. The
    assigned worker or an authorized manager records execution using a meter or a
    flow estimate. Overlapping executions for the same sector are rejected.
@@ -109,7 +112,8 @@ notes.
 The **Riego** screen is organized into four tabs:
 
 - **Mediciones:** sector configuration, moisture history, and operational alerts.
-- **Programación:** one-time schedules, task generation, cancellation, and preserved
+- **Programación:** one-time and recurring schedules, task/occurrence generation,
+  upcoming-occurrence preview, pause/resume/edit/cancel controls, and preserved
   sector context.
 - **Ejecuciones:** actual duration, volume origin, interruptions, variance, and
   attached evidence; executions can be exported to CSV.

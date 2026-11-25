@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#183b31">
+  <meta name="description" content="Product scope, current implementation, feature behavior, API routes, architecture diagrams, setup, and remaining work.">
+  <title>Agro Core and AgroVision · Agro Core Handbook</title>
+  <link rel="stylesheet" href="handbook.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to handbook content</a>
+  <div class="site-grid">
+    <aside class="sidebar" aria-label="Handbook navigation">
+      <a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">A</span><span><span class="brand-name">AGRO CORE</span><span class="brand-subtitle">Project handbook</span></span></a>
+      <div class="search-wrap">
+        <label for="handbook-search">Search all guides</label>
+        <input id="handbook-search" type="search" placeholder="Try “irrigation” or “FR-20”" autocomplete="off" aria-controls="search-results">
+        <div class="search-results" id="search-results" role="status" aria-live="polite" hidden></div>
+      </div>
+      <nav aria-label="Guides"><a class="nav-home" href="index.html"><span class="nav-home-icon" aria-hidden="true">⌂</span><span>Handbook home</span></a><div class="nav-group"><p>Project overview</p><a class="nav-link active" href="project-overview.html" aria-current="page">Repository overview and implementation</a></div><div class="nav-group"><p>Requirements and design</p><a class="nav-link" href="system-requirements.html">System requirements</a><a class="nav-link" href="crop-management.html">Crop-management requirements</a><a class="nav-link" href="agronomic-guides.html">Applied agronomic guides</a></div><div class="nav-group"><p>Module guides</p><a class="nav-link" href="fertilization.html">Fertilization</a><a class="nav-link" href="water-management.html">Water management</a></div><div class="nav-group"><p>User interface and operations</p><a class="nav-link" href="frontend.html">AgroVision frontend</a><a class="nav-link" href="manual-workflow.html">QA tests and farm walkthrough</a><a class="nav-link" href="map-fixture.html">Guasita map fixture</a><a class="nav-link" href="aerial-image.html">Demonstration aerial image</a></div></nav>
+      <p class="sidebar-note">Search project guides, jump to a section, or use the contents panel on each guide page.</p>
+    </aside>
+    <main class="main-area" id="main-content">
+      <div class="topline"><a href="index.html">AGRO CORE <span aria-hidden="true">/</span> HANDBOOK</a><span class="topline-date">Updated from project docs · 25 November 2026</span></div>
+      <div class="breadcrumb"><a href="index.html">Handbook home</a><span class="breadcrumb-separator">/</span><span>Project overview</span><span class="breadcrumb-separator">/</span><span>Repository overview and implementation</span></div>
+<header class="guide-heading">
+  <div class="guide-heading-copy"><p class="guide-number">Project guide · Project overview</p><h1 id="doc-readme-md--agro-core-and-agrovision">Agro Core and AgroVision</h1><p class="guide-deck">Product scope, current implementation, feature behavior, API routes, architecture diagrams, setup, and remaining work.</p><p class="source-note">Source · README.md</p></div>
+  <div class="guide-actions"><button class="button" type="button" data-print>Print / PDF</button></div>
+</header>
+<div class="reader-layout">
+  <aside class="guide-toc" aria-label="Table of contents for Agro Core and AgroVision"><div class="toc-panel"><p class="toc-kicker">Navigate this guide</p><h2>Contents <span>(50)</span></h2><nav class="toc-nav"><a class="toc-link level-1" href="#doc-readme-md--agro-core-and-agrovision"><span class="toc-index">01</span><span>Overview</span></a><a class="toc-link level-2" href="#doc-readme-md--project-handbook"><span class="toc-index">02</span><span>Project handbook</span></a><a class="toc-link level-2" href="#doc-readme-md--module-guides"><span class="toc-index">03</span><span>Module guides</span></a><a class="toc-link level-2" href="#doc-readme-md--current-implementation-snapshot"><span class="toc-index">04</span><span>Current implementation snapshot</span></a><a class="toc-link level-2" href="#doc-readme-md--agrovision-frontend"><span class="toc-index">05</span><span>AgroVision frontend</span></a><a class="toc-link level-3" href="#doc-readme-md--nutrient-management-coverage"><span class="toc-index">06</span><span>Nutrient management coverage</span></a><a class="toc-link level-3" href="#doc-readme-md--run-the-frontend"><span class="toc-index">07</span><span>Run the frontend</span></a><a class="toc-link level-2" href="#doc-readme-md--implemented-features"><span class="toc-index">08</span><span>Implemented features</span></a><a class="toc-link level-3" href="#doc-readme-md--farm-field-block-and-row-management"><span class="toc-index">09</span><span>Farm, field, block, and row management</span></a><a class="toc-link level-3" href="#doc-readme-md--agricultural-events-and-work-history"><span class="toc-index">10</span><span>Agricultural events and work history</span></a><a class="toc-link level-3" href="#doc-readme-md--scouting-observations"><span class="toc-index">11</span><span>Scouting observations</span></a><a class="toc-link level-3" href="#doc-readme-md--disease-map-layer"><span class="toc-index">12</span><span>Disease map layer</span></a><a class="toc-link level-3" href="#doc-readme-md--media-records"><span class="toc-index">13</span><span>Media records</span></a><a class="toc-link level-3" href="#doc-readme-md--fotos-de-eventos-inspecciones-y-tratamientos"><span class="toc-index">14</span><span>Fotos de eventos, inspecciones y tratamientos</span></a><a class="toc-link level-3" href="#doc-readme-md--authentication-and-authorization"><span class="toc-index">15</span><span>Authentication and authorization</span></a><a class="toc-link level-3" href="#doc-readme-md--geospatial-storage-and-infrastructure"><span class="toc-index">16</span><span>Geospatial storage and infrastructure</span></a><a class="toc-link level-2" href="#doc-readme-md--functional-requirements"><span class="toc-index">17</span><span>Functional requirements</span></a><a class="toc-link level-3" href="#doc-readme-md--accounts-and-farm-access"><span class="toc-index">18</span><span>Accounts and farm access</span></a><a class="toc-link level-3" href="#doc-readme-md--agricultural-records-and-location"><span class="toc-index">19</span><span>Agricultural records and location</span></a><a class="toc-link level-3" href="#doc-readme-md--daily-work-and-agronomic-planning"><span class="toc-index">20</span><span>Daily work and agronomic planning</span></a><a class="toc-link level-2" href="#doc-readme-md--non-functional-requirements"><span class="toc-index">21</span><span>Non-functional requirements</span></a><a class="toc-link level-2" href="#doc-readme-md--system-diagrams"><span class="toc-index">22</span><span>System diagrams</span></a><a class="toc-link level-3" href="#doc-readme-md--entity-relationship-diagram"><span class="toc-index">23</span><span>Entity relationship diagram</span></a><a class="toc-link level-3" href="#doc-readme-md--sequence-diagram-login-and-farm-access"><span class="toc-index">24</span><span>Sequence diagram — login and farm access</span></a><a class="toc-link level-3" href="#doc-readme-md--architecture-diagram"><span class="toc-index">25</span><span>Architecture diagram</span></a><a class="toc-link level-3" href="#doc-readme-md--component-diagram"><span class="toc-index">26</span><span>Component diagram</span></a><a class="toc-link level-2" href="#doc-readme-md--prerequisites"><span class="toc-index">27</span><span>Prerequisites</span></a><a class="toc-link level-2" href="#doc-readme-md--start-the-database"><span class="toc-index">28</span><span>Start the database</span></a><a class="toc-link level-2" href="#doc-readme-md--run-the-api"><span class="toc-index">29</span><span>Run the API</span></a><a class="toc-link level-2" href="#doc-readme-md--main-endpoints"><span class="toc-index">30</span><span>Main endpoints</span></a><a class="toc-link level-2" href="#doc-readme-md--crop-catalog"><span class="toc-index">31</span><span>Crop catalog</span></a><a class="toc-link level-2" href="#doc-readme-md--regional-planting-calendars"><span class="toc-index">32</span><span>Regional planting calendars</span></a><a class="toc-link level-2" href="#doc-readme-md--crop-management-status"><span class="toc-index">33</span><span>Crop management status</span></a><a class="toc-link level-3" href="#doc-readme-md--implemented"><span class="toc-index">34</span><span>Implemented</span></a><a class="toc-link level-3" href="#doc-readme-md--in-progress"><span class="toc-index">35</span><span>In progress</span></a><a class="toc-link level-3" href="#doc-readme-md--missing"><span class="toc-index">36</span><span>Missing</span></a><a class="toc-link level-3" href="#doc-readme-md--planned-next"><span class="toc-index">37</span><span>Planned next</span></a><a class="toc-link level-2" href="#doc-readme-md--geometry-input-format-simple-geojson-like-dto"><span class="toc-index">38</span><span>Geometry input format (simple GeoJSON-like DTO)</span></a><a class="toc-link level-2" href="#doc-readme-md--crop-monitoring-records"><span class="toc-index">39</span><span>Crop monitoring records</span></a><a class="toc-link level-2" href="#doc-readme-md--sensors-alerts-and-analytics"><span class="toc-index">40</span><span>Sensors, alerts, and analytics</span></a><a class="toc-link level-3" href="#doc-readme-md--inspecciones-fitosanitarias"><span class="toc-index">41</span><span>Inspecciones fitosanitarias</span></a><a class="toc-link level-4" href="#doc-readme-md--medidas-preventivas"><span class="toc-index">42</span><span>Medidas preventivas</span></a><a class="toc-link level-4" href="#doc-readme-md--tratamientos-evidencias-y-conservación-del-historial"><span class="toc-index">43</span><span>Tratamientos, evidencias y conservación del historial</span></a><a class="toc-link level-2" href="#doc-readme-md--users-login-and-farm-access"><span class="toc-index">44</span><span>Users, login, and farm access</span></a><a class="toc-link level-3" href="#doc-readme-md--authentication-endpoints"><span class="toc-index">45</span><span>Authentication endpoints</span></a><a class="toc-link level-3" href="#doc-readme-md--example-onboarding"><span class="toc-index">46</span><span>Example onboarding</span></a><a class="toc-link level-3" href="#doc-readme-md--configuration-and-existing-data"><span class="toc-index">47</span><span>Configuration and existing data</span></a><a class="toc-link level-2" href="#doc-readme-md--persistent-work-tasks"><span class="toc-index">48</span><span>Persistent work tasks</span></a><a class="toc-link level-2" href="#doc-readme-md--remaining-requirements-and-planned-work"><span class="toc-index">49</span><span>Remaining requirements and planned work</span></a><a class="toc-link level-2" href="#doc-readme-md--tests"><span class="toc-index">50</span><span>Tests</span></a></nav><p class="toc-note">Choose a section to jump to its implementation notes, tables, or requirement details.</p></div></aside>
+  <article class="doc-body" aria-label="Agro Core and AgroVision guide content"><p>Agro Core is a farm-scoped agricultural operations API, and AgroVision is its Spanish-language web interface. Together they cover farm setup, field work, crop cycles, irrigation, nutrient management, inspections, production records, and agricultural maps.</p>
+<p>This repository contains an MVP with a local demonstration mode and a server-backed mode. Demo data is visibly labeled and isolated from real farm records. The system records agricultural workflows and technical reviews; it does not claim to automate agronomic diagnosis, prescriptions, or decisions.</p>
+<h2 id="doc-readme-md--project-handbook">Project handbook</h2>
+<p>Open the <a href="index.html">Agro Core project handbook</a> for a searchable, chapter-based view of the project overview, architecture diagrams, requirements, implementation details, agronomic and module guides, frontend workflows, and operations notes. Every guide has its own page and table of contents, and includes the full contents of the maintained Markdown guide. After updating those guides, refresh the handbook with <code>python3 scripts/generate_project_handbook.py</code> from the repository root.</p>
+<h2 id="doc-readme-md--module-guides">Module guides</h2>
+<ul><li><p><strong>Fertilización:</strong> análisis de laboratorio, interpretación preliminar revisable, perfiles, catálogo de productos, planes aprobados únicos o recurrentes, tareas por ocurrencia, aplicaciones parciales con fotos y seguimiento técnico. <a href="fertilization.html">Proceso y límites</a>.</p></li><li><p><strong>Water management:</strong> irrigation sectors, moisture monitoring, schedules, execution, water usage, sources, quality, infrastructure, balances, maintenance, and sensor checks. <a href="water-management.html">Implementation details</a>.</p></li></ul>
+<h2 id="doc-readme-md--current-implementation-snapshot">Current implementation snapshot</h2>
+<div class="table-scroll"><table><thead><tr><th scope="col">Area</th><th scope="col">Available now</th><th scope="col">Important boundary</th></tr></thead><tbody><tr><td>Farm access</td><td>Registration, session login, farm creation, per-farm <code>ADMIN</code>, <code>SUPERVISOR</code>, <code>AGRONOMIST</code>, and <code>WORKER</code> roles.</td><td>Password recovery, email verification, and membership removal are not implemented.</td></tr><tr><td>Farm structure</td><td>Farm → field → block → row, with SRID 4326 polygons and row lines.</td><td>Measurements are supplied or estimated values; there are no update endpoints for fields, blocks, or rows.</td></tr><tr><td>Work tasks</td><td>Persistent task assignment and status flow for field/block work, blockers, notes, review, and approval.</td><td>No row targeting, rescheduling, structured execution quantities, task evidence, or offline synchronization.</td></tr><tr><td>Planting</td><td>Catalogs, crop cycles, site assessments, planting-material lots, approved plans, execution, establishment checks, stage history, and regional calendars.</td><td>Calendar/stage automation, complete catalog lifecycle, and cycle audit history remain open gaps.</td></tr><tr><td>Irrigation</td><td>Moisture records, thresholds, one-time plans, daily/weekly recurring schedules, execution, water records, and sensor checks.</td><td>No automatic valves, weather optimization, external telemetry gateway, or complete hydraulic map.</td></tr><tr><td>Fertilization</td><td>Soil/foliar analysis, configurable profiles, provisional interpretation, agronomist review, product catalogs, approved recurring/one-time plans, applications, and follow-up.</td><td>No fertilizer prescription, inventory, cost management, or lab integration.</td></tr><tr><td>Inspections and prevention</td><td>Managed pest/disease catalog, inspections, review, follow-ups, treatments, manual preventive assignments, and evidence.</td><td>Records are not a verified diagnosis; risk-triggered treatment workflows are not implemented.</td></tr><tr><td>Harvest</td><td>Structured, editable <code>HARVEST</code> records linked to field/block/row and crop cycle, with quantities, units, quality, rejection, and variance.</td><td>Harvest planning and bunch-level traceability remain open gaps.</td></tr><tr><td>Sensors and analytics</td><td>Sensor/readings APIs, configurable threshold alerts, dashboard and map summaries, and water-use analytics.</td><td>No physical IoT gateway or predictive recommendations.</td></tr><tr><td>Photos</td><td>Authenticated JPEG/PNG upload, view, and download for events and inspections/treatments.</td><td>Photo bytes are stored in PostgreSQL; S3 uploads and presigned URLs are not implemented.</td></tr></tbody></table></div>
+<p>See <a href="system-requirements.html">system requirements</a> for the full FR-01–FR-29 and NFR-01–NFR-16 status matrix, and the module documents below for workflow details and evidence.</p>
+<h2 id="doc-readme-md--agrovision-frontend">AgroVision frontend</h2>
+<p>The React / TypeScript / Vite frontend includes responsive desktop and mobile layouts, a sidebar, global view search, farm selection, and these screens:</p>
+<ul><li><p>Dashboard with farm metrics, recent activity, interactive map, and charts.</p></li><li><p>Daily work with filtering, farm-member assignment, field/block targeting, creation, execution, blocking, review, and approval persisted in PostgreSQL.</p></li><li><p>Farm maps with interactive fields, blocks, and rows, zoom, filters, layer controls, and health, moisture, nutrient, and disease-observation views. Demo layers are illustrative. Real mode draws stored field/block polygons and row lines over OpenStreetMap, with Esri World Imagery satellite and hybrid options.</p></li><li><p>Fields, blocks, and rows with creation forms, parent filters, and confirmed deletion according to the current user's permissions.</p></li><li><p>Planting cycles, site/material approvals, planting execution, establishment, and regional planting calendars.</p></li><li><p>Irrigation sectors, moisture readings, recurring scheduling, execution, water administration, and usage reports.</p></li><li><p>Soil/foliar analyses, nutrient profiles, approved fertilizer plans, and application follow-up.</p></li><li><p>Pest/disease inspections, preventive assignments, treatments, and event history.</p></li><li><p>Structured crop-cycle harvest records alongside legacy harvest events.</p></li><li><p>Event creation and detail, authenticated photo uploads, legacy media references, filtered CSV export, and authorized deletion.</p></li><li><p>Agronomic center, account details, farm information, and team role assignment.</p></li><li><p>Registration and login with session cookies and automatic CSRF handling.</p></li></ul>
+<h3 id="doc-readme-md--nutrient-management-coverage">Nutrient management coverage</h3>
+<p>The current fertilization workflow covers the three core nutrient-management requirements at MVP level:</p>
+<div class="table-scroll"><table><thead><tr><th scope="col">Capability</th><th scope="col">Current coverage</th><th scope="col">Status</th></tr></thead><tbody><tr><td>Track soil nutrient levels</td><td>Soil and foliar analyses record N, P, K, pH, organic matter, Ca, Mg, S, B, and Zn with units, methods, laboratory, date, block, reference, and report evidence.</td><td>Implemented</td></tr><tr><td>Identify deficiencies</td><td>Compatible banana/plantain soil results receive a provisional <code>Low</code>, <code>Adequate</code>, <code>High</code>, or <code>Unknown</code> interpretation with the matched range and explanation.</td><td>Partial: technical review remains required</td></tr><tr><td>Monitor fertilizer applications</td><td>Approved plans and application records support catalog products, doses, units, quantities, dates, recurrence, occurrence tasks, target coverage, lots, evidence, partial applications, totals, and follow-up.</td><td>Implemented</td></tr></tbody></table></div>
+<p>Interpretations are preliminary and do not generate fertilizer recommendations, doses, or prescriptions. Configurable farm/crop/variety profiles and persisted agronomist review are implemented; method-aware validation, confidence scoring, and inventory/cost controls remain open gaps. See <a href="fertilization.html">fertilization workflow</a> for the operational limits, API endpoints, and frontend screens.</p>
+<h3 id="doc-readme-md--run-the-frontend">Run the frontend</h3>
+<p>Requires Node.js 22.18+ and npm. From the repository root:</p>
+<pre><code class="language-bash">cd frontend
+npm ci
+npm run dev</code></pre>
+<p>Open http://127.0.0.1:5173/#harvest to open the structured Cosecha screen directly. The app starts in a visibly labeled demonstration that works without the Java API. Use <strong>Conectar mi finca</strong> to register or log in to the real backend. API requests are proxied from <code>/api</code> to <code>http://localhost:8080</code>; override the target with <code>AGRO_API_URL</code> when launching Vite if needed.</p>
+<p>Demo changes are stored in this browser under <code>agrovision.*</code> local-storage keys. Real authentication uses HTTP-only server session cookies, not local-storage tokens. The real mode does not substitute demo tasks, sensors, yields, or AI results when the backend lacks those features. The aerial demo map is an AI-generated illustration, not satellite imagery of an actual farm.</p>
+<pre><code class="language-bash">npm test
+npm run build
+npx playwright install chromium
+npm run test:e2e</code></pre>
+<p>The production build is written to <code>frontend/dist</code>. Production hosting needs an <code>/api</code> reverse proxy to the backend and same-site session cookies. The Vite development proxy is not included in the production build. See <a href="frontend.html">frontend/README.md</a> for screens, limitations, and testing.</p>
+<h2 id="doc-readme-md--implemented-features">Implemented features</h2>
+<h3 id="doc-readme-md--farm-field-block-and-row-management">Farm, field, block, and row management</h3>
+<p>The location hierarchy is <strong>Farm → Field → Block → Row</strong>.</p>
+<div class="table-scroll"><table><thead><tr><th scope="col">Resource</th><th scope="col">Operations</th><th scope="col">Stored information</th><th scope="col">List filters</th></tr></thead><tbody><tr><td>Farm</td><td>Create, list, retrieve by ID, delete</td><td>Name, country, region, creation timestamp</td><td>Current user's farm memberships</td></tr><tr><td>Field</td><td>Create, list, retrieve by ID, delete</td><td>Parent farm, name, polygon boundary, supplied area in hectares, creation timestamp</td><td><code>farmId</code></td></tr><tr><td>Block</td><td>Create, list, retrieve by ID, delete</td><td>Parent field, code, crop (defaults to banana), variety, polygon boundary, supplied area in hectares, creation timestamp</td><td><code>fieldId</code></td></tr><tr><td>Row</td><td>Create, list, retrieve by ID, delete</td><td>Parent block, row code, geographic line, supplied length in meters, plant spacing (defaults to 2 meters), estimated plant count, creation timestamp</td><td><code>blockId</code></td></tr></tbody></table></div>
+<p>Lists are restricted to farms the user belongs to. Block codes are unique within a field; row codes are unique within a block. Areas, lengths, and estimated plant counts are supplied by the client rather than calculated automatically. There are no update endpoints for these resources.</p>
+<h3 id="doc-readme-md--agricultural-events-and-work-history">Agricultural events and work history</h3>
+<ul><li><p>Create, search, retrieve by ID, and delete agricultural events.</p></li><li><p>Record occurrence time, notes, optional GPS location, and creation timestamp.</p></li><li><p>Link an event to a block, a row, or both. When both are supplied, the row must belong to that block.</p></li><li><p>Identify an affected plant range using <code>plantIndexStart</code> and <code>plantIndexEnd</code>; individual plants are not separate managed records.</p></li><li><p>Record the authenticated user as the event author.</p></li><li><p>Search using optional <code>farmId</code>, <code>blockId</code>, <code>rowId</code>, <code>eventType</code>, <code>from</code>, and <code>to</code> filters. Date bounds are inclusive and use timestamps such as <code>2026-10-16T00:00:00Z</code>.</p></li></ul>
+<p>Supported event types:</p>
+<div class="table-scroll"><table><thead><tr><th scope="col">Type</th><th scope="col">Purpose</th></tr></thead><tbody><tr><td><code>SCOUTING_OBSERVATION</code></td><td>Record crop inspections and suspected pest/disease observations</td></tr><tr><td><code>TREATMENT_APPLICATION</code></td><td>Record that a treatment was applied</td></tr><tr><td><code>FERTILIZER_APPLICATION</code></td><td>Record that fertilization occurred</td></tr><tr><td><code>IRRIGATION_EVENT</code></td><td>Record that watering/irrigation occurred</td></tr><tr><td><code>HANDLING_EVENT</code></td><td>Record crop handling activities</td></tr><tr><td><code>SOIL_SAMPLE</code></td><td>Record that a soil sample was taken</td></tr><tr><td><code>HARVEST_EVENT</code></td><td>Record that harvesting occurred</td></tr></tbody></table></div>
+<p>These event records are separate from scheduled work tasks and preserve the activity history. Structured crop monitoring data is stored through the monitoring-record API described below. Events default to status <code>OPEN</code>, with no status-transition endpoint.</p>
+<h3 id="doc-readme-md--scouting-observations">Scouting observations</h3>
+<ul><li><p>Attach <code>suspectedCatalogId</code>, <code>severity</code>, and <code>symptoms</code> to a scouting event when an observation payload is provided.</p></li><li><p>Associate the observation with a block, row, or plant range through its event.</p></li><li><p>Store a suspected catalog reference; the dedicated inspection workflow also uses the managed phytosanitary catalog and only active problems can be used for new inspections.</p></li></ul>
+<p>The database includes an <code>ai_diagnosis_json</code> column, but there is no implemented AI diagnosis service or API workflow. Observation details are persisted on event creation; there is no separate observation read/update endpoint.</p>
+<h3 id="doc-readme-md--disease-map-layer">Disease map layer</h3>
+<ul><li><p>Return a GeoJSON <code>FeatureCollection</code> containing row <code>LineString</code> geometries.</p></li><li><p>Include <code>rowId</code>, <code>rowCode</code>, maximum severity, observation count, and latest observation timestamp for each returned row.</p></li><li><p>Filter by optional <code>farmId</code>, <code>from</code>, and <code>to</code>, within the user's farm access.</p></li><li><p>Include rows with associated scouting observation details; this is an observation-based summary, not a confirmed disease diagnosis or prediction.</p></li></ul>
+<p>The backend supplies map data; it does not include a map viewer.</p>
+<h3 id="doc-readme-md--media-records">Media records</h3>
+<ul><li><p>Register media references against an existing event.</p></li><li><p>Store media kind, S3 object key, content type, capture timestamp, optional GPS location, and JSON metadata.</p></li><li><p>List media records by <code>eventId</code>.</p></li></ul>
+<p>The legacy <code>/media</code> module stores references and metadata. Actual JPEG/PNG photos are uploaded, viewed, and downloaded through <code>/photos</code>, described below. S3 client integration and presigned URLs are not implemented. There are no media-reference update or delete endpoints.</p>
+<h3 id="doc-readme-md--fotos-de-eventos-inspecciones-y-tratamientos">Fotos de eventos, inspecciones y tratamientos</h3>
+<p>Desde el detalle de un evento o inspección se pueden elegir fotos, usar la opción de cámara del dispositivo, ver miniaturas, ampliar y descargar las imágenes. En inspecciones se puede seleccionar un tratamiento como destino de la foto. Primero se guarda el registro y después se adjuntan las fotos desde su detalle.</p>
+<p>Las fotos reales se guardan como datos binarios en PostgreSQL mediante la migración V8; no requieren S3 ni un directorio compartido de archivos. Los respaldos de la base deben incluir <code>photo_asset</code>. Las claves S3 anteriores siguen disponibles como referencias externas y no se convierten automáticamente en fotos cargadas.</p>
+<div class="table-scroll"><table><thead><tr><th scope="col">Endpoint</th><th scope="col">Comportamiento</th></tr></thead><tbody><tr><td><code>POST /api/v1/photos</code></td><td>Multipart con <code>file</code> y <code>eventId</code> o <code>inspectionId</code>; <code>treatmentId</code> opcional para inspecciones</td></tr><tr><td><code>GET /api/v1/photos</code></td><td>Lista metadatos según el mismo destino, sin devolver los bytes</td></tr><tr><td><code>GET /api/v1/photos/{id}/content</code></td><td>Imagen autenticada; <code>?download=true</code> fuerza descarga</td></tr></tbody></table></div>
+<p>La carga admite JPEG y PNG de hasta 10 MB y 24 megapíxeles; hasta 10 fotos por selección, enviadas individualmente. El navegador aplica la orientación de la imagen y la prepara para carga. El servidor verifica el contenido real y las dimensiones, decodifica y vuelve a codificar la imagen sin metadatos originales. Se conserva el nombre del archivo saneado, formato, tamaño, autor y fecha de carga. Cada carga, consulta y descarga exige sesión y pertenencia a la finca; las cargas usan CSRF. Las respuestas de imagen tienen <code>no-store</code> y <code>nosniff</code>.</p>
+<p>Una inspección anulada conserva sus fotos consultables, pero no admite más cargas. Al eliminar un evento se eliminan sus fotos por cascada. El modo demo guarda los blobs en IndexedDB, separados de los datos reales, conserva las fotos al recargar y las limpia al restablecer la demostración. Al eliminar eventos demo también se eliminan sus fotos. Las cargas fallidas muestran error y conservan las fotos que ya se guardaron en una selección múltiple.</p>
+<h3 id="doc-readme-md--authentication-and-authorization">Authentication and authorization</h3>
+<ul><li><p>Register users and log in/out using HTTP sessions.</p></li><li><p>Retrieve the current user's profile and farm memberships.</p></li><li><p>Store BCrypt password hashes and normalized email addresses.</p></li><li><p>Protect state-changing requests with CSRF tokens; rotate session IDs and CSRF tokens at login.</p></li><li><p>Assign <code>ADMIN</code>, <code>SUPERVISOR</code>, <code>AGRONOMIST</code>, and <code>WORKER</code> roles independently for each farm.</p></li><li><p>Automatically give farm creators the administrator role on their new farm.</p></li><li><p>Let administrators add registered users to their farm or change their roles.</p></li><li><p>Restrict farm resources, events, media, and map results to farm members.</p></li></ul>
+<p>See the permissions table and onboarding examples below for the complete flow.</p>
+<h3 id="doc-readme-md--geospatial-storage-and-infrastructure">Geospatial storage and infrastructure</h3>
+<ul><li><p>PostgreSQL/PostGIS storage with spatial indexes and SRID 4326 coordinates.</p></li><li><p>Point, polygon, and line input DTOs, with automatic closure of polygon rings; only the outer polygon ring is supported.</p></li><li><p>Spring Data JPA persistence, Hibernate Spatial, and JTS geometry conversion.</p></li><li><p>Flyway migrations evolve the schema from core farm/identity tables through planting, task, irrigation, fertilization, inspections, photos, and production workflows (currently through V24, with version gaps).</p></li><li><p>Basic request validation for required fields and authentication inputs.</p></li><li><p>Swagger/OpenAPI documentation and interactive API exploration.</p></li><li><p>Spring Boot Actuator health endpoint at <code>/actuator/health</code>.</p></li><li><p>Configurable browser CORS origins and session cookie settings.</p></li><li><p>Docker Compose database setup with persistent database storage.</p></li><li><p>Gradle wrapper and automated authentication, permission, membership, and application startup tests.</p></li></ul>
+<h2 id="doc-readme-md--functional-requirements">Functional requirements</h2>
+<p>Functional requirements describe <strong>what users can do and what the system must do in response</strong>. For example, a worker signs in, sees their assigned work, and records its completion. The statuses below distinguish current behavior from work that still needs development:</p>
+<ul><li><p><strong>Implemented:</strong> available in the current backend.</p></li><li><p><strong>In progress:</strong> the core workflow exists, but important capabilities remain incomplete.</p></li><li><p><strong>Partial:</strong> some of the requirement is available, while one or more specified behaviors remain missing.</p></li><li><p><strong>Missing:</strong> no usable end-to-end implementation exists yet.</p></li><li><p><strong>Planned:</strong> missing work that is identified for a future delivery.</p></li></ul>
+<p>For cross-product functional and non-functional requirements, status, and open gaps, see <a href="system-requirements.html">System Requirements</a>. The detailed <a href="crop-management.html">crop-management audit</a> tracks its own workflow, endpoint inventory, and evidence. Module documentation is available for <a href="fertilization.html">fertilization</a> and <a href="water-management.html">water management</a>.</p>
+<h3 id="doc-readme-md--accounts-and-farm-access">Accounts and farm access</h3>
+<div class="table-scroll"><table><thead><tr><th scope="col">ID</th><th scope="col">Requirement and expected behavior</th><th scope="col">Status</th></tr></thead><tbody><tr><td>FR-01</td><td>A user can register with a name, unique normalized email, and valid password. Registration grants no access to existing farms.</td><td>Implemented</td></tr><tr><td>FR-02</td><td>A registered user can log in, retrieve their profile and farm roles, and log out. Invalid credentials are rejected; logout invalidates the session.</td><td>Implemented</td></tr><tr><td>FR-03</td><td>An authenticated user can create a farm and automatically become its administrator.</td><td>Implemented</td></tr><tr><td>FR-04</td><td>A farm administrator can assign an existing registered user to their farm as ADMIN, SUPERVISOR, AGRONOMIST, or WORKER and change that role. Changes apply to existing sessions; self-demotion is rejected.</td><td>Implemented</td></tr><tr><td>FR-05</td><td>A user can read only farm resources allowed by their memberships and perform only operations allowed by their farm role.</td><td>Partial: farm scoping is enforced across the current API, but role-specific administrative permissions are not yet uniform across every module.</td></tr><tr><td>FR-06</td><td>A user can recover a forgotten password and verify their email; an administrator can remove a farm membership.</td><td>Planned</td></tr></tbody></table></div>
+<h3 id="doc-readme-md--agricultural-records-and-location">Agricultural records and location</h3>
+<div class="table-scroll"><table><thead><tr><th scope="col">ID</th><th scope="col">Requirement and expected behavior</th><th scope="col">Status</th></tr></thead><tbody><tr><td>FR-07</td><td>Authorized users can create, list, retrieve, and delete farms, fields, blocks, and rows according to the permissions table. Child-resource lists support filtering by parent.</td><td>Implemented</td></tr><tr><td>FR-08</td><td>Users can provide field/block polygon boundaries, row lines, and supplied measurements such as area, length, spacing, and estimated plant count. Coordinates use SRID 4326.</td><td>Implemented</td></tr><tr><td>FR-09</td><td>Farm members can record the seven supported agricultural event types against a block or row, with occurrence time, notes, optional GPS, and an optional plant range. Authenticated identity determines authorship.</td><td>Implemented</td></tr><tr><td>FR-10</td><td>Farm members can search events by farm, block, row, type, and date range, retrieve an event, and let authorized managers delete events.</td><td>Implemented</td></tr><tr><td>FR-11</td><td>A scouting event can persist suspected catalog ID, severity, and symptoms. Dedicated inspections expose occurrence, affected plants/area, symptoms, review, follow-up, and managed pest/disease catalog selection.</td><td>Partial: legacy event editing and richer catalog attributes remain</td></tr><tr><td>FR-12</td><td>Farm members can request a GeoJSON disease observation layer with row geometry, maximum severity, observation count, and latest observation time, optionally filtered by farm/date.</td><td>Implemented</td></tr><tr><td>FR-13</td><td>Farm members can upload, view, and download authorized JPEG/PNG photos for events, inspections, and treatments, and retain legacy media references. Other file types and S3 integration remain outside the photo workflow.</td><td>Implemented for photos</td></tr></tbody></table></div>
+<h3 id="doc-readme-md--daily-work-and-agronomic-planning">Daily work and agronomic planning</h3>
+<div class="table-scroll"><table><thead><tr><th scope="col">ID</th><th scope="col">Requirement and expected behavior</th><th scope="col">Status</th></tr></thead><tbody><tr><td>FR-14</td><td>An authorized manager can create a task with activity type, field or block, planned date/time, instructions, priority, and assigned worker.</td><td>Partial: server-backed tasks support field/block targets; row targeting, editing, and rescheduling are pending. ADMIN, SUPERVISOR, and AGRONOMIST can manage tasks.</td></tr><tr><td>FR-15</td><td>A manager can assign work to members of the same farm as the task. Cross-farm assignments are rejected.</td><td>Implemented for individual farm members; crews are not supported.</td></tr><tr><td>FR-16</td><td>A worker can open “My work today” to see their assigned tasks for the farm's local date and their outstanding overdue tasks, grouped or filtered by field/block.</td><td>Partial: server-backed lists, filters and search implemented; device calendar used, farm timezone pending</td></tr><tr><td>FR-17</td><td>A worker can start a task, report a blocker with a reason, and submit work for review with actual quantities, units, notes, time, and evidence as applicable.</td><td>Partial: persisted transitions and notes implemented; quantities, execution time and evidence pending</td></tr><tr><td>FR-18</td><td>An authorized manager can approve submitted work or return it with a reason. Approved execution is linked to agricultural history without duplicate completion records.</td><td>Partial: ADMIN, SUPERVISOR, and AGRONOMIST can complete or return reviewed tasks; a return reason is not mandatory and task completion does not create/link an agricultural event.</td></tr><tr><td>FR-19</td><td>Authorized managers can reschedule or cancel tasks and inspect task history, assignment, status changes, and completion evidence.</td><td>Partial: managers can inspect current task assignment/status and update task status/notes; rescheduling, cancellation, reassignment, transition history, and completion evidence are unavailable.</td></tr><tr><td>FR-20</td><td>An agronomist or authorized manager can configure crop/variety catalogs and production cycles by block, including growth stages and planned/actual planting and harvest dates.</td><td>In progress: core farm-scoped catalogs, cycle records, workflow controls, and AGRONOMIST approvals implemented; richer catalog lifecycle, automatic stages, and reconciliation remain</td></tr><tr><td>FR-21</td><td>Managers can configure planting windows by region, crop, and variety, and plan preparation, planting, and replanting. Perennial crops support continuous production without an annual-season requirement.</td><td>In progress: regional rules, suggestions, perennial support, and cycle-window validation implemented; reusable templates, weather context, and automatic task generation remain</td></tr><tr><td>FR-22</td><td>Approved fertilization plans specify products, doses, units, quantities, dates or recurrence, and target areas; workers record actual applications.</td><td>Implemented for farm-scoped product catalog, approved plans, recurring occurrence tasks, task-linked applications, and evidence; inventory and cost controls remain pending</td></tr><tr><td>FR-23</td><td>Pest/disease management connects observations, follow-up inspections, intervention criteria, and approved treatments to affected areas.</td><td>Partial: structured observations with affected area, managed catalog, follow-ups, and manual preventive assignments implemented; risk criteria and treatment approval workflow pending</td></tr><tr><td>FR-24</td><td>Irrigation plans specify target sectors, dates, and duration or volume; execution records actual watering. Water management records sources, quality, infrastructure, balances, maintenance, and sensor checks. Soil moisture is recorded manually or through sensors with configurable thresholds and alerts.</td><td>Implemented for sectors, one-time and recurring plans, idempotent task generation, pause/resume/cancel, execution, water usage, moisture monitoring, alerts, sources, quality, infrastructure, balances, maintenance, sensor checks, and versioned management edits; permissions and complete hydraulic mapping remain pending</td></tr><tr><td>FR-25</td><td>Soil sample records include structured laboratory results and can inform approved agronomic plans.</td><td>Partial: nutrient levels, configurable farm/crop/variety profiles, provisional statuses, persisted agronomist review, and plan linkage are implemented; laboratory integration, method-aware confidence, and recommendations remain pending</td></tr><tr><td>FR-26</td><td>Harvest plans identify target blocks, expected windows and instructions; execution records harvested quantities and quality.</td><td>In progress: structured harvest capture by field/block/row and crop cycle is implemented; harvest planning remains pending</td></tr><tr><td>FR-27</td><td>The system generates tasks from approved plans, dates, recurrence, and crop stages, and flags observations for review. Repeated generation must not duplicate tasks.</td><td>Partial: fertilizer and irrigation recurrence generation is idempotent; planting tasks can be generated manually from approved plans. Calendar/stage-driven crop work and observation alerts remain planned.</td></tr><tr><td>FR-28</td><td>Workers and supervisors receive assignment, overdue-work, and blocker notifications relevant to their responsibilities.</td><td>Planned for task notifications; sensor threshold alerts and acknowledgment are separate implemented features.</td></tr><tr><td>FR-29</td><td>A worker can capture work without connectivity and synchronize it later, with a visible synchronization state and conflict handling.</td><td>Planned</td></tr></tbody></table></div>
+<p>FR-14 through FR-19 now have a server-backed manual task workflow for field and block work. Remaining gaps include row targeting, structured execution data, evidence, task history, rescheduling, cancellation, and notifications. Automatic crop planning depends on approved agronomic data; generic event types alone do not supply doses, planting calendars, or treatment decisions. See the detailed <a href="system-requirements.html">system requirements matrix</a>.</p>
+<h2 id="doc-readme-md--non-functional-requirements">Non-functional requirements</h2>
+<p>Non-functional requirements describe <strong>how well the system must operate and the constraints it must respect</strong>, such as security, response time, reliability, and usability. A working endpoint does not by itself demonstrate that these qualities meet production expectations.</p>
+<p>In this section, <strong>Partial</strong> means some controls exist but the full requirement has not been implemented or verified. <strong>Proposed target</strong> means a planning value that needs agreement and measurement, not a current service guarantee.</p>
+<div class="table-scroll"><table><thead><tr><th scope="col">ID</th><th scope="col">Quality requirement</th><th scope="col">Current evidence and remaining work</th><th scope="col">Status</th></tr></thead><tbody><tr><td>NFR-01</td><td>Protect credentials and authenticated sessions.</td><td>BCrypt hashes, HTTP-only cookies, CSRF checks, login session/token rotation, and an eight-hour idle timeout exist. Production requires HTTPS with secure cookies; login abuse protection and account recovery are not implemented.</td><td>Partial</td></tr><tr><td>NFR-02</td><td>Isolate data and permissions by farm on every operation.</td><td>Membership and role checks are used across current APIs and cross-farm cases have automated coverage. Some domain-specific management permission policies remain incomplete.</td><td>Partial</td></tr><tr><td>NFR-03</td><td>Preserve data integrity and atomic writes.</td><td>Foreign keys, unique constraints, and transactions protect selected operations, including farm/owner creation and event/observation creation. Broader validation of plant ranges, measurements, severity, and geometry validity still needs definition and tests.</td><td>Partial</td></tr><tr><td>NFR-04</td><td>Keep common worker operations responsive under expected load.</td><td>No load benchmark exists. Proposed target: p95 response time at most 2 seconds for login, daily-task listing, and task submission with 50 concurrent active users on a documented deployment and representative dataset, excluding file transfer.</td><td>Proposed target</td></tr><tr><td>NFR-05</td><td>Bound resource usage as agricultural history grows.</td><td>Spatial indexes and selected relation/time indexes exist. Collection endpoints lack pagination; event/map reads can issue repeated lookups. Add bounded queries and benchmark growing datasets before claiming scalability.</td><td>Partial</td></tr><tr><td>NFR-06</td><td>Provide predictable service availability.</td><td>A health endpoint exists, but uptime is not measured and no highly available deployment is configured. Proposed production target: 99.5% monthly availability, with measurement and maintenance rules agreed before rollout.</td><td>Proposed target</td></tr><tr><td>NFR-07</td><td>Recover agricultural data after infrastructure failure.</td><td>Docker storage persists across container recreation, but it is not a backup. Scheduled backups and restore exercises are not configured. Proposed initial targets: at most 24 hours of data loss (RPO) and restoration within 4 hours (RTO).</td><td>Partial</td></tr><tr><td>NFR-08</td><td>Preserve or clearly recover worker sessions during deployment.</td><td>Sessions are currently stored in one API process and disappear on restart. Multi-instance deployment needs shared sessions or a deliberate session strategy and user-visible reauthentication behavior.</td><td>Partial</td></tr><tr><td>NFR-09</td><td>Avoid duplicate or lost work during retries and concurrent updates.</td><td>Task and domain transitions use optimistic versions; fertilizer and irrigation recurrence generation is idempotent. General request idempotency and offline synchronization remain pending.</td><td>Partial</td></tr><tr><td>NFR-10</td><td>Record accountable operational history.</td><td>Events and workflow records retain authors and timestamps; selected decisions are versioned. There is no unified immutable audit log for login, membership, edits, deletions, and all workflow transitions.</td><td>Partial</td></tr><tr><td>NFR-11</td><td>Make failures diagnosable and API errors predictable.</td><td>Health reporting, basic logging, and authentication/access status codes exist. Add consistent error bodies, correlation IDs, metrics, and alerting while keeping credentials and sensitive payloads out of logs.</td><td>Partial</td></tr><tr><td>NFR-12</td><td>Support maintainable, testable changes.</td><td>Domain packages, Flyway migrations, the Gradle wrapper, OpenAPI documentation, and automated tests exist. Add CI checks and meaningful tests alongside new workflows.</td><td>Partial</td></tr><tr><td>NFR-13</td><td>Provide understandable, accessible field workflows.</td><td>The frontend provides responsive Spanish layouts, labeled controls, keyboard-accessible dialogs, and visible task/block/status information. Browser tests cover desktop and mobile flows; evaluation with workers and a full accessibility audit remain pending.</td><td>Partial</td></tr><tr><td>NFR-14</td><td>Handle agricultural dates and units consistently.</td><td>Events use timestamps and tasks use explicit dates/times; geometry uses SRID 4326 and many measurements name their units. Farm time zones and broader quantity/unit-pair validation remain missing.</td><td>Partial</td></tr><tr><td>NFR-15</td><td>Deploy reproducibly with environment-specific configuration.</td><td>Database Compose setup, Flyway migrations, and configurable session/CORS settings exist. Production packaging/deployment, secret management, and production configuration need completion.</td><td>Partial</td></tr><tr><td>NFR-16</td><td>Minimize and protect personal and operational data.</td><td>Farm authorization and access-controlled PostgreSQL photo storage exist. Data retention, account deletion/export policy, backup access, and formal data lifecycle controls remain undefined.</td><td>Partial</td></tr></tbody></table></div>
+<p>Performance, availability, and recovery targets must be confirmed against the expected farm count, worker count, data volume, connectivity, deployment budget, and business needs. No performance, uptime, or recovery certification is implied by the current automated tests.</p>
+<h2 id="doc-readme-md--system-diagrams">System diagrams</h2>
+<p>These diagrams preserve a useful view of the core identity, farm, geometry, and event model. They are conceptual and do not show every domain table or relationship. The current Flyway schema spans migrations V1 through V24 (with gaps), including tasks, planting, irrigation, fertilization, inspections, photos, and production. The architecture and component diagrams show the current single API service at a high level. The diagrams use Mermaid; open this file in a Markdown viewer with Mermaid support to render them.</p>
+<h3 id="doc-readme-md--entity-relationship-diagram">Entity relationship diagram</h3>
+<figure class="diagram-block"><div class="mermaid" role="img" aria-label="Diagram; expand the details below to read its source">erDiagram
+  app_user ||--o{ farm_membership : has
+  farm ||--o{ farm_membership : grants_access
+  farm ||--o{ field : contains
+  field ||--o{ block : contains
+  block ||--o{ row_line : contains
+  block o|--o{ field_event : targets
+  row_line o|--o{ field_event : targets
+  field_event ||--o| observation_detail : has
+  field_event ||--o{ media_asset : has
+
+  app_user {
+    bigint id PK
+    text name
+    text email UK
+    text password_hash
+    timestamptz created_at
+  }
+  farm_membership {
+    bigint farm_id PK, FK
+    bigint user_id PK, FK
+    varchar role "ADMIN, SUPERVISOR, AGRONOMIST, WORKER"
+  }
+  farm {
+    bigint id PK
+    text name
+    text country
+    text region
+    timestamptz created_at
+  }
+  field {
+    bigint id PK
+    bigint farm_id FK
+    text name
+    geometry geom "Polygon, SRID 4326"
+    double area_ha
+    timestamptz created_at
+  }
+  block {
+    bigint id PK
+    bigint field_id FK
+    text code
+    text crop
+    text variety
+    geometry geom "Polygon, SRID 4326"
+    double area_ha
+    timestamptz created_at
+  }
+  row_line {
+    bigint id PK
+    bigint block_id FK
+    text row_code
+    geometry geom "LineString, SRID 4326"
+    double length_m
+    double plant_spacing_m
+    int plants_estimated
+    timestamptz created_at
+  }
+  field_event {
+    bigint id PK
+    event_type event_type
+    timestamptz occurred_at
+    bigint created_by_user_id "Application-set author; no foreign key"
+    bigint block_id FK "Nullable"
+    bigint row_id FK "Nullable"
+    int plant_index_start
+    int plant_index_end
+    geometry geom "Point, SRID 4326"
+    text notes
+    text status
+    timestamptz created_at
+  }
+  observation_detail {
+    bigint event_id PK, FK
+    bigint suspected_catalog_id "Legacy reference; not linked to current inspection catalog"
+    int severity
+    text symptoms
+    jsonb ai_diagnosis_json "Storage only; no AI workflow"
+  }
+  media_asset {
+    bigint id PK
+    bigint event_id FK
+    text kind
+    text s3_key
+    text content_type
+    timestamptz captured_at
+    geometry gps_geom "Point, SRID 4326"
+    jsonb meta
+  }</div><details><summary>Diagram source</summary><pre><code class="language-mermaid">erDiagram
+  app_user ||--o{ farm_membership : has
+  farm ||--o{ farm_membership : grants_access
+  farm ||--o{ field : contains
+  field ||--o{ block : contains
+  block ||--o{ row_line : contains
+  block o|--o{ field_event : targets
+  row_line o|--o{ field_event : targets
+  field_event ||--o| observation_detail : has
+  field_event ||--o{ media_asset : has
+
+  app_user {
+    bigint id PK
+    text name
+    text email UK
+    text password_hash
+    timestamptz created_at
+  }
+  farm_membership {
+    bigint farm_id PK, FK
+    bigint user_id PK, FK
+    varchar role "ADMIN, SUPERVISOR, AGRONOMIST, WORKER"
+  }
+  farm {
+    bigint id PK
+    text name
+    text country
+    text region
+    timestamptz created_at
+  }
+  field {
+    bigint id PK
+    bigint farm_id FK
+    text name
+    geometry geom "Polygon, SRID 4326"
+    double area_ha
+    timestamptz created_at
+  }
+  block {
+    bigint id PK
+    bigint field_id FK
+    text code
+    text crop
+    text variety
+    geometry geom "Polygon, SRID 4326"
+    double area_ha
+    timestamptz created_at
+  }
+  row_line {
+    bigint id PK
+    bigint block_id FK
+    text row_code
+    geometry geom "LineString, SRID 4326"
+    double length_m
+    double plant_spacing_m
+    int plants_estimated
+    timestamptz created_at
+  }
+  field_event {
+    bigint id PK
+    event_type event_type
+    timestamptz occurred_at
+    bigint created_by_user_id "Application-set author; no foreign key"
+    bigint block_id FK "Nullable"
+    bigint row_id FK "Nullable"
+    int plant_index_start
+    int plant_index_end
+    geometry geom "Point, SRID 4326"
+    text notes
+    text status
+    timestamptz created_at
+  }
+  observation_detail {
+    bigint event_id PK, FK
+    bigint suspected_catalog_id "Legacy reference; not linked to current inspection catalog"
+    int severity
+    text symptoms
+    jsonb ai_diagnosis_json "Storage only; no AI workflow"
+  }
+  media_asset {
+    bigint id PK
+    bigint event_id FK
+    text kind
+    text s3_key
+    text content_type
+    timestamptz captured_at
+    geometry gps_geom "Point, SRID 4326"
+    jsonb meta
+  }</code></pre></details></figure>
+<p><code>farm_membership</code> has a composite primary key (<code>farm_id</code>, <code>user_id</code>). Additional unique constraints are (<code>field_id</code>, <code>code</code>) on blocks and (<code>block_id</code>, <code>row_code</code>) on rows. An event must reference at least a block or a row; the API requires a matching block when both are supplied. <code>created_by_user_id</code> is populated from login but has no database foreign key, so historical author IDs remain intact.</p>
+<h3 id="doc-readme-md--sequence-diagram-login-and-farm-access">Sequence diagram — login and farm access</h3>
+<p>This example starts with an existing registered user. A worker needs an assigned farm membership before farm data appears in their list.</p>
+<figure class="diagram-block"><div class="mermaid" role="img" aria-label="Diagram; expand the details below to read its source">sequenceDiagram
+  actor User
+  participant Client as API client
+  participant Security as Spring Security
+  participant Auth as AuthController
+  participant Users as UserService
+  participant Session as HTTP session store
+  participant Farms as FarmController
+  participant Access as FarmAccess
+  participant Repo as FarmRepository
+  participant DB as PostgreSQL / PostGIS
+
+  User-&gt;&gt;Client: Enter email and password
+  Client-&gt;&gt;Security: GET /api/v1/auth/csrf
+  Security-&gt;&gt;Auth: Provide CSRF token
+  Auth--&gt;&gt;Client: 200 token + session cookie
+  Client-&gt;&gt;Security: POST /api/v1/auth/login + cookie + CSRF token
+  Security-&gt;&gt;Security: Validate CSRF token
+  Security-&gt;&gt;Auth: Validated login request
+  Auth-&gt;&gt;Users: Authenticate credentials
+  Users-&gt;&gt;DB: Find password hash by normalized email
+  DB--&gt;&gt;Users: Hash or no matching user
+  Users-&gt;&gt;Users: Check BCrypt password
+  alt Invalid credentials
+    Users--&gt;&gt;Auth: Authentication failed
+    Auth--&gt;&gt;Client: 401 Unauthorized
+  else Valid credentials
+    Users--&gt;&gt;Auth: User profile
+    Auth-&gt;&gt;Session: Rotate session ID, clear old CSRF token, save security context
+    Auth-&gt;&gt;Users: Load farm memberships
+    Users-&gt;&gt;DB: Join farm_membership and farm
+    DB--&gt;&gt;Users: Farms and roles
+    Users--&gt;&gt;Auth: Profile and memberships
+    Auth--&gt;&gt;Client: 200 profile + rotated session cookie
+    Client-&gt;&gt;Security: GET /api/v1/auth/csrf with updated cookie
+    Security-&gt;&gt;Auth: Provide new CSRF token
+    Auth--&gt;&gt;Client: 200 new token for subsequent writes
+    Client-&gt;&gt;Security: GET /api/v1/farms with session cookie
+    Security-&gt;&gt;Session: Read authenticated security context
+    Session--&gt;&gt;Security: Logged-in user
+    Security-&gt;&gt;Farms: Authenticated request
+    Farms-&gt;&gt;Access: Find current user's farm IDs
+    Access-&gt;&gt;DB: Query farm_membership
+    DB--&gt;&gt;Access: Allowed farm IDs
+    Access--&gt;&gt;Farms: Allowed farm IDs
+    Farms-&gt;&gt;Repo: findAllById(allowed farm IDs)
+    Repo-&gt;&gt;DB: Fetch permitted farms
+    DB--&gt;&gt;Repo: Farm records
+    Repo--&gt;&gt;Farms: Farms
+    Farms--&gt;&gt;Client: 200 permitted farms, or empty list
+    Client--&gt;&gt;User: Display accessible farms
+    Client-&gt;&gt;Security: POST /api/v1/auth/logout + cookie + new CSRF token
+    Security-&gt;&gt;Session: Invalidate session and clear authentication
+    Security--&gt;&gt;Client: 204 No Content
+  end</div><details><summary>Diagram source</summary><pre><code class="language-mermaid">sequenceDiagram
+  actor User
+  participant Client as API client
+  participant Security as Spring Security
+  participant Auth as AuthController
+  participant Users as UserService
+  participant Session as HTTP session store
+  participant Farms as FarmController
+  participant Access as FarmAccess
+  participant Repo as FarmRepository
+  participant DB as PostgreSQL / PostGIS
+
+  User-&gt;&gt;Client: Enter email and password
+  Client-&gt;&gt;Security: GET /api/v1/auth/csrf
+  Security-&gt;&gt;Auth: Provide CSRF token
+  Auth--&gt;&gt;Client: 200 token + session cookie
+  Client-&gt;&gt;Security: POST /api/v1/auth/login + cookie + CSRF token
+  Security-&gt;&gt;Security: Validate CSRF token
+  Security-&gt;&gt;Auth: Validated login request
+  Auth-&gt;&gt;Users: Authenticate credentials
+  Users-&gt;&gt;DB: Find password hash by normalized email
+  DB--&gt;&gt;Users: Hash or no matching user
+  Users-&gt;&gt;Users: Check BCrypt password
+  alt Invalid credentials
+    Users--&gt;&gt;Auth: Authentication failed
+    Auth--&gt;&gt;Client: 401 Unauthorized
+  else Valid credentials
+    Users--&gt;&gt;Auth: User profile
+    Auth-&gt;&gt;Session: Rotate session ID, clear old CSRF token, save security context
+    Auth-&gt;&gt;Users: Load farm memberships
+    Users-&gt;&gt;DB: Join farm_membership and farm
+    DB--&gt;&gt;Users: Farms and roles
+    Users--&gt;&gt;Auth: Profile and memberships
+    Auth--&gt;&gt;Client: 200 profile + rotated session cookie
+    Client-&gt;&gt;Security: GET /api/v1/auth/csrf with updated cookie
+    Security-&gt;&gt;Auth: Provide new CSRF token
+    Auth--&gt;&gt;Client: 200 new token for subsequent writes
+    Client-&gt;&gt;Security: GET /api/v1/farms with session cookie
+    Security-&gt;&gt;Session: Read authenticated security context
+    Session--&gt;&gt;Security: Logged-in user
+    Security-&gt;&gt;Farms: Authenticated request
+    Farms-&gt;&gt;Access: Find current user's farm IDs
+    Access-&gt;&gt;DB: Query farm_membership
+    DB--&gt;&gt;Access: Allowed farm IDs
+    Access--&gt;&gt;Farms: Allowed farm IDs
+    Farms-&gt;&gt;Repo: findAllById(allowed farm IDs)
+    Repo-&gt;&gt;DB: Fetch permitted farms
+    DB--&gt;&gt;Repo: Farm records
+    Repo--&gt;&gt;Farms: Farms
+    Farms--&gt;&gt;Client: 200 permitted farms, or empty list
+    Client--&gt;&gt;User: Display accessible farms
+    Client-&gt;&gt;Security: POST /api/v1/auth/logout + cookie + new CSRF token
+    Security-&gt;&gt;Session: Invalidate session and clear authentication
+    Security--&gt;&gt;Client: 204 No Content
+  end</code></pre></details></figure>
+<p>Requests without authentication are rejected with 401 on protected endpoints; missing or invalid CSRF tokens on writes return 403. Access to a farm outside the user's membership, or an operation outside their role, returns 403.</p>
+<h3 id="doc-readme-md--architecture-diagram">Architecture diagram</h3>
+<p>The application is a single Spring Boot service with domain modules for identity, farm structure, tasks, planting, events, inspections/prevention, monitoring, irrigation, fertilization, telemetry, analytics, media, and photos. PostgreSQL stores agricultural and identity data; HTTP authentication sessions remain in application memory.</p>
+<figure class="diagram-block"><div class="mermaid" role="img" aria-label="Diagram; expand the details below to read its source">flowchart TB
+  Client["API clients: AgroVision React frontend, curl, Swagger UI"]
+
+  subgraph API["Agro Core — Spring Boot / Java 17"]
+    Security["Spring Security: session authentication, CSRF, CORS"]
+    Controllers["REST controllers: auth, farms, tasks, events, planting, inspections, irrigation, fertilization, monitoring, analytics, media"]
+    Services["Domain services: access, tasks, crop planning, water, nutrient, inspection, production, analytics"]
+    JPA["Spring Data JPA + Hibernate Spatial"]
+    JDBC["JdbcTemplate: users, memberships, access checks"]
+    Geometry["GeoMapper + JTS: point, polygon, line conversion"]
+    Sessions[("In-memory HTTP sessions")]
+    Flyway["Flyway schema migrations: V1–V24 (version gaps)"]
+  end
+
+  subgraph Docker["Docker Compose database service"]
+    DB[("PostgreSQL 16 + PostGIS 3.4")]
+    Volume[("Persistent agro_db volume")]
+  end
+
+  Client --&gt;|"HTTP / JSON; cookies and CSRF headers"| Security
+  Security &lt;--&gt; Sessions
+  Security --&gt; Controllers
+  Controllers --&gt; Services
+  Controllers --&gt; JPA
+  Controllers --&gt; JDBC
+  Services --&gt; JPA
+  Services --&gt; JDBC
+  Services --&gt; Geometry
+  Controllers --&gt; Geometry
+  JPA --&gt; DB
+  JDBC --&gt; DB
+  Flyway -.-&gt;|"Schema migrations on startup"| DB
+  DB --- Volume</div><details><summary>Diagram source</summary><pre><code class="language-mermaid">flowchart TB
+  Client["API clients: AgroVision React frontend, curl, Swagger UI"]
+
+  subgraph API["Agro Core — Spring Boot / Java 17"]
+    Security["Spring Security: session authentication, CSRF, CORS"]
+    Controllers["REST controllers: auth, farms, tasks, events, planting, inspections, irrigation, fertilization, monitoring, analytics, media"]
+    Services["Domain services: access, tasks, crop planning, water, nutrient, inspection, production, analytics"]
+    JPA["Spring Data JPA + Hibernate Spatial"]
+    JDBC["JdbcTemplate: users, memberships, access checks"]
+    Geometry["GeoMapper + JTS: point, polygon, line conversion"]
+    Sessions[("In-memory HTTP sessions")]
+    Flyway["Flyway schema migrations: V1–V24 (version gaps)"]
+  end
+
+  subgraph Docker["Docker Compose database service"]
+    DB[("PostgreSQL 16 + PostGIS 3.4")]
+    Volume[("Persistent agro_db volume")]
+  end
+
+  Client --&gt;|"HTTP / JSON; cookies and CSRF headers"| Security
+  Security &lt;--&gt; Sessions
+  Security --&gt; Controllers
+  Controllers --&gt; Services
+  Controllers --&gt; JPA
+  Controllers --&gt; JDBC
+  Services --&gt; JPA
+  Services --&gt; JDBC
+  Services --&gt; Geometry
+  Controllers --&gt; Geometry
+  JPA --&gt; DB
+  JDBC --&gt; DB
+  Flyway -.-&gt;|"Schema migrations on startup"| DB
+  DB --- Volume</code></pre></details></figure>
+<p>The legacy media module stores S3 keys; photo uploads use the PostgreSQL-backed photo service. Swagger UI is served by the API; the AgroVision frontend runs separately through Vite or its static production build.</p>
+<h3 id="doc-readme-md--component-diagram">Component diagram</h3>
+<p>This component view uses a Mermaid flowchart to show the core identity, farm, event, geometry, and persistence dependencies. It is not an exhaustive map of the current domain packages. Some controllers read/write repositories directly; there is not a service layer between every controller and persistence.</p>
+<figure class="diagram-block"><div class="mermaid" role="img" aria-label="Diagram; expand the details below to read its source">flowchart LR
+  subgraph Configuration["Configuration"]
+    SecurityConfig["SecurityConfig + WebConfig"]
+    Encoder["BCrypt PasswordEncoder"]
+  end
+
+  subgraph Identity["auth package"]
+    AuthController["AuthController"]
+    UserService["UserService"]
+    MembershipController["MembershipController"]
+    FarmAccess["FarmAccess"]
+  end
+
+  subgraph Farm["farm package"]
+    FarmControllers["Farm, Field, Block, Row controllers"]
+    FarmServices["Farm, Field, Block, Row services"]
+    FarmRepos["Farm, Field, Block, Row repositories"]
+  end
+
+  subgraph Events["events package"]
+    EventController["EventController"]
+    EventService["EventService"]
+    MapController["MapLayerController"]
+    EventRepos["FieldEvent + ObservationDetail repositories"]
+  end
+
+  subgraph Media["media package"]
+    MediaController["MediaController"]
+    MediaRepo["MediaAssetRepository"]
+  end
+
+  Geometry["geo package: GeoMapper + GeoDtos"]
+  JDBC["JdbcTemplate"]
+  JPA["Spring Data JPA / Hibernate Spatial"]
+  DB[("PostgreSQL / PostGIS")]
+
+  SecurityConfig --&gt; Encoder
+  AuthController --&gt; UserService
+  UserService --&gt; Encoder
+  UserService --&gt; JDBC
+  MembershipController --&gt; UserService
+  MembershipController --&gt; FarmAccess
+  MembershipController --&gt; JDBC
+  FarmAccess --&gt; JDBC
+  FarmControllers --&gt; FarmAccess
+  FarmControllers --&gt; FarmServices
+  FarmControllers --&gt; FarmRepos
+  FarmServices --&gt; FarmRepos
+  FarmServices --&gt; Geometry
+  FarmServices --&gt; FarmAccess
+  FarmServices --&gt; JDBC
+  EventController --&gt; FarmAccess
+  EventController --&gt; EventService
+  EventController --&gt; EventRepos
+  EventService --&gt; FarmAccess
+  EventService --&gt; EventRepos
+  EventService --&gt; FarmRepos
+  EventService --&gt; Geometry
+  MapController --&gt; FarmAccess
+  MapController --&gt; EventRepos
+  MapController --&gt; FarmRepos
+  MediaController --&gt; FarmAccess
+  MediaController --&gt; MediaRepo
+  MediaController --&gt; EventRepos
+  MediaController --&gt; Geometry
+  FarmRepos --&gt; JPA
+  EventRepos --&gt; JPA
+  MediaRepo --&gt; JPA
+  JPA --&gt; DB
+  JDBC --&gt; DB</div><details><summary>Diagram source</summary><pre><code class="language-mermaid">flowchart LR
+  subgraph Configuration["Configuration"]
+    SecurityConfig["SecurityConfig + WebConfig"]
+    Encoder["BCrypt PasswordEncoder"]
+  end
+
+  subgraph Identity["auth package"]
+    AuthController["AuthController"]
+    UserService["UserService"]
+    MembershipController["MembershipController"]
+    FarmAccess["FarmAccess"]
+  end
+
+  subgraph Farm["farm package"]
+    FarmControllers["Farm, Field, Block, Row controllers"]
+    FarmServices["Farm, Field, Block, Row services"]
+    FarmRepos["Farm, Field, Block, Row repositories"]
+  end
+
+  subgraph Events["events package"]
+    EventController["EventController"]
+    EventService["EventService"]
+    MapController["MapLayerController"]
+    EventRepos["FieldEvent + ObservationDetail repositories"]
+  end
+
+  subgraph Media["media package"]
+    MediaController["MediaController"]
+    MediaRepo["MediaAssetRepository"]
+  end
+
+  Geometry["geo package: GeoMapper + GeoDtos"]
+  JDBC["JdbcTemplate"]
+  JPA["Spring Data JPA / Hibernate Spatial"]
+  DB[("PostgreSQL / PostGIS")]
+
+  SecurityConfig --&gt; Encoder
+  AuthController --&gt; UserService
+  UserService --&gt; Encoder
+  UserService --&gt; JDBC
+  MembershipController --&gt; UserService
+  MembershipController --&gt; FarmAccess
+  MembershipController --&gt; JDBC
+  FarmAccess --&gt; JDBC
+  FarmControllers --&gt; FarmAccess
+  FarmControllers --&gt; FarmServices
+  FarmControllers --&gt; FarmRepos
+  FarmServices --&gt; FarmRepos
+  FarmServices --&gt; Geometry
+  FarmServices --&gt; FarmAccess
+  FarmServices --&gt; JDBC
+  EventController --&gt; FarmAccess
+  EventController --&gt; EventService
+  EventController --&gt; EventRepos
+  EventService --&gt; FarmAccess
+  EventService --&gt; EventRepos
+  EventService --&gt; FarmRepos
+  EventService --&gt; Geometry
+  MapController --&gt; FarmAccess
+  MapController --&gt; EventRepos
+  MapController --&gt; FarmRepos
+  MediaController --&gt; FarmAccess
+  MediaController --&gt; MediaRepo
+  MediaController --&gt; EventRepos
+  MediaController --&gt; Geometry
+  FarmRepos --&gt; JPA
+  EventRepos --&gt; JPA
+  MediaRepo --&gt; JPA
+  JPA --&gt; DB
+  JDBC --&gt; DB</code></pre></details></figure>
+<p>Entities and DTOs belong to their respective domain packages. Farm creation also inserts the creator's administrator membership through JDBC in the same transaction as the JPA farm insert. <code>FarmAccess</code> resolves resource ownership and checks farm roles against the database on each request that uses it.</p>
+<h2 id="doc-readme-md--prerequisites">Prerequisites</h2>
+<ul><li><p>JDK 17. The Gradle toolchain requires Java 17 specifically; a newer JDK alone does not satisfy it.</p></li><li><p>Docker with Docker Compose for the local PostgreSQL/PostGIS database.</p></li><li><p>Node.js 22.18 or newer and npm to run the frontend.</p></li></ul>
+<p>The Gradle wrapper downloads Gradle 8.14 and dependencies on first use, so the first build needs access to the configured artifact repositories.</p>
+<h2 id="doc-readme-md--start-the-database">Start the database</h2>
+<pre><code class="language-bash">docker compose up -d</code></pre>
+<h2 id="doc-readme-md--run-the-api">Run the API</h2>
+<pre><code class="language-bash">./gradlew bootRun</code></pre>
+<div class="table-scroll"><table><thead><tr><th scope="col">Service</th><th scope="col">URL</th></tr></thead><tbody><tr><td>API</td><td><code>http://localhost:8080</code></td></tr><tr><td>OpenAPI UI</td><td><code>http://localhost:8080/swagger-ui/index.html</code></td></tr><tr><td>OpenAPI document</td><td><code>http://localhost:8080/v3/api-docs</code></td></tr><tr><td>Health</td><td><code>http://localhost:8080/actuator/health</code></td></tr></tbody></table></div>
+<p>The Compose database uses the local development database <code>agro</code> with user and password <code>agro</code> on port 5432. Do not use these credentials in production. Override Spring settings with environment properties such as <code>SPRING_DATASOURCE_URL</code>, <code>SPRING_DATASOURCE_USERNAME</code>, <code>SPRING_DATASOURCE_PASSWORD</code>, and <code>SERVER_PORT</code>. Set <code>SESSION_COOKIE_SECURE=true</code> when serving over HTTPS.</p>
+<h2 id="doc-readme-md--main-endpoints">Main endpoints</h2>
+<div class="table-scroll"><table><thead><tr><th scope="col">Resource</th><th scope="col">Collection endpoint</th><th scope="col">Supported methods</th><th scope="col">Single-record endpoint</th></tr></thead><tbody><tr><td>Farms</td><td><code>/api/v1/farms</code></td><td>POST, GET</td><td>GET, DELETE <code>/api/v1/farms/{id}</code></td></tr><tr><td>Fields</td><td><code>/api/v1/fields</code></td><td>POST, GET</td><td>GET, DELETE <code>/api/v1/fields/{id}</code></td></tr><tr><td>Blocks</td><td><code>/api/v1/blocks</code></td><td>POST, GET</td><td>GET, DELETE <code>/api/v1/blocks/{id}</code></td></tr><tr><td>Crop catalog</td><td><code>/api/v1/catalog/crops?farmId={id}</code></td><td>GET, POST</td><td>POST <code>/api/v1/catalog/crops/{cropId}/varieties</code></td></tr><tr><td>Planting calendars</td><td><code>/api/v1/planting-calendars?farmId={id}</code></td><td>GET, POST</td><td>GET <code>/api/v1/planting-calendars/suggestions</code>, PUT/DELETE <code>/api/v1/planting-calendars/{id}</code></td></tr><tr><td>Planting workflow</td><td><code>/api/v1/planting?farmId={id}</code></td><td>GET, POST</td><td>All cycle, assessment, material, plan, execution, establishment, and stage routes are listed in the <a href="crop-management.html#doc-docs-crop-management-requirements-md--complete-endpoint-inventory">complete crop endpoint inventory</a></td></tr><tr><td>Rows</td><td><code>/api/v1/rows</code></td><td>POST, GET</td><td>GET, DELETE <code>/api/v1/rows/{id}</code></td></tr><tr><td>Tasks</td><td><code>/api/v1/tasks?farmId={id}</code></td><td>GET, POST</td><td>PATCH <code>/api/v1/tasks/{id}</code></td></tr><tr><td>Events</td><td><code>/api/v1/events</code></td><td>POST, GET</td><td>GET, DELETE <code>/api/v1/events/{id}</code></td></tr><tr><td>Monitoring and harvest records</td><td><code>/api/v1/monitoring-records</code></td><td>POST, GET</td><td>GET, PATCH, DELETE <code>/api/v1/monitoring-records/{id}</code></td></tr><tr><td>Irrigation and water management</td><td><code>/api/v1/irrigation</code></td><td>GET, POST, PATCH</td><td>Recurring-schedule actions, executions, and water-record routes; see <a href="water-management.html">water management</a></td></tr><tr><td>Fertilization</td><td><code>/api/v1/fertilization</code></td><td>GET, POST</td><td>Analysis, product/profile, plan, application, review, and follow-up routes; see <a href="fertilization.html">fertilization</a></td></tr><tr><td>Inspections and treatments</td><td><code>/api/v1/inspections</code>, <code>/api/v1/phytosanitary-problems</code></td><td>GET, POST, PATCH</td><td>Review, cancellation, treatment, and evidence subresources</td></tr><tr><td>Photos</td><td><code>/api/v1/photos</code></td><td>GET, multipart POST</td><td>GET <code>/api/v1/photos/{id}/content</code></td></tr><tr><td>Sensor devices</td><td><code>/api/v1/sensors</code></td><td>POST, GET</td><td>None</td></tr><tr><td>Sensor readings</td><td><code>/api/v1/sensors/{deviceId}/readings</code></td><td>POST, GET</td><td>None</td></tr><tr><td>Alert rules</td><td><code>/api/v1/alert-rules</code></td><td>POST</td><td>None</td></tr><tr><td>Alerts</td><td><code>/api/v1/alerts</code></td><td>GET, POST acknowledge</td><td>None</td></tr><tr><td>Preventive measures</td><td><code>/api/v1/preventive-measures?farmId={id}</code></td><td>GET, POST</td><td>DELETE <code>/api/v1/preventive-measures/{id}</code></td></tr><tr><td>Preventive assignments</td><td><code>/api/v1/preventive-assignments?farmId={id}</code></td><td>GET, POST, PATCH</td><td>PATCH <code>/api/v1/preventive-assignments/{id}</code></td></tr><tr><td>Preventive evidence</td><td><code>/api/v1/preventive-assignments/{id}/evidence</code></td><td>GET, POST</td><td>None</td></tr><tr><td>Analytics map</td><td><code>/api/v1/analytics/map</code></td><td>GET</td><td>None</td></tr><tr><td>Analytics dashboard</td><td><code>/api/v1/analytics/dashboard</code></td><td>GET</td><td>None</td></tr><tr><td>Water-use analytics</td><td><code>/api/v1/analytics/water-usage</code></td><td>GET</td><td>None</td></tr><tr><td>Media</td><td><code>/api/v1/media</code></td><td>POST, GET (requires <code>eventId</code>)</td><td>None</td></tr><tr><td>Disease map</td><td><code>/api/v1/map/rows/disease</code></td><td>GET</td><td>None</td></tr></tbody></table></div>
+<p>Authentication and membership endpoints are listed in their own table below.</p>
+<h2 id="doc-readme-md--crop-catalog">Crop catalog</h2>
+<p>Each farm has a reusable crop and variety catalog. Administrators, supervisors, and agronomists can add catalog entries from <strong>Configuración → Catálogo agrícola</strong>; workers can select the approved entries when creating blocks, crop cycles, and planting material lots. Existing crop and variety text is retained for compatibility, while new records also store catalog identifiers. Existing farms are seeded with Banano / Cavendish and prior text values are migrated into catalog entries.</p>
+<h2 id="doc-readme-md--regional-planting-calendars">Regional planting calendars</h2>
+<p>Each farm can configure recurring planting rules by region, crop, and optional variety from <strong>Configuración → Calendario regional</strong>. Annual rules store a month/day window and preparation lead time; perennial rules support continuous production without an annual season. The suggestions endpoint resolves the farm's region and prioritizes variety-specific rules over crop-wide rules. When a matching annual rule exists, cycle creation rejects a planting window outside the configured regional window; farms without rules remain compatible with manually planned cycles.</p>
+<h2 id="doc-readme-md--crop-management-status">Crop management status</h2>
+<p>This status covers <strong>crop management only</strong>: crop and variety catalogs, planting cycles, lote evaluation, planting plans, field execution, establishment, phenology, regional calendars, and agronomist access. Nutrient, water, pest/disease, and production management are separate modules and are not included in this estimate.</p>
+<p><strong>Estimated coverage: approximately 80%.</strong> This is a functional estimate, not a test-coverage percentage: the core workflow is usable, while automation, richer catalog data, permissions, and auditability remain incomplete.</p>
+<h3 id="doc-readme-md--implemented">Implemented</h3>
+<ul><li><p>Farm-scoped crop and variety records with catalog selection in planting workflows.</p></li><li><p>Crop-cycle creation by block with planting dates, area, expected harvest, and stage data.</p></li><li><p>Site/lote assessment with approval and rejection actions.</p></li><li><p>Planting-material lot registration with accept/reject decisions.</p></li><li><p>Planting-plan creation, approval, task creation, and field execution records.</p></li><li><p>Establishment checks for survival, mortality, replacement, and follow-up evidence.</p></li><li><p>Phenological stage observations and cycle stage history.</p></li><li><p>Regional annual/perennial planting rules, suggestions, and cycle-window validation.</p></li></ul>
+<h3 id="doc-readme-md--in-progress">In progress</h3>
+<ul><li><p>Crop and variety catalog lifecycle, including richer agronomic attributes and edit/archive behavior.</p></li><li><p>Automatic cycle-stage progression, replant links, and planned-versus-actual cycle reconciliation.</p></li><li><p>Reusable calendar templates and stronger preparation, planting, and replanting workflows.</p></li><li><p>Agronomist role access and approvals; the current model is still role-wide.</p></li></ul>
+<h3 id="doc-readme-md--missing">Missing</h3>
+<ul><li><p>Calendar- and growth-stage-driven automatic task generation with recurrence and duplicate protection.</p></li><li><p>Fine-grained agronomist permissions by capability, module, region, or time period.</p></li><li><p>A unified, immutable crop-management audit timeline across approvals and record changes.</p></li></ul>
+<h3 id="doc-readme-md--planned-next">Planned next</h3>
+<ol><li><p>Complete crop/variety catalog lifecycle and agronomic reference attributes.</p></li><li><p>Automate crop-stage transitions and calendar-driven preparation, planting, and replanting tasks.</p></li><li><p>Add delegated and time-bound agronomist permissions.</p></li><li><p>Add unified crop-cycle history, approvals, and change traceability.</p></li></ol>
+<h2 id="doc-readme-md--geometry-input-format-simple-geojson-like-dto">Geometry input format (simple GeoJSON-like DTO)</h2>
+<ul><li><p>Point: <code>{ "lng": -74.1, "lat": 10.5 }</code></p></li><li><p>Polygon: <code>{ "coordinates": [[[lng,lat],[lng,lat],...,[lng,lat]]] }</code> (outer ring only; server closes ring)</p></li><li><p>LineString: <code>{ "coordinates": [[lng,lat],[lng,lat],...] }</code></p></li></ul>
+<h2 id="doc-readme-md--crop-monitoring-records">Crop monitoring records</h2>
+<p><code>/api/v1/monitoring-records</code> stores structured records against a field, block, or row. Every record has a <code>recordType</code>, <code>recordedAt</code>, and location; non-harvest monitoring records still require a block. Supported types are <code>CROP_CYCLE</code>, <code>SOIL_SAMPLE</code>, <code>FERTILIZER_APPLICATION</code>, <code>IRRIGATION</code>, <code>HEALTH_OBSERVATION</code>, and <code>HARVEST</code>.</p>
+<p>The request supports crop and variety lifecycle fields; soil pH and N/P/K values; nutrient deficiencies; fertilizer product, dose, and quantity; irrigation duration, water volume, and soil moisture; pest or disease, severity, symptoms, prevention, treatment, follow-up, and resolution; and estimated/actual yield, quality grade, and rejected quantity, rejection reason, harvested area, and crop-cycle linkage. Harvest units are controlled (<code>g</code>, <code>kg</code>, <code>t</code>, <code>lb</code>, <code>cajas</code>, <code>racimos</code>, <code>unidades</code>) and quality grades are controlled (<code>PREMIUM</code>, <code>A</code>, <code>B</code>, <code>C</code>, <code>REJECTED</code>). Records can be filtered by <code>farmId</code>, <code>blockId</code>, <code>fieldId</code>, <code>cropCycleId</code>, <code>recordType</code>, <code>from</code>, and <code>to</code>. Farm membership is enforced for reads and writes, while deletion requires an agronomic role.</p>
+<p>The <strong>Cosecha y producción</strong> screen uses structured <code>HARVEST</code> records rather than the legacy generic <code>HARVEST_EVENT</code> activity form. It captures the location hierarchy, cycle, explicit harvest date, area, estimate, actual quantity, unit, quality, rejected quantity, rejection reason, and notes, and shows per-unit totals plus estimated-versus- actual variance. Each record can be opened in a detail view or edited through <code>PATCH /api/v1/monitoring-records/{id}</code> with the same validation rules as creation. Existing generic harvest events remain available in the activity history for backward compatibility.</p>
+<h2 id="doc-readme-md--sensors-alerts-and-analytics">Sensors, alerts, and analytics</h2>
+<h3 id="doc-readme-md--inspecciones-fitosanitarias">Inspecciones fitosanitarias</h3>
+<p>La pantalla <strong>Plagas y enfermedades</strong> permite registrar inspecciones por bloque y surco opcional. El catálogo inicial incluye Sigatoka negra, moko, marchitez por Fusarium, bacteriosis, picudos y nematodos; ahora puede administrarse desde <strong>Configuración → Catálogo fitosanitario</strong>. Se registran fecha, plantas inspeccionadas/afectadas, área afectada en hectáreas, síntomas, severidad porcentual con método de evaluación y próxima visita. La identidad autenticada determina el responsable.</p>
+<p>La incidencia se calcula como <code>100 × afectadas / inspeccionadas</code>; es incidencia por plantas de la muestra, no por área. El área afectada se captura explícitamente en hectáreas y, cuando el bloque tiene área configurada, no puede superarla. No se infiere un diagnóstico ni un tratamiento. Todas las inspecciones se crean como sospechosas. Administradores y supervisores pueden confirmar, descartar o marcar un hallazgo resuelto dejando justificación, responsable y fecha de revisión. Las versiones evitan sobrescribir revisiones concurrentes. Los resultados confirmados deben sustentarse en la evaluación técnica correspondiente; este módulo no verifica resultados del ICA.</p>
+<div class="table-scroll"><table><thead><tr><th scope="col">Endpoint</th><th scope="col">Operación</th></tr></thead><tbody><tr><td><code>GET /api/v1/phytosanitary-problems?farmId={id}[&amp;includeInactive=true]</code></td><td>Consultar catálogo activo o catálogo completo autorizado</td></tr><tr><td><code>POST /api/v1/phytosanitary-problems</code></td><td>Crear plaga o enfermedad; requiere acceso agronómico</td></tr><tr><td><code>PATCH /api/v1/phytosanitary-problems/{code}</code></td><td>Editar nombre/categoría o activar/desactivar; requiere acceso agronómico</td></tr><tr><td><code>DELETE /api/v1/phytosanitary-problems/{code}?farmId={id}</code></td><td>Desactivar sin borrar las inspecciones históricas</td></tr><tr><td><code>POST /api/v1/inspections</code></td><td>Crear inspección como miembro de la finca</td></tr><tr><td><code>GET /api/v1/inspections</code></td><td>Historial con filtros <code>farmId</code>, <code>blockId</code>, <code>problemCode</code>, <code>from</code>, <code>to</code></td></tr><tr><td><code>GET /api/v1/inspections/{id}</code></td><td>Consultar detalle autorizado</td></tr><tr><td><code>PATCH /api/v1/inspections/{id}</code></td><td>Revisar: <code>assessmentStatus</code>, <code>resolved</code>, <code>reviewNotes</code>, <code>version</code></td></tr></tbody></table></div>
+<p>Migraciones V6 y V22: catálogo, área afectada e inspecciones. El modo demo usa registros locales separados del servidor y permite probar captura, revisión y persistencia.</p>
+<p>La capa de salud usa la última inspección por problema y destino (bloque/surco). Una evaluación se considera reciente hasta la próxima visita y como máximo por 30 días desde la inspección, con fechas de referencia UTC. Este límite operativo no es una frecuencia agronómica recomendada. Rojo significa hallazgos activos; verde, muestra reciente sin hallazgos activos; gris, falta de evaluación reciente. Las evaluaciones antiguas o resueltas no mantienen el bloque rojo. Un hallazgo activo vencido conserva el estado desconocido aunque exista una evaluación reciente de otro problema. El resumen no certifica sanidad de todo el bloque. Los eventos antiguos se conservan como historial y no colorean esta capa.</p>
+<p>Pruebas aisladas sin PostgreSQL: <code>./gradlew test --tests com.yourco.agro.InspectionApiTest</code>. Prueba de navegador: <code>cd frontend &amp;&amp; npx playwright test tests/inspections.spec.ts</code>.</p>
+<h4 id="doc-readme-md--medidas-preventivas">Medidas preventivas</h4>
+<p>La pestaña <strong>Prevención</strong> convierte las buenas prácticas fitosanitarias en trabajo programado. Los administradores, supervisores y agrónomos pueden crear una biblioteca de medidas reutilizables con instrucciones; cualquier miembro puede asignar una medida a un bloque y responsable. La asignación conserva fecha, estado (<code>PLANNED</code>, <code>IN_PROGRESS</code> o <code>COMPLETED</code>), resultado, autor y versión para evitar actualizaciones concurrentes. Una medida completada requiere notas de cierre y puede conservar referencias de imágenes, documentos o videos.</p>
+<div class="table-scroll"><table><thead><tr><th scope="col">Endpoint</th><th scope="col">Operación</th></tr></thead><tbody><tr><td><code>GET, POST /api/v1/preventive-measures</code></td><td>Consultar o crear medidas por finca</td></tr><tr><td><code>DELETE /api/v1/preventive-measures/{id}</code></td><td>Desactivar una medida; solo acceso agronómico</td></tr><tr><td><code>GET, POST /api/v1/preventive-assignments</code></td><td>Consultar o asignar medidas a bloques</td></tr><tr><td><code>PATCH /api/v1/preventive-assignments/{id}</code></td><td>Actualizar estado y resultado con <code>version</code></td></tr><tr><td><code>GET, POST /api/v1/preventive-assignments/{id}/evidence</code></td><td>Consultar o adjuntar referencias de evidencia</td></tr></tbody></table></div>
+<p>Migración V16: biblioteca, asignaciones y evidencia preventiva. El modo demo persiste el mismo flujo en el navegador. Las asignaciones manuales son la primera entrega; los disparadores por riesgo, recurrencia y generación automática de tareas siguen pendientes.</p>
+<h4 id="doc-readme-md--tratamientos-evidencias-y-conservación-del-historial">Tratamientos, evidencias y conservación del historial</h4>
+<p>La pantalla conserva dos pestañas: <strong>Inspecciones</strong> e <strong>Historial anterior y tratamientos</strong>. La segunda recupera la consulta, captura de eventos, referencias de archivos, exportación CSV y eliminación autorizada del flujo anterior; no se migran ni eliminan los eventos existentes.</p>
+<p>Desde el detalle de una inspección se registran tratamientos realizados con fecha, descripción, producto opcional y cantidad/unidad opcionales. Las cantidades y unidades deben informarse juntas. Una evidencia puede referenciar la inspección o uno de sus tratamientos. Se conserva el autor autenticado. Estas evidencias son referencias S3 y metadatos. La sección <strong>Fotos adjuntas</strong> permite además cargar, ver y descargar fotos reales, independientemente de esas referencias.</p>
+<p>Los tratamientos nuevos se almacenan vinculados a la inspección, se consultan y exportan desde su detalle y no se duplican como eventos genéricos. El seguimiento crea una nueva inspección enlazada a su origen, con el mismo problema y ubicación. El detalle permite navegar entre el origen y sus seguimientos.</p>
+<p>Los gestores pueden <strong>anular</strong>, con motivo y versión vigente, en lugar de borrar una inspección. Se conservan fecha, autor, motivo, tratamientos y evidencias; la inspección anulada se excluye de la capa de salud y no admite más revisiones, tratamientos, evidencias ni seguimientos nuevos. Sus seguimientos existentes conservan su propia evaluación. La anulación no equivale a resolver un hallazgo.</p>
+<div class="table-scroll"><table><thead><tr><th scope="col">Endpoint</th><th scope="col">Operación</th></tr></thead><tbody><tr><td><code>POST /api/v1/inspections/{id}/cancel</code></td><td>Anular con <code>reason</code> y <code>version</code>; solo gestores</td></tr><tr><td><code>GET, POST /api/v1/inspections/{id}/treatments</code></td><td>Consultar o registrar tratamiento ejecutado</td></tr><tr><td><code>GET, POST /api/v1/inspections/{id}/evidence</code></td><td>Consultar o registrar referencia de archivo; <code>treatmentId</code> opcional</td></tr><tr><td><code>POST /api/v1/inspections</code> con <code>parentInspectionId</code></td><td>Registrar seguimiento vinculado</td></tr></tbody></table></div>
+<p>Migración V7: anulación, vínculo de seguimiento, tratamientos y evidencias. La exportación de inspecciones respeta filtros y búsqueda, incluye anulaciones y protege las celdas frente a fórmulas de hojas de cálculo. El detalle permite exportar sus tratamientos, incluyendo referencias de evidencia asociadas. El modo demo persiste estos datos junto a las inspecciones locales y permite restablecerlos desde Configuración.</p>
+<p>Sensor devices belong to a farm and can optionally target a block. Devices ingest timestamped readings for <code>soilMoisture</code>, <code>airHumidity</code>, <code>airTemperature</code>, and <code>soilTemperature</code> through <code>/api/v1/sensors/{deviceId}/readings</code>. Readings are retained for history and can be polled by time range; the ingestion API is ready for an IoT gateway or MQTT/HTTP adapter.</p>
+<p>Managers can create alert rules using a metric, <code>LT</code>, <code>LTE</code>, <code>GT</code>, or <code>GTE</code> operator, threshold, severity, and message. Matching readings create open alerts that users can list by farm/status and acknowledge. This provides threshold-based moisture, temperature, and humidity alerts without making agronomic decisions automatically.</p>
+<p><code>/api/v1/analytics/map</code> returns a GeoJSON block layer with the latest telemetry, condition status (<code>DRY</code>, <code>OPTIMAL</code>, <code>WET</code>, or <code>NO_DATA</code>), harvest totals, and pest-risk severity. <code>/api/v1/analytics/dashboard?farmId=1</code> returns block count, fertilizer quantity, water volume, harvested quantity, health observations, open alerts, and connected-device counts. <code>/api/v1/analytics/water-usage</code> returns date-scoped planned and actual irrigation volume by sector/block, measured versus estimated consumption, rainfall, balance requirements, deficits, and soil-moisture reading context for the Reports screen. Suitability and recommendation models remain domain rules to be calibrated with agronomists; current condition and risk scores are transparent threshold-based summaries.</p>
+<h2 id="doc-readme-md--users-login-and-farm-access">Users, login, and farm access</h2>
+<p>Authentication uses an HTTP session cookie (<code>JSESSIONID</code>), with CSRF protection. All agricultural endpoints require login and farm membership. Registration creates an account without farm access. Creating a farm gives its creator the <code>ADMIN</code> role for that farm. Roles are assigned independently per farm:</p>
+<div class="table-scroll"><table><thead><tr><th scope="col">Action</th><th scope="col">ADMIN</th><th scope="col">SUPERVISOR</th><th scope="col">AGRONOMIST</th><th scope="col">WORKER</th></tr></thead><tbody><tr><td>Read farm resources, events, map layers, and media</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr><tr><td>Record events and register media</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr><tr><td>Create/delete fields, blocks, and rows; delete events</td><td>Yes</td><td>Yes</td><td>No</td><td>No</td></tr><tr><td>List farm members</td><td>Yes</td><td>Yes</td><td>No</td><td>No</td></tr><tr><td>Assign/change member roles; delete farm</td><td>Yes</td><td>No</td><td>No</td><td>No</td></tr><tr><td>Create and review farm tasks</td><td>Yes</td><td>Yes</td><td>Yes</td><td>No</td></tr><tr><td>Update task status/notes</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes, assigned tasks only</td></tr><tr><td>Manage crop catalogs, regional calendars, and planting approvals</td><td>Yes</td><td>Yes</td><td>Yes</td><td>No</td></tr><tr><td>Manage preventive-measure templates</td><td>Yes</td><td>Yes</td><td>Yes</td><td>No</td></tr><tr><td>Assign, execute, and document preventive measures</td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td></tr></tbody></table></div>
+<p>Any authenticated user can create a farm. Users can only list farms and resources they belong to. Farm administrators cannot demote themselves. Event authorship is taken from the logged-in user; a supplied <code>createdByUserId</code> is ignored.</p>
+<h3 id="doc-readme-md--authentication-endpoints">Authentication endpoints</h3>
+<div class="table-scroll"><table><thead><tr><th scope="col">Method</th><th scope="col">Endpoint</th><th scope="col">Purpose</th></tr></thead><tbody><tr><td>GET</td><td><code>/api/v1/auth/csrf</code></td><td>Obtain CSRF token and session cookie</td></tr><tr><td>POST</td><td><code>/api/v1/auth/register</code></td><td>Create account with <code>name</code>, <code>email</code>, <code>password</code></td></tr><tr><td>POST</td><td><code>/api/v1/auth/login</code></td><td>Login with <code>email</code>, <code>password</code>; return user and memberships</td></tr><tr><td>GET</td><td><code>/api/v1/auth/me</code></td><td>Current user and farm memberships</td></tr><tr><td>POST</td><td><code>/api/v1/auth/logout</code></td><td>Invalidate session; return 204</td></tr><tr><td>GET</td><td><code>/api/v1/farms/{farmId}/members</code></td><td>List farm members</td></tr><tr><td>PUT</td><td><code>/api/v1/farms/{farmId}/members</code></td><td>Add an existing user or change their role using <code>email</code>, <code>role</code></td></tr></tbody></table></div>
+<p>Passwords must contain 12–64 characters and at most 72 UTF-8 bytes. They are stored as BCrypt hashes. Emails are normalized to lowercase. Duplicate registration returns 409; invalid credentials return 401; insufficient farm permissions return</p>
+<ol><li><p>Missing/invalid CSRF tokens return 403.</p></li></ol>
+<h3 id="doc-readme-md--example-onboarding">Example onboarding</h3>
+<p>Keep the cookies returned by the server and send the CSRF token in <code>X-CSRF-TOKEN</code> for every POST, PUT, PATCH, or DELETE request, including registration and login.</p>
+<pre><code class="language-bash">curl -c /tmp/agro-cookies.txt http://localhost:8080/api/v1/auth/csrf</code></pre>
+<p>Copy the response's <code>token</code> value into <code>CSRF_TOKEN</code>, then register and login:</p>
+<pre><code class="language-bash">CSRF_TOKEN='paste-token-here'
+curl -b /tmp/agro-cookies.txt -c /tmp/agro-cookies.txt \
+  -H "X-CSRF-TOKEN: $CSRF_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"name":"Farm Owner","email":"owner@example.com","password":"replace-this-password"}' \
+  http://localhost:8080/api/v1/auth/register
+
+curl -b /tmp/agro-cookies.txt -c /tmp/agro-cookies.txt \
+  -H "X-CSRF-TOKEN: $CSRF_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"email":"owner@example.com","password":"replace-this-password"}' \
+  http://localhost:8080/api/v1/auth/login</code></pre>
+<p>Login rotates the session ID and CSRF token. Fetch <code>/api/v1/auth/csrf</code> again using the updated cookies and replace <code>CSRF_TOKEN</code> with the new token before writing. Create a farm with <code>POST /api/v1/farms</code> and <code>{"name":"My Farm"}</code>. Have the worker register their own account, then assign them from the owner's session:</p>
+<pre><code class="language-bash">curl -b /tmp/agro-cookies.txt -c /tmp/agro-cookies.txt \
+  -X PUT -H "X-CSRF-TOKEN: $CSRF_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"email":"worker@example.com","role":"WORKER"}' \
+  http://localhost:8080/api/v1/farms/1/members</code></pre>
+<p>Replace <code>1</code> with the created farm ID. The worker's login response and <code>/auth/me</code> will include that farm and role. Role changes take effect on existing sessions.</p>
+<h3 id="doc-readme-md--configuration-and-existing-data">Configuration and existing data</h3>
+<ul><li><p>Sessions expire after eight hours of inactivity and are stored in server memory; restarting the API requires users to log in again.</p></li><li><p>Set <code>SESSION_COOKIE_SECURE=true</code> when serving the API over HTTPS in production.</p></li><li><p>Browser clients must send requests with credentials. CORS allows <code>http://localhost:3000</code>, <code>http://localhost:5173</code>, and <code>http://127.0.0.1:5173</code> by default; configure <code>APP_CORS_ALLOWED_ORIGINS</code> as a comma-separated list for other origins.</p></li><li><p>Cookies use <code>SameSite=Lax</code>. A frontend hosted on a different site requires a deployment-specific cookie configuration; using a same-site API proxy avoids this.</p></li><li><p>Migration V2 preserves existing agricultural data. Existing farms have no owner assigned automatically. A database operator must assign their initial administrator after that user registers, using the correct farm ID and email:</p></li></ul>
+<pre><code class="language-sql">INSERT INTO farm_membership (farm_id, user_id, role)
+SELECT 1, id, 'ADMIN' FROM app_user WHERE email = 'owner@example.com';</code></pre>
+<h2 id="doc-readme-md--persistent-work-tasks">Persistent work tasks</h2>
+<p>Migration V3 introduced tasks stored in PostgreSQL. Administrators, supervisors, and agronomists can create tasks assigned to a member of the same farm, targeting exactly one field or block. Workers list and update their assignments; agronomic managers list and review tasks in their farms. The UI includes selected-day and outstanding overdue work using the device calendar. Tasks are separate from agricultural events and from browser demo data.</p>
+<div class="table-scroll"><table><thead><tr><th scope="col">Endpoint</th><th scope="col">Behavior</th></tr></thead><tbody><tr><td><code>GET /api/v1/tasks?farmId=1</code></td><td>List authorized tasks; farm filter optional</td></tr><tr><td><code>POST /api/v1/tasks</code></td><td>Create with <code>farmId</code>, <code>fieldId</code> or <code>blockId</code>, <code>assigneeId</code>, <code>title</code>, <code>activity</code>, <code>date</code>, <code>time</code>, <code>priority</code>, <code>instructions</code></td></tr><tr><td><code>PATCH /api/v1/tasks/{id}</code></td><td>Update <code>status</code>, optional <code>notes</code>, and required current <code>version</code>; stale updates return 409</td></tr></tbody></table></div>
+<p>Activities: <code>fertilization</code>, <code>irrigation</code>, <code>scouting</code>, <code>planting</code>, <code>harvest</code>. Priorities: <code>Alta</code>, <code>Media</code>, <code>Baja</code>. States: <code>pending</code> → <code>progress</code> → <code>review</code> → <code>completed</code>. Pending/in-progress tasks can become <code>blocked</code> with a reason and resume as <code>progress</code>. ADMIN, SUPERVISOR, and AGRONOMIST can approve or return reviewed tasks to <code>progress</code>; a return reason is not currently required. Completing a task does not create an agricultural event. The PATCH endpoint changes task status and notes with an optimistic <code>version</code>; it does not edit assignment/details, reschedule, cancel, delete, attach evidence, or expose transition history.</p>
+<h2 id="doc-readme-md--remaining-requirements-and-planned-work">Remaining requirements and planned work</h2>
+<p>The core manual workflow <strong>Login → My work today → Instructions by field/block → Notes and execution → Manager review</strong> is implemented. The table summarizes known gaps; the complete requirement IDs and non-functional requirements remain in the <a href="system-requirements.html">system requirements matrix</a>.</p>
+<div class="table-scroll"><table><thead><tr><th scope="col">Area</th><th scope="col">Remaining work</th><th scope="col">Current status</th></tr></thead><tbody><tr><td>Work tasks</td><td>Row targeting; edit task details; reschedule, reassign, cancel; transition history; creation idempotency.</td><td>Partial</td></tr><tr><td>Assignments and crews</td><td>Assign crews to work areas and tasks.</td><td>Missing</td></tr><tr><td>Daily work</td><td>Farm time zone and richer task history.</td><td>Partial; device calendar is used.</td></tr><tr><td>Execution and review</td><td>Capture structured quantities/time/evidence and link approval to agricultural history.</td><td>Partial; task notes and state transitions exist.</td></tr><tr><td>Crop catalog and production cycles</td><td>Complete crop/variety lifecycle, automatic stage changes, reconciliation, and audit trail.</td><td>In progress; see <a href="crop-management.html">crop-management audit</a>.</td></tr><tr><td>Regional planting</td><td>Reusable templates, weather context, and automatic preparation/replanting work.</td><td>In progress.</td></tr><tr><td>Perennial crops</td><td>Continuous cycle planning and automated follow-up.</td><td>Partial; perennial planting-calendar rules are available.</td></tr><tr><td>Fertilization</td><td>Inventory, cost controls, lab integration, method-aware confidence, and recommendations.</td><td>Workflow implemented; these controls are missing.</td></tr><tr><td>Pest and disease management</td><td>Risk criteria, formal treatment approval, lab confirmation, and automatic interventions.</td><td>Partial; structured inspections, follow-ups, and manual preventive work exist.</td></tr><tr><td>Irrigation and water</td><td>Complete hydraulic map, weather/meter integrations, broader administrative permissions, and offline work.</td><td>Operational records and recurring generation implemented; these integrations/controls remain incomplete.</td></tr><tr><td>Soil analysis</td><td>Laboratory integration and validated, method-aware interpretation.</td><td>Partial; profiles and provisional review are available.</td></tr><tr><td>Harvest</td><td>Harvest planning, bunch tracking, and full crop-cycle closeout.</td><td>Partial; structured cycle-linked harvest capture is implemented.</td></tr><tr><td>Automatic task generation</td><td>Generate crop work from regional calendars, stages, and review flags.</td><td>Missing; fertilizer and irrigation recurrence generation is implemented.</td></tr><tr><td>Notifications</td><td>Deliver assignment, overdue, and blocker notifications to workers/managers.</td><td>Task notifications are planned; sensor threshold alerts and acknowledgment are available separately.</td></tr><tr><td>Field connectivity</td><td>Offline capture and later synchronization with conflict handling.</td><td>Planned.</td></tr><tr><td>Account lifecycle</td><td>Password recovery, email verification, and membership removal.</td><td>Planned.</td></tr></tbody></table></div>
+<p>Doses and treatments must come from reviewed agronomic plans. Existing records do not calculate agronomic recommendations.</p>
+<h2 id="doc-readme-md--tests">Tests</h2>
+<p>Run the backend suite, frontend checks, and automated farm walkthrough with one command from the repository root. The browser tests open in Google Chrome, and the runner creates a disposable local QA database and farm.</p>
+<pre><code class="language-bash">python3 scripts/run_qa_tests.py</code></pre>
+<p>See the <a href="manual-workflow.html#doc-frontend-tests-manual-agricultural-workflow-md--pruebas-automatizadas-en-chrome">automated QA walkthrough</a> for prerequisites, playback speed, and report locations.</p>
+<p>Authentication, CSRF, session rotation, and access checks can run without PostGIS:</p>
+<pre><code class="language-bash">./gradlew test --tests '*AuthIntegrationTest'</code></pre>
+<p>The full suite also verifies application startup and farm membership assignment against the configured PostGIS database:</p>
+<pre><code class="language-bash">./gradlew test</code></pre>
+<p>Run the Gradle commands with JDK 17 selected. The build uses a Java 17 toolchain; setting <code>JAVA_HOME</code> or the IDE Gradle JVM to a newer JDK does not provide that toolchain. The frontend checks are documented in the <a href="frontend.html">frontend README</a>.</p></article>
+</div>
+<nav class="page-navigation" aria-label="Guide pagination"><a class="page-nav-card" href="index.html"><span class="page-nav-label">← Handbook home</span><span class="page-nav-title">All project guides</span></a><a class="page-nav-card next" href="system-requirements.html"><span class="page-nav-label">Next guide →</span><span class="page-nav-title">Agro Core System Requirements</span></a></nav>
+      <footer class="site-footer">Generated from maintained Markdown guides. Refresh with <code>python3 scripts/generate_project_handbook.py</code> from the repository root. <a href="index.html">Handbook home</a></footer>
+    </main>
+  </div>
+  <script src="search-index.js" defer></script>
+<script src="handbook.js" defer></script>
+<script type="module">
+try {
+  const { default: mermaid } = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+  mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'neutral', flowchart: { htmlLabels: false } });
+  await mermaid.run({ querySelector: '.mermaid' });
+} catch (error) {
+  // Diagram source remains available in the page and in each expandable source panel.
+}
+</script>
+</body>
+</html>

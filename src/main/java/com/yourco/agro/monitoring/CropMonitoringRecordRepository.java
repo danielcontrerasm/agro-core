@@ -14,8 +14,8 @@ public interface CropMonitoringRecordRepository extends JpaRepository<CropMonito
       and (:fieldId is null or r.field.id = :fieldId)
       and (:cropCycleId is null or r.cropCycleId = :cropCycleId)
       and (:recordType is null or r.recordType = :recordType)
-      and (:fromTime is null or r.recordedAt >= :fromTime)
-      and (:toTime is null or r.recordedAt <= :toTime)
+      and (cast(:fromTime as timestamp) is null or r.recordedAt >= :fromTime)
+      and (cast(:toTime as timestamp) is null or r.recordedAt <= :toTime)
     order by r.recordedAt desc
     """)
   List<CropMonitoringRecord> search(@Param("blockId") Long blockId,

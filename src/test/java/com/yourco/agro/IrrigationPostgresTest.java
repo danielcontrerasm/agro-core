@@ -68,7 +68,7 @@ class IrrigationPostgresTest {
       assertThat(new BigDecimal(summary.get("deficitMm").toString())).isEqualByComparingTo("2");
       assertThat(summary.get("meteredExecutionCount")).isEqualTo(1L);
       assertThat(summary.get("estimatedExecutionCount")).isEqualTo(1L);
-      assertThat(((List<?>) report.get("sectors"))).hasSize(1);
+      assertThat((Collection<?>) report.get("sectors")).hasSize(1);
     } finally { SecurityContextHolder.clearContext(); }
   }
 }

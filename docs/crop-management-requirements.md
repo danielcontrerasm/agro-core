@@ -1,5 +1,7 @@
 # Crop Management Requirements Audit
 
+Last reviewed: **2026-11-21**.
+
 This document audits **crop management only**: crop master data, varieties,
 planting cycles, lote evaluation, planting material, planting plans, field
 execution, establishment, phenology, regional calendars, and agronomist access.
@@ -29,11 +31,11 @@ product-completeness estimate, not an automated test-coverage percentage.
 | --- | --- | --- | --- |
 | Crop master catalog | Implemented | Farm-scoped crop records, codes, names, active state, and catalog UI. | Richer agronomic reference attributes and complete lifecycle editing/archive. |
 | Crop varieties | In progress | Varieties are associated with parent crops and selectable in planting workflows. | Seed/source, maturity, resistance, supplier data, and full lifecycle management. |
-| Planting cycles | In progress | Cycle creation by block with crop, variety, area, dates, and growth-stage data. | Automatic stage transitions, replant links, and planned-versus-actual reconciliation. |
+| Planting cycles | In progress | Cycles store block/row, crop/variety, planting window, expected harvest, current stage, and stage history. Planned area and density belong to associated planting plans; actual area and plant counts belong to execution records. | Cycle-level area reconciliation, automatic stage transitions, replant links, and planned-versus-actual lifecycle reconciliation. |
 | Site/lote evaluation | Implemented | Assessment creation, review, approval, and rejection are available in the cycle workflow. | More rule-based risk validation and richer assessment history. |
 | Planting material | Implemented | Material lots can be registered and accepted or rejected before planting. | Complete lot-document lifecycle and stronger catalog validation. |
 | Planting plan and execution | Implemented | Area, density, responsible person, approval, task creation, and execution are available. | Calendar- and stage-driven scheduling and broader task automation. |
-| Establishment and phenology | Implemented | Survival/replacement follow-up and dated stage observations are available. | Automatic progression, alerts, and stronger cycle reconciliation. |
+| Establishment and phenology | In progress | Checks record inspected, surviving, dead, and replaced plant counts; dated stage observations and history are available. | Structured resowing follow-up, automatic replacement work, stage progression, alerts, and stronger cycle reconciliation. |
 | Regional calendars | In progress | Annual/perennial rules, suggestions, preparation lead time, and cycle-window validation exist. | Reusable templates, weather context, and automatic work generation. |
 | Agronomist access | In progress | AGRONOMIST role, agronomic access checks, configuration access, and approvals exist. | Capability-based, delegated, time-bound, regional, or module-specific permissions. |
 | Crop scheduling automation | Missing | Approved planting plans can create tasks manually. | Automatic preparation, planting, replanting, and stage-driven task generation. |
@@ -46,15 +48,15 @@ product-completeness estimate, not an automated test-coverage percentage.
 | CM-01 | Store farm-scoped crop master records with code, name, and active state. | Implemented | `V14__crop_variety_catalog.sql`, `CropCatalogController`, `CropCatalogService`, and catalog UI. | Add richer agronomic attributes and shared reference-data support. |
 | CM-02 | Store varieties and associate each variety with its parent crop. | In progress | Crop/variety persistence and API/UI association exist. | Add maturity, resistance, source, supplier, edit, archive, and approval lifecycle. |
 | CM-03 | Associate blocks, planting cycles, and material lots with crop and variety records. | Implemented | Catalog identifiers are wired into block, cycle, and material-lot workflows. | Gradually make catalog references mandatory for legacy-compatible records. |
-| CM-04 | Record a crop cycle by block with crop, variety, dates, area, expected harvest, and growth stage. | In progress | `PlantingDtos`, `PlantingController`, cycle persistence, and the Planting page provide the core flow. | Add automatic stage changes, replant links, and actual-versus-expected lifecycle reconciliation. |
+| CM-04 | Record a crop cycle by block with crop, variety, dates, area, expected harvest, and growth stage. | In progress | `PlantingDtos`, `PlantingController`, cycle persistence, and the Planting page provide the core flow. The cycle stores planting dates, expected harvest, current stage, and stage history; planned area/density are held by planting plans, and actual area/plant counts by execution records. | Add a cycle-level view and reconciliation of planned versus actual area and dates, automatic stage changes, and replant links. |
 | CM-05 | Evaluate a lot/site before planting, including risks and technical approval. | Implemented | Site-assessment creation, review, approval, and rejection are available from cycle details. | Add rule-based risk validation and more complete assessment history. |
 | CM-06 | Register planting-material lots and accept or reject them before use. | Implemented | Material-lot creation and decision endpoints are available in the planting workflow. | Complete document/certificate lifecycle and stronger lot-to-cycle traceability. |
 | CM-07 | Create, approve, and execute a planting plan with area, density, responsible person, and target window. | Implemented | Planting-plan persistence, approval/cancellation, task creation, execution records, and UI controls exist. | Add reusable plan templates and automatic scheduling from calendar rules. |
-| CM-08 | Record establishment checks, survival, mortality, replacement, and resowing follow-up. | Implemented | Establishment-check endpoint and cycle follow-up UI support these operational records. | Add automatic replacement work generation and cycle-level alerts. |
+| CM-08 | Record establishment checks, survival, mortality, replacement, and resowing follow-up. | In progress | Establishment-check endpoint and cycle follow-up UI store inspected, surviving, dead, and replaced plant counts with dated notes. | Add structured resowing follow-up, automatic replacement work generation, count reconciliation, and cycle-level alerts. |
 | CM-09 | Record dated phenological stage observations for each cycle. | Implemented | Stage endpoint, stage history, and Planting page controls are available. | Add automatic progression rules and stage-based task triggers. |
 | CM-10 | Maintain regional annual and perennial planting calendars by region, crop, and optional variety. | In progress | `V15__agronomist_role_and_planting_calendars.sql`, calendar API, suggestions, and Settings UI exist. | Add reusable regional templates, weather-aware recommendations, and automatic preparation/replanting tasks. |
 | CM-11 | Give agronomists agronomic configuration and approval access without team administration. | In progress | `AGRONOMIST` role, `FarmAccess.requireAgronomic`, module checks, and role-aware Settings UI exist. | Add capability-level permissions, delegation, expiry, and region/module scope. |
-| CM-12 | Generate crop-management tasks automatically from calendars, stages, approved plans, and resowing needs. | Missing | Manual task creation from approved planting plans exists. | Build recurring, idempotent, dependency-aware generation with overdue/escalation handling. |
+| CM-12 | Generate crop-management tasks automatically from calendars, stages, approved plans, and resowing needs. | Missing | A manager can manually generate one task from an approved planting plan; repeating the request returns the plan's existing task. No calendar-, stage-, or resowing-triggered scheduler exists. | Build automatic, idempotent, dependency-aware generation with overdue/escalation handling. |
 | CM-13 | Maintain a unified audit history for crop records, approvals, and workflow decisions. | Missing | Individual records retain farm/block/cycle/user references and media links. | Add immutable change history and a cycle-level audit timeline. |
 
 ## Implemented user-facing workflow
@@ -131,5 +133,6 @@ catalog lifecycle endpoints are part of the in-progress work.
 
 ## Related documentation
 
-- `README.md` — product requirements, role matrix, API inventory, and roadmap.
+- `README.md` — current repository overview, local setup, feature coverage, and API areas.
+- `docs/system-requirements.md` — cross-product functional and non-functional requirements.
 - `docs/guias-agronomicas-aplicadas.md` — agronomic guidance and operational context.

@@ -1,16 +1,18 @@
 import { expect, test } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+import { closeFarmMenu, openFarmLogin } from './support/qa-account';
 
 test('all dashboard views render without script errors or horizontal page overflow', async ({ page }, testInfo) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   for (const route of ['dashboard', 'maps', 'tasks', 'fields', 'plants', 'irrigation', 'fertilization', 'disease', 'harvest', 'reports', 'insights', 'settings']) {
     await page.goto(`/#${route}`);
-    await expect(page.locator('main h1')).toBeVisible();
+    await expect(page.getByRole('main').getByRole('heading').first()).toBeVisible();
     await expect(page.locator('.environment-bar')).toContainText('Espacio de demostración');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
   }
   await page.goto('/#dashboard');
   await expect(page.locator('.farm-map image')).toHaveAttribute('href', '/images/farm-aerial.png');
-  await page.screenshot({ path: `test-results/dashboard-${testInfo.project.name}.png`, fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath('dashboard.png'), fullPage: true });
   expect(errors).toEqual([]);
 });
 
@@ -33,15 +35,21 @@ test('map controls, block selection and layer comparison are interactive', async
   await page.goto('/#maps');
   await page.getByRole('button', { name: 'Humedad del suelo', exact: true }).click();
   await expect(page.locator('main h1')).toHaveText('Mapa de humedad del suelo');
+  await page.getByRole('button', { name: 'Cerrar capas', exact: true }).click();
   await page.getByRole('button', { name: 'Seleccionar Bloque B', exact: true }).click();
   await expect(page.locator('.map-popup')).toContainText('Bloque B');
-  await expect(page.locator('.map-popup')).toContainText('18 %');
+  await expect(page.locator('.map-popup')).toContainText('29 %');
+  await page.getByRole('button', { name: 'Cerrar bloque', exact: true }).click();
   await page.getByRole('button', { name: 'Acercar mapa' }).click();
+  await expect(page.locator('.map-canvas > g')).toHaveAttribute('style', /scale\(1\.2\)/);
   await page.getByRole('button', { name: 'Comparar capas', exact: true }).click();
-  await expect(page.locator('.farm-map')).toHaveCount(2);
-  await page.getByRole('button', { name: 'Cerrar comparación', exact: true }).click();
+  const legend = page.locator('.map-compare-legend');
+  await expect(legend).toContainText('Humedad del suelo');
+  await expect(legend).toContainText('Nutrientes');
+  await page.getByRole('button', { name: 'Comparación activa', exact: true }).click();
+  await expect(legend).toHaveCount(0);
   await expect(page.locator('.farm-map')).toHaveCount(1);
-  await page.screenshot({ path: `test-results/map-${testInfo.project.name}.png`, fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath('map.png'), fullPage: true });
 });
 
 test('demo task goes through execution, review and approval and persists after reload', async ({ page }) => {
@@ -68,9 +76,10 @@ test('new demo field is validated and saved locally', async ({ page }) => {
   await dialog.getByLabel(/Coordenadas/).fill('[[[-74.1,10.5],[-74.11,10.5],[-74.11,10.51]]]');
   await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
   await expect(dialog).not.toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Campo de prueba', exact: true })).toBeVisible();
+  const field = page.locator('.fields-tree').getByText('Campo de prueba', { exact: true });
+  await expect(field).toBeVisible();
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Campo de prueba', exact: true })).toBeVisible();
+  await expect(field).toBeVisible();
 });
 
 test('worker role hides management controls and narrows daily tasks', async ({ page }) => {
@@ -104,11 +113,20 @@ test('sanitary catalog can add, edit and deactivate a problem', async ({ page })
 
 test('report export includes only the filtered events', async ({ page }) => {
   await page.goto('/#reports');
-  await page.getByRole('combobox', { name: 'Actividad', exact: true }).selectOption('IRRIGATION_EVENT');
-  await expect(page.locator('tbody tr')).toHaveCount(1);
+  const filter = page.getByRole('combobox', { name: 'Actividad', exact: true });
+  const label = await filter.locator('option[value="IRRIGATION_EVENT"]').innerText();
+  await filter.selectOption('IRRIGATION_EVENT');
+  const activityHeader = page.locator('thead th').filter({ hasText: /^Actividad$/ });
+  const activities = page.locator('table').filter({ has: activityHeader });
+  await expect(activities.locator('tbody tr')).toHaveCount(1);
+  await expect(activities.locator('tbody tr')).toContainText(label);
   const downloaded = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Exportar CSV' }).click();
-  expect((await downloaded).suggestedFilename()).toBe('agrovision-demo-reports.csv');
+  const csv = await downloaded;
+  expect(csv.suggestedFilename()).toBe('agrovision-demo-reports.csv');
+  const lines = (await readFile((await csv.path())!, 'utf8')).trim().split(/\r?\n/);
+  expect(lines).toHaveLength(2);
+  expect(lines[1].startsWith(`"${label}",`)).toBe(true);
 });
 
 test('real login refreshes CSRF, loads API data and never substitutes demo tasks', async ({ page }) => {
@@ -126,12 +144,12 @@ test('real login refreshes CSRF, loads API data and never substitutes demo tasks
     else if (path.endsWith('/logout')) { await route.fulfill({ status: 204 }); return; }
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response) });
   });
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Conectar mi finca', exact: true }).click();
+  await openFarmLogin(page);
   await page.getByLabel('Correo electrónico', { exact: true }).fill('real@example.com');
   await page.getByLabel('Contraseña', { exact: true }).fill('test-password-123');
   await page.getByRole('button', { name: 'Iniciar sesión', exact: true }).click();
   await expect(page.locator('.environment-bar')).toContainText('Conectado a tu finca');
+  await closeFarmMenu(page);
   await expect(page.locator('main h1')).toContainText('Trabajador');
   await page.evaluate(() => { window.location.hash = 'tasks'; });
   await expect(page.getByRole('heading', { name: 'Mi trabajo de hoy.' })).toBeVisible();

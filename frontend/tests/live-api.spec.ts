@@ -1,23 +1,10 @@
 import { expect, test } from '@playwright/test';
+import { createQaFarm, signInAsNewQaUser } from './support/qa-account';
 
 test('real server onboarding and agricultural record creation', async ({ page }) => {
   test.skip(process.env.AGRO_LIVE_TEST !== '1', 'Requires an isolated running Agro Core backend.');
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Conectar mi finca', exact: true }).click();
-  await page.getByRole('button', { name: 'Crea tu cuenta', exact: true }).click();
-  const email = `frontend-${Date.now()}@example.com`;
-  await page.getByLabel('Tu nombre', { exact: true }).fill('Frontend Verification');
-  await page.getByLabel('Correo electrónico', { exact: true }).fill(email);
-  await page.getByLabel(/^Contraseña/).fill('frontend-test-password-123');
-  await page.getByRole('button', { name: 'Crear mi cuenta', exact: true }).click();
-  await expect(page.getByRole('status')).toContainText('Cuenta creada.');
-  await page.getByLabel('Correo electrónico', { exact: true }).fill(email);
-  await page.getByLabel('Contraseña', { exact: true }).fill('frontend-test-password-123');
-  await page.getByRole('button', { name: 'Iniciar sesión', exact: true }).click();
-  await page.getByRole('button', { name: /Crear mi primera finca/ }).click();
-  await page.getByRole('dialog').getByLabel('Nombre', { exact: true }).fill('Finca de verificación');
-  await page.getByRole('dialog').getByRole('button', { name: 'Guardar', exact: true }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await signInAsNewQaUser(page);
+  await createQaFarm(page, 'Finca de verificación');
   await page.evaluate(() => { window.location.hash = 'fields'; });
   await page.getByRole('button', { name: 'Nuevo campo', exact: true }).click();
   let dialog = page.getByRole('dialog');
@@ -27,10 +14,12 @@ test('real server onboarding and agricultural record creation', async ({ page })
   await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Campo real', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Nuevo bloque', exact: true }).click();
+  await page.getByRole('button', { name: 'Vista lista', exact: true }).click();
+  await page.locator('.fields-list-panel').getByRole('button', { name: 'Nuevo bloque', exact: true }).click();
   dialog = page.getByRole('dialog');
   await dialog.getByLabel('Código', { exact: true }).fill('Bloque real');
   await dialog.getByRole('combobox', { name: 'Campo', exact: true }).selectOption({ label: 'Campo real' });
+  await dialog.getByRole('combobox', { name: 'Cultivo', exact: true }).selectOption({ label: 'Banano' });
   await dialog.getByLabel('Área (ha)').fill('10');
   await dialog.getByLabel(/Coordenadas/).fill('[[[-74.1,10.5],[-74.105,10.5],[-74.105,10.505]]]');
   await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();

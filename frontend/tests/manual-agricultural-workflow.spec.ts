@@ -1,18 +1,20 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { createQaFarm, openFarmLogin, signInAsNewQaUser } from './support/qa-account';
 
 /*
- * Recorrido E2E MANUAL para una finca ya existente.
+ * Recorrido E2E para una finca existente o una finca desechable creada por
+ * scripts/run_qa_tests.py.
  *
- * No se ejecuta salvo que AGRO_MANUAL_E2E=1. Además exige una confirmación
- * explícita porque crea registros persistentes en el servidor seleccionado.
+ * Ambos modos exigen habilitación explícita de escritura.
  * Consulta manual-agricultural-workflow.md antes de ejecutarlo.
  */
 
-const enabled = process.env.AGRO_MANUAL_E2E === '1';
+const automated = process.env.AGRO_QA_WALKTHROUGH === '1';
+const enabled = automated || process.env.AGRO_MANUAL_E2E === '1';
 const writeConfirmation = process.env.AGRO_E2E_ALLOW_WRITES;
-const farmName = process.env.AGRO_E2E_FARM_NAME?.trim();
-const pauseEveryStep = process.env.AGRO_E2E_PAUSE_EVERY_STEP !== '0';
+const pauseEveryStep = !automated && process.env.AGRO_E2E_PAUSE_EVERY_STEP !== '0';
 const automaticStepDelay = Math.max(0, Number(process.env.AGRO_E2E_STEP_DELAY_MS ?? 0));
+const modeLabel = automated ? 'PRUEBA QA' : 'PRUEBA MANUAL';
 
 function requiredNumber(name: string, fallback: number) {
   const value = process.env[name];
@@ -64,7 +66,7 @@ function rowLine() {
 
 async function selectOptionContaining(select: Locator, text: string) {
   const option = select.locator('option').filter({ hasText: text }).first();
-  await expect(option, `No existe una opción que contenga “${text}”.`).toBeVisible();
+  await expect(option, `No existe una opción que contenga “${text}”.`).toHaveAttribute('value', /.+/);
   const value = await option.getAttribute('value');
   if (!value) throw new Error(`La opción “${text}” no tiene un valor seleccionable.`);
   await select.selectOption(value);
@@ -76,7 +78,7 @@ async function ensureOptions(select: Locator, minimum: number, explanation: stri
 }
 
 async function renderProgress(page: Page, number: number, title: string, detail: string) {
-  await page.evaluate(({ number: stepNumber, title: stepTitle, detail: stepDetail }) => {
+  await page.evaluate(({ number: stepNumber, title: stepTitle, detail: stepDetail, label }) => {
     const id = 'agro-e2e-manual-progress';
     let root = document.getElementById(id);
     if (!root) {
@@ -91,7 +93,7 @@ async function renderProgress(page: Page, number: number, title: string, detail:
     }
     root.replaceChildren();
     const eyebrow = document.createElement('small');
-    eyebrow.textContent = `PRUEBA MANUAL · PASO ${String(stepNumber).padStart(2, '0')}`;
+    eyebrow.textContent = `${label} · PASO ${String(stepNumber).padStart(2, '0')}`;
     eyebrow.style.cssText = 'display:block;color:#9be5a8;font-size:11px;font-weight:700;letter-spacing:.08em;margin-bottom:5px';
     const heading = document.createElement('strong');
     heading.textContent = stepTitle;
@@ -100,12 +102,12 @@ async function renderProgress(page: Page, number: number, title: string, detail:
     body.textContent = stepDetail;
     body.style.cssText = 'display:block;font-size:12px;line-height:1.45;color:#dbe9de';
     root.append(eyebrow, heading, body);
-  }, { number, title, detail });
+  }, { number, title, detail, label: modeLabel });
 }
 
 async function checkpoint(page: Page, number: number, title: string, detail: string) {
   await renderProgress(page, number, title, detail);
-  console.log(`[E2E manual · ${String(number).padStart(2, '0')}] ${title}: ${detail}`);
+  console.log(`[${modeLabel} · ${String(number).padStart(2, '0')}] ${title}: ${detail}`);
   if (pauseEveryStep) await page.pause();
   else if (automaticStepDelay > 0) await page.waitForTimeout(automaticStepDelay);
 }
@@ -117,21 +119,23 @@ async function visibleStep(page: Page, number: number, title: string, detail: st
   });
 }
 
-test.use({ screenshot: 'on', trace: 'on', video: 'on' });
+test.use({ screenshot: 'on', trace: automated ? 'off' : 'on', video: automated ? 'off' : 'on' });
 
 test('recorrido manual: finca, lote, riego, fertilización y cosecha', async ({ page }, testInfo) => {
-  test.skip(!enabled, 'Prueba manual desactivada. Usa AGRO_MANUAL_E2E=1 para habilitarla.');
-  test.setTimeout(60 * 60 * 1000);
+  test.skip(!enabled, 'Usa scripts/run_qa_tests.py o habilita AGRO_MANUAL_E2E=1 para el recorrido manual.');
+  test.setTimeout(automated ? 5 * 60 * 1000 : 60 * 60 * 1000);
 
   if (writeConfirmation !== 'SI') {
     throw new Error('Esta prueba crea datos persistentes. Ejecuta solo con AGRO_E2E_ALLOW_WRITES=SI.');
   }
+
+  const token = runToken();
+  const farmName = automated ? `Finca QA ${token}` : process.env.AGRO_E2E_FARM_NAME?.trim();
   if (!farmName) {
     throw new Error('Indica la finca existente con AGRO_E2E_FARM_NAME="Nombre exacto de la finca".');
   }
 
-  const token = runToken();
-  const prefix = process.env.AGRO_E2E_PREFIX?.trim() || 'E2E-MANUAL';
+  const prefix = process.env.AGRO_E2E_PREFIX?.trim() || (automated ? 'E2E-QA' : 'E2E-MANUAL');
   const names = {
     field: `${prefix} Campo ${token}`,
     block: `${prefix}-LOTE-${token}`,
@@ -145,16 +149,21 @@ test('recorrido manual: finca, lote, riego, fertilización y cosecha', async ({ 
   const yesterday = localDate(-1);
   const now = localDate();
 
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Conectar mi finca', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Iniciar sesión', exact: true })).toBeVisible();
-  await checkpoint(
-    page,
-    0,
-    'Inicio de sesión manual',
-    'Escribe tus credenciales, inicia sesión y en el Inspector pulsa “Resume” para continuar. La contraseña nunca queda en el script.',
-  );
-  await expect(page.locator('.environment-bar')).toContainText('Conectado a tu finca');
+  if (automated) {
+    await visibleStep(page, 0, 'Preparar la finca QA', `Cuenta y finca de prueba creadas: ${farmName}.`, async () => {
+      await signInAsNewQaUser(page);
+      await createQaFarm(page, farmName);
+    });
+  } else {
+    await openFarmLogin(page);
+    await checkpoint(
+      page,
+      0,
+      'Inicio de sesión manual',
+      'Escribe tus credenciales, inicia sesión y en el Inspector pulsa “Resume” para continuar. La contraseña nunca queda en el script.',
+    );
+    await expect(page.locator('.environment-bar')).toContainText('Conectado a tu finca');
+  }
 
   await visibleStep(page, 1, 'Seleccionar la finca objetivo', `Se usará únicamente la finca “${farmName}”.`, async () => {
     const picker = page.getByLabel('Seleccionar finca');
@@ -182,15 +191,19 @@ test('recorrido manual: finca, lote, riego, fertilización y cosecha', async ({ 
     await page.locator('.fields-list-panel').getByRole('button', { name: 'Nuevo bloque', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Nuevo bloque', exact: true });
     await dialog.getByLabel('Código', { exact: true }).fill(names.block);
-    await dialog.getByLabel('Campo', { exact: true }).selectOption({ label: names.field });
-    const crop = dialog.getByLabel('Cultivo', { exact: true });
+    await dialog.getByRole('combobox', { name: 'Campo', exact: true }).selectOption({ label: names.field });
+    const crop = dialog.getByRole('combobox', { name: 'Cultivo', exact: true });
     await ensureOptions(crop, 2, 'La finca no tiene cultivos en el catálogo. Configura al menos un cultivo antes de ejecutar la prueba.');
     await crop.selectOption({ index: 1 });
     await dialog.getByLabel('Área (ha)', { exact: true }).fill('0.5');
     await dialog.getByLabel(/Coordenadas del polígono/).fill(blockPolygon());
+    const saved = page.waitForResponse(response =>
+      response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/v1/blocks');
     await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
+    const response = await saved;
+    expect(response.ok(), 'El servidor debe guardar el bloque.').toBe(true);
+    expect(await response.json()).toMatchObject({ code: names.block });
     await expect(dialog).toHaveCount(0);
-    await expect(page.getByRole('row').filter({ hasText: names.block })).toBeVisible();
   });
 
   await visibleStep(page, 4, 'Crear un surco de prueba', `Surco creado: ${names.row}.`, async () => {
@@ -199,7 +212,7 @@ test('recorrido manual: finca, lote, riego, fertilización y cosecha', async ({ 
     await page.getByRole('button', { name: 'Nuevo surco', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Nuevo surco', exact: true });
     await dialog.getByLabel('Código', { exact: true }).fill(names.row);
-    await selectOptionContaining(dialog.getByLabel('Bloque', { exact: true }), names.block);
+    await selectOptionContaining(dialog.getByRole('combobox', { name: 'Bloque', exact: true }), names.block);
     await dialog.getByLabel('Longitud (m)', { exact: true }).fill('65');
     await dialog.getByLabel('Distancia entre plantas (m)', { exact: true }).fill('2');
     await dialog.getByLabel('Plantas estimadas', { exact: true }).fill('33');
@@ -215,7 +228,7 @@ test('recorrido manual: finca, lote, riego, fertilización y cosecha', async ({ 
     await expect(page.getByRole('button', { name: 'Nuevo sector', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Nuevo sector', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Nuevo sector de riego', exact: true });
-    await selectOptionContaining(dialog.getByLabel('Bloque', { exact: true }), names.block);
+    await selectOptionContaining(dialog.getByRole('combobox', { name: 'Bloque', exact: true }), names.block);
     await dialog.getByLabel('Nombre del sector', { exact: true }).fill(names.sector);
     await dialog.getByLabel('Área del sector (ha)', { exact: true }).fill('0.5');
     await dialog.getByLabel('Sistema de riego', { exact: true }).fill('Goteo de prueba E2E');
@@ -226,13 +239,13 @@ test('recorrido manual: finca, lote, riego, fertilización y cosecha', async ({ 
     await dialog.getByLabel('Fundamento técnico / motivo de configuración', { exact: true }).fill('Dato de prueba; no constituye una recomendación agronómica.');
     await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect(dialog).toHaveCount(0);
-    await expect(page.getByText(names.sector, { exact: true })).toBeVisible();
+    await expect(page.getByRole('row').filter({ hasText: names.sector })).toBeVisible();
   });
 
   await visibleStep(page, 6, 'Registrar una medición de humedad', 'Se guardó una lectura manual asociada al sector de prueba.', async () => {
     await page.getByRole('button', { name: 'Nueva medición', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Nueva medición de humedad', exact: true });
-    await selectOptionContaining(dialog.getByLabel('Sector', { exact: true }), names.sector);
+    await selectOptionContaining(dialog.getByRole('combobox', { name: 'Sector', exact: true }), names.sector);
     await dialog.getByLabel('Fecha y hora de medición', { exact: true }).fill(`${yesterday}T08:00`);
     await dialog.getByLabel('Valor de humedad', { exact: true }).fill('27');
     await dialog.getByLabel('Instrumento o método', { exact: true }).fill('Medidor manual de prueba');
@@ -240,19 +253,19 @@ test('recorrido manual: finca, lote, riego, fertilización y cosecha', async ({ 
     await dialog.getByLabel('Observación de drenaje', { exact: true }).fill('Drenaje revisado para la prueba.');
     await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect(dialog).toHaveCount(0);
-    await expect(page.getByRole('table')).toContainText('Medidor manual de prueba');
+    await expect(page.getByRole('row').filter({ hasText: 'Medidor manual de prueba' })).toBeVisible();
   });
 
   await visibleStep(page, 7, 'Programar el riego', 'Se creó una programación de 30 minutos y 5 m³.', async () => {
     await page.getByRole('button', { name: 'Programación', exact: true }).click();
     await page.getByRole('button', { name: 'Programar riego', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Programar riego', exact: true });
-    await selectOptionContaining(dialog.getByLabel('Sector', { exact: true }), names.sector);
+    await selectOptionContaining(dialog.getByRole('combobox', { name: 'Sector', exact: true }), names.sector);
     await dialog.getByLabel('Fecha programada', { exact: true }).fill(yesterday);
     await dialog.getByLabel('Hora programada', { exact: true }).fill('08:00');
     await dialog.getByLabel('Duración prevista (min)', { exact: true }).fill('30');
     await dialog.getByLabel('Volumen previsto (m³)', { exact: true }).fill('5');
-    await ensureOptions(dialog.getByLabel('Responsable', { exact: true }), 1, 'No hay miembros disponibles para asignar el plan de riego.');
+    await ensureOptions(dialog.getByRole('combobox', { name: 'Responsable', exact: true }), 1, 'No hay miembros disponibles para asignar el plan de riego.');
     await dialog.getByLabel('Justificación técnica', { exact: true }).fill('Programación de verificación basada en la medición de prueba.');
     await dialog.getByLabel('Instrucciones de ejecución', { exact: true }).fill('Verificar contador, drenaje y registrar la ejecución de prueba.');
     await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
@@ -287,7 +300,7 @@ test('recorrido manual: finca, lote, riego, fertilización y cosecha', async ({ 
     await expect(page.getByRole('button', { name: 'Nuevo análisis', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Nuevo análisis', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Nuevo análisis', exact: true });
-    await selectOptionContaining(dialog.getByLabel('Bloque', { exact: true }), names.block);
+    await selectOptionContaining(dialog.getByRole('combobox', { name: 'Bloque', exact: true }), names.block);
     await dialog.getByLabel('Fecha de muestreo', { exact: true }).fill(twoDaysAgo);
     await dialog.getByLabel('Laboratorio', { exact: true }).fill('Laboratorio de verificación');
     await dialog.getByLabel('Referencia de muestra', { exact: true }).fill(names.analysis);
@@ -303,20 +316,20 @@ test('recorrido manual: finca, lote, riego, fertilización y cosecha', async ({ 
     await page.getByRole('button', { name: 'Planes', exact: true }).click();
     await page.getByRole('button', { name: 'Nuevo plan', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Nuevo plan de fertilización', exact: true });
-    await selectOptionContaining(dialog.getByLabel('Bloque', { exact: true }), names.block);
-    await selectOptionContaining(dialog.getByLabel('Análisis de referencia', { exact: true }), names.analysis);
+    await selectOptionContaining(dialog.getByRole('combobox', { name: 'Bloque', exact: true }), names.block);
+    await selectOptionContaining(dialog.getByRole('combobox', { name: 'Análisis de referencia', exact: true }), names.analysis);
     await dialog.getByLabel('Etapa de crecimiento', { exact: true }).fill('Vegetativo');
     await dialog.getByLabel('Diagnóstico y justificación técnica', { exact: true }).fill('Plan de prueba trazable; requiere revisión técnica real antes de aplicarse en producción.');
     await dialog.getByLabel('Objetivo agronómico', { exact: true }).fill('Verificar creación, aprobación, tarea, aplicación y seguimiento.');
     await dialog.getByLabel('Producto', { exact: true }).fill(names.product);
     await dialog.getByLabel('Composición declarada (N-P-K y otros)', { exact: true }).fill('10-10-10 · dato de prueba');
     await dialog.getByLabel('Dosis definida por el técnico', { exact: true }).fill('10');
-    await dialog.getByLabel('Unidad de dosis', { exact: true }).selectOption('KG_HA');
+    await dialog.getByRole('combobox', { name: 'Unidad de dosis', exact: true }).selectOption('KG_HA');
     await dialog.getByLabel('Cobertura (ha o plantas según unidad de dosis)', { exact: true }).fill('0.5');
     await dialog.getByLabel('Método e instrucciones de aplicación', { exact: true }).fill('Aplicación manual simulada para validación E2E.');
     await dialog.getByLabel('Fecha programada', { exact: true }).fill(yesterday);
     await dialog.getByLabel('Hora programada', { exact: true }).fill('08:00');
-    await ensureOptions(dialog.getByLabel('Responsable', { exact: true }), 1, 'No hay miembros disponibles para asignar el plan de fertilización.');
+    await ensureOptions(dialog.getByRole('combobox', { name: 'Responsable', exact: true }), 1, 'No hay miembros disponibles para asignar el plan de fertilización.');
     await dialog.getByLabel('Fecha de seguimiento', { exact: true }).fill(now);
     await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect(dialog).toHaveCount(0);
@@ -335,8 +348,12 @@ test('recorrido manual: finca, lote, riego, fertilización y cosecha', async ({ 
 
   await visibleStep(page, 13, 'Generar la tarea de fertilización', 'El plan aprobado queda listo para registrar una aplicación.', async () => {
     const planRow = page.getByRole('row').filter({ hasText: names.product });
+    const saved = page.waitForResponse(response => response.request().method() === 'POST'
+      && /^\/api\/v1\/fertilization\/plans\/\d+\/task$/.test(new URL(response.url()).pathname));
     await planRow.getByRole('button', { name: 'Generar tarea', exact: true }).click();
-    await expect(planRow).toContainText(/Tarea|#/);
+    const response = await saved;
+    expect(response.ok(), 'El servidor debe generar la tarea de fertilización.').toBe(true);
+    expect((await response.json()).taskId).toBeGreaterThan(0);
     await expect(planRow.getByRole('button', { name: 'Registrar aplicación', exact: true })).toBeVisible();
   });
 
@@ -351,11 +368,11 @@ test('recorrido manual: finca, lote, riego, fertilización y cosecha', async ({ 
     await dialog.getByLabel('Lote del producto', { exact: true }).fill(`LOTE-${token}`);
     await dialog.getByLabel('Observaciones de campo', { exact: true }).fill('Aplicación de prueba, sin uso operativo.');
     await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
-    await expect(page.getByRole('dialog', { name: /Aplicación #/ })).toBeVisible();
-    await page.getByRole('dialog', { name: /Aplicación #/ }).getByRole('button', { name: 'Cerrar', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: /Aplicación #/ })).toContainText('5 kg');
   });
 
   await visibleStep(page, 15, 'Registrar seguimiento de fertilización', 'El plan conserva una revisión técnica posterior a la aplicación.', async () => {
+    await page.reload();
     await page.getByRole('button', { name: 'Planes', exact: true }).click();
     const planRow = page.getByRole('row').filter({ hasText: names.product });
     await planRow.getByRole('button', { name: 'Registrar seguimiento', exact: true }).click();
@@ -368,15 +385,15 @@ test('recorrido manual: finca, lote, riego, fertilización y cosecha', async ({ 
 
   await visibleStep(page, 16, 'Crear el ciclo que habilita la cosecha', `Ciclo creado: ${names.cycle}.`, async () => {
     await page.goto('/#planting');
-    await expect(page.getByRole('button', { name: 'Nuevo ciclo', exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Nuevo ciclo', exact: true }).click();
+    await page.locator('.planting-reference-heading').getByRole('button', { name: 'Nuevo ciclo', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Nuevo ciclo de cultivo', exact: true });
-    await selectOptionContaining(dialog.getByLabel('Lote', { exact: true }), names.block);
-    await ensureOptions(dialog.getByLabel('Cultivo', { exact: true }), 1, 'No hay cultivos disponibles para crear el ciclo de cosecha.');
+    await selectOptionContaining(dialog.getByRole('combobox', { name: 'Lote', exact: true }), names.block);
+    await ensureOptions(dialog.getByRole('combobox', { name: 'Cultivo', exact: true }), 1, 'No hay cultivos disponibles para crear el ciclo de cosecha.');
     await dialog.getByLabel('Código del ciclo', { exact: true }).fill(names.cycle);
-    await dialog.getByLabel('Inicio de siembra', { exact: true }).fill(twoDaysAgo);
-    await dialog.getByLabel('Fin de siembra', { exact: true }).fill(yesterday);
-    await dialog.getByLabel('Fecha estimada de cosecha', { exact: true }).fill(now);
+    const plantingDay = localDate();
+    await dialog.getByLabel('Inicio de siembra', { exact: true }).fill(plantingDay);
+    await dialog.getByLabel('Fin de siembra', { exact: true }).fill(plantingDay);
+    await dialog.getByLabel('Fecha estimada de cosecha', { exact: true }).fill(plantingDay);
     await dialog.getByLabel('Notas del ciclo', { exact: true }).fill('Ciclo creado para habilitar el registro de cosecha E2E.');
     await dialog.getByRole('button', { name: 'Crear ciclo', exact: true }).click();
     await expect(dialog).toHaveCount(0);
@@ -385,20 +402,18 @@ test('recorrido manual: finca, lote, riego, fertilización y cosecha', async ({ 
 
   await visibleStep(page, 17, 'Registrar la cosecha', 'Se creó un registro de producción con rendimiento, calidad, merma y causa.', async () => {
     await page.goto('/#harvest');
-    await expect(page.getByRole('button', { name: 'Registrar cosecha', exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Registrar cosecha', exact: true }).click();
+    await page.locator('.page-heading').getByRole('button', { name: 'Registrar cosecha', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Registrar cosecha', exact: true });
-    await dialog.getByLabel('Registrar en', { exact: true }).selectOption('block');
-    await selectOptionContaining(dialog.getByLabel('Campo', { exact: true }), names.field);
-    await selectOptionContaining(dialog.getByLabel('Bloque', { exact: true }), names.block);
-    await selectOptionContaining(dialog.getByLabel('Ciclo de cultivo', { exact: true }), names.cycle);
-    await dialog.getByLabel('Fecha de cosecha', { exact: true }).fill(yesterday);
-    await dialog.getByLabel('Fecha y hora del registro', { exact: true }).fill(`${yesterday}T09:00`);
+    await dialog.getByRole('combobox', { name: 'Registrar en', exact: true }).selectOption('block');
+    await selectOptionContaining(dialog.getByRole('combobox', { name: 'Campo', exact: true }), names.field);
+    await selectOptionContaining(dialog.getByRole('combobox', { name: 'Bloque', exact: true }), names.block);
+    await selectOptionContaining(dialog.getByRole('combobox', { name: 'Ciclo de cultivo', exact: true }), names.cycle);
+    await dialog.getByLabel('Fecha de cosecha', { exact: true }).fill(localDate());
     await dialog.getByLabel('Área cosechada (ha)', { exact: true }).fill('0.5');
     await dialog.getByLabel('Rendimiento estimado', { exact: true }).fill('500');
     await dialog.getByLabel('Cantidad cosechada', { exact: true }).fill('450');
-    await dialog.getByLabel('Unidad', { exact: true }).selectOption('kg');
-    await dialog.getByLabel('Calidad o grado', { exact: true }).selectOption('A');
+    await dialog.getByRole('combobox', { name: 'Unidad', exact: true }).selectOption('kg');
+    await dialog.getByRole('combobox', { name: 'Calidad o grado', exact: true }).selectOption('A');
     await dialog.getByLabel('Cantidad rechazada o dañada', { exact: true }).fill('50');
     await dialog.getByLabel('Motivo del rechazo', { exact: true }).fill('Merma registrada para validar el formulario E2E.');
     await dialog.getByLabel('Notas de cosecha', { exact: true }).fill('Cosecha de prueba para confirmar trazabilidad del flujo.');
@@ -407,15 +422,20 @@ test('recorrido manual: finca, lote, riego, fertilización y cosecha', async ({ 
     const harvestRow = page.getByRole('row').filter({ hasText: names.cycle });
     await expect(harvestRow).toContainText('450 kg');
     await harvestRow.getByRole('button', { name: /Ver cosecha/ }).click();
-    await expect(page.getByRole('dialog', { name: 'Detalle de cosecha', exact: true })).toContainText('450 kg');
-    await page.getByRole('dialog', { name: 'Detalle de cosecha', exact: true }).getByRole('button', { name: 'Cerrar', exact: true }).click();
+    const detail = page.getByRole('dialog', { name: 'Detalle de cosecha', exact: true });
+    await expect(detail.getByText('450 Kilogramos (kg)', { exact: true })).toBeVisible();
+    await expect(detail.getByText('50 Kilogramos (kg)', { exact: true })).toBeVisible();
+    await expect(detail.getByText('Grado A', { exact: true })).toBeVisible();
+    await detail.locator('.form-actions').getByRole('button', { name: 'Cerrar', exact: true }).click();
   });
 
-  await page.screenshot({ path: testInfo.outputPath('recorrido-manual-final.png'), fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath(automated ? 'recorrido-qa-final.png' : 'recorrido-manual-final.png'), fullPage: true });
   await checkpoint(
     page,
     18,
     'Recorrido completado',
-    `Los datos de prueba se conservaron con el prefijo “${prefix}” y el identificador ${token}. Verifica los resultados antes de eliminarlos manualmente.`,
+    automated
+      ? 'Consulta la captura y el informe para revisar el recorrido. La base temporal se elimina al terminar.'
+      : `Los datos de prueba se conservaron con el prefijo “${prefix}” y el identificador ${token}. Verifica los resultados antes de eliminarlos manualmente.`,
   );
 });

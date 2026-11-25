@@ -35,8 +35,8 @@ AGRO_API_URL=http://localhost:8081 npm run dev
 | Campos y bloques | Listas por jerarquía, formularios de creación con coordenadas JSON, filtro por campo y eliminación con confirmación. |
 | Surcos y plantas | Inventario por bloque, longitud, espaciado, plantas estimadas, creación, eliminación y carga incremental de filas en pantalla. |
 | Mapas | Bloques seleccionables, acercamiento, centrado, pantalla ampliada, controles de capas y comparación. La capa **Nutrientes** permite consultar N, P, K, pH, materia orgánica, Ca, Mg, S, B y Zn por bloque, con trazabilidad e interpretación preliminar. En modo real, representa datos del API. |
-| Riego | Sectores, mediciones de humedad, programación y ejecución de riego, consumo de agua, alertas, fuentes, calidad, infraestructura, balances, mantenimiento y verificación de sensores. Las programaciones recurrentes siguen pendientes. |
-| Fertilización | Pestañas **Análisis**, **Planes** y **Aplicaciones** para registrar resultados de suelo/foliares, interpretar provisionalmente, administrar perfiles y productos, aprobar planes únicos o recurrentes, generar tareas por ocurrencia, registrar aplicaciones parciales, seguimientos y evidencia; sin prescripción automática. |
+| Riego | Sectores, mediciones de humedad, programación y ejecución de riego, consumo de agua, alertas, fuentes, calidad, infraestructura, balances, mantenimiento y verificación de sensores. Las reglas recurrentes permiten vista previa, generación de ocurrencias idempotente, pausa, reanudación y cancelación; un job diario genera las próximas tareas. |
+| Fertilización | Pestañas **Análisis**, **Planes** y **Aplicaciones** para registrar resultados de suelo/foliares, interpretar provisionalmente, crear y consultar perfiles/productos, aprobar planes únicos o recurrentes, generar tareas por ocurrencia, registrar aplicaciones parciales, seguimientos y evidencia; sin prescripción automática ni edición/desactivación de perfiles y productos. |
 | Plagas y enfermedades | Registro de observaciones con síntomas y severidad, historial de eventos y tratamientos. |
 | Cosecha | Historial estructurado por campo, bloque o fila y ciclo de cultivo; captura de fecha, área, rendimiento estimado, cantidad cosechada, unidad, calidad, rechazo y motivo; filtros por ciclo y unidad; acciones para ver el detalle y editar registros. |
 | Reportes y actividad | Filtros por tipo, bloque y fechas, detalle de evento, exportación CSV, referencias de archivos y eliminación autorizada. |
@@ -46,6 +46,11 @@ AGRO_API_URL=http://localhost:8081 npm run dev
 
 El inventario completo de endpoints y pantallas de nutrición está en
 [docs/fertilization.md](../docs/fertilization.md).
+
+En modo real, el detalle de Análisis usa el perfil activo configurado para la
+finca; la capa **Mapas → Nutrientes** todavía usa un perfil provisional incluido
+en el frontend y puede mostrar otra interpretación. La guía de fertilización
+explica este límite.
 
 La búsqueda superior filtra el contenido de la vista que la admite: registros,
 tareas, comparaciones por bloque y miembros. No es un buscador global del servidor.
@@ -66,12 +71,12 @@ en el servidor y la UI oculta las acciones de administración a trabajadores.
 Las tareas, sensores, clima, nutrientes, producción estimada e IA no se sustituyen
 por valores ficticios en este modo. Los errores del servidor se muestran en pantalla.
 
-En **Mi trabajo de hoy → Nueva tarea**, administradores y supervisores pueden
-elegir un campo o bloque y asignar un miembro real de la finca. No es necesario
+En **Mi trabajo de hoy → Nueva tarea**, administradores, supervisores y agrónomos
+pueden elegir un campo o bloque y asignar un miembro real de la finca. No es necesario
 crear bloques para asignar tareas a los siete campos de Guasita. Los trabajadores
 solo consultan y ejecutan sus asignaciones. El flujo es pendiente → en curso →
 por revisar → completada; se puede reportar un bloqueo con motivo y retomarlo.
-Solo administradores y supervisores aprueban o devuelven tareas en revisión.
+Administradores, supervisores y agrónomos pueden aprobar o devolver tareas en revisión.
 Las tareas y notas persisten en PostgreSQL y las actualizaciones simultáneas se
 rechazan con un aviso para recargar. La fecha se interpreta según el calendario
 del dispositivo; todavía no hay zona horaria configurada por finca.
@@ -110,8 +115,12 @@ también las áreas de sus bloques. Las plantas son estimaciones agregadas por s
   login. Envía cookies con `credentials: include`.
 - Las credenciales y los tokens de autenticación no se guardan en `localStorage`.
   `sessionStorage` conserva únicamente la intención de recuperar una sesión real.
-- Las fuentes se incluyen como archivos locales mediante Fontsource; la UI no
-  necesita Google Fonts ni un proveedor externo de imágenes/mapas en tiempo de uso.
+- Las fuentes y la imagen aérea de demostración se incluyen localmente mediante
+  Fontsource y `public/images`. El mapa real sí carga teselas externas: OpenStreetMap
+  para el mapa base y Esri World Imagery para satélite/híbrido por defecto. Revisa
+  atribución y condiciones de uso del proveedor antes de producción; los endpoints
+  `VITE_MAP_SATELLITE_TILES_URL` y `VITE_MAP_SATELLITE_ATTRIBUTION` permiten
+  configurar las teselas satelitales.
 - Para producción, ejecutar `npm run build` y servir `dist/` con un proxy `/api`
   hacia Spring Boot. `AGRO_API_URL` configura el proxy de Vite, no el bundle estático.
 - Usar HTTPS, cookies seguras y el frontend/API en el mismo sitio. No publicar
@@ -120,6 +129,11 @@ también las áreas de sus bloques. Las plantas son estimaciones agregadas por s
   garantía de persistencia si el navegador elimina sus datos. No es una PWA offline.
 
 ## Verificación
+
+Para ejecutar las pruebas de backend, frontend y el recorrido automatizado de
+una finca temporal en Chrome, usa `python3 scripts/run_qa_tests.py` desde la raíz.
+Consulta los requisitos y los informes en la
+[guía de pruebas automatizadas](tests/manual-agricultural-workflow.md#pruebas-automatizadas-en-chrome).
 
 ```bash
 npm test

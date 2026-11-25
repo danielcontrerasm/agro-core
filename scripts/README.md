@@ -24,6 +24,9 @@ campos, se detiene. No elimina ni reemplaza datos existentes.
 
 Después, recargar el frontend y abrir **Mapas**. El plano dibuja las geometrías
 de campos y bloques almacenadas en el API, aunque no tengan observaciones.
-Los campos se pueden seleccionar para ver su área. No hay imagen satelital de
-fondo. Las geometrías pueden sustituirse más adelante mediante un flujo de
-edición; el API actual solo permite crear, consultar y eliminar campos.
+Los campos se pueden seleccionar para ver su área. El script solo crea geometrías
+ficticias: no incluye imágenes aéreas ni cartografía propia. La vista real muestra
+OpenStreetMap como mapa base y ofrece capas satelital e híbrida de Esri; esas teselas
+son independientes de los datos de prueba. Las geometrías pueden sustituirse más
+adelante mediante un flujo de edición; el API actual solo permite crear, consultar
+y eliminar campos.

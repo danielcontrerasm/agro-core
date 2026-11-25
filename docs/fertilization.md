@@ -1,5 +1,7 @@
 # Fertilización: diagnóstico → aprobación → aplicación → seguimiento
 
+Última revisión: **21 de noviembre de 2026**.
+
 La sección **Fertilización** conserva el historial anterior y agrega tres vistas:
 
 - **Análisis**: muestras de suelo o foliares con bloque, fecha, laboratorio,
@@ -13,15 +15,20 @@ La sección **Fertilización** conserva el historial anterior y agrega tres vist
   Pueden seleccionar un producto del catálogo, validar su unidad estándar y
   programar una aplicación única, semanal, quincenal o mensual hasta dos años.
   ADMIN/SUPERVISOR registran y aprueban con justificación y control de versión.
-  La aprobación identifica al usuario de la aplicación; no certifica sus
-  credenciales profesionales. Los registros son inmutables: para corregirlos se
-  crea otro análisis/plan. Se puede anular un plan antes de generar su tarea.
+  La decisión identifica a quien aprobó; no certifica las credenciales
+  profesionales de quien ejecutará la aplicación. No hay edición general de
+  análisis o planes; la revisión técnica de un análisis sí se puede actualizar.
+  Para corregir datos se registra otro análisis o plan. Un plan único puede
+  anularse antes de generar su tarea. Al aprobar un plan recurrente se generan
+  sus ocurrencias y tareas de inmediato; después no se anula para preservar su
+  trazabilidad.
 - **Aplicaciones**: desde un plan aprobado con tarea, el responsable asignado
-  o un supervisor registra cantidades parciales, fecha real, lote de producto,
-  cobertura, método y notas. En planes recurrentes se selecciona la ocurrencia
-  concreta; cada ocurrencia conserva su propia cantidad aplicada. Se crea un evento agrícola al que se adjuntan
-  fotos mediante el módulo existente. En cada ocurrencia, la suma no puede superar
-  la cantidad aprobada para esa aplicación.
+  o un administrador/supervisor de la finca registra cantidades parciales, fecha
+  real, lote de producto, cobertura, método y notas. En planes recurrentes se
+  selecciona la ocurrencia concreta; cada ocurrencia conserva su propia cantidad
+  aplicada. La aplicación crea un evento agrícola; después se pueden adjuntar
+  fotos JPEG/PNG con el módulo existente. En cada ocurrencia, la suma no puede
+  superar la cantidad aprobada para esa aplicación.
   La cobertura describe cada pasada y no se suma: dos aplicaciones parciales
   pueden recorrer el mismo bloque. Una aplicación inicia la tarea, pero no la
   completa ni sustituye su revisión habitual.
@@ -103,11 +110,14 @@ sí sola una deficiencia ni genera recomendaciones, dosis o prescripciones.
 
 Solo se convierte la dosis elegida por el técnico a cantidad total:
 `kg/ha × ha`, `L/ha × ha`, `g/planta × plantas ÷ 1000` o
-`mL/planta × plantas ÷ 1000`. La interfaz incluye un perfil base provisional para
-suelo de banano/plátano que clasifica cada resultado como bajo, en rango, alto o
-sin interpretar cuando coinciden el cultivo, tipo de muestra y unidad. Cada estado
-requiere revisión técnica; no confirma una deficiencia ni calcula requerimientos,
-mezclas o dosis.
+`mL/planta × plantas ÷ 1000`. En la vista real de Análisis, el API selecciona el
+perfil activo de la finca por cultivo, variedad opcional y tipo de muestra, y luego
+busca rangos por nutriente y unidad. No valida que el método del laboratorio sea
+compatible con el perfil. La capa de Mapas usa un perfil provisional incorporado
+para suelo de banano/plátano, no los perfiles personalizados de la finca; sus
+estados pueden diferir del detalle de Análisis. En demo se usa ese mismo perfil
+provisional. Todo estado requiere revisión técnica: no confirma una deficiencia
+ni calcula requerimientos, mezclas o dosis.
 La composición se transcribe como texto de etiqueta; no se estima absorción.
 El técnico debe comprobarla con el informe y el contexto del cultivo.
 
@@ -120,15 +130,28 @@ El plan muestra programado/aplicado con unidades separadas, vencimiento de revis
 y seguimientos con autor, fecha, conclusión y nuevo análisis opcional. Los filtros
 son por bloque; el CSV exporta planes sin mezclar kg con L.
 
-El mapa utiliza **la última muestra de suelo completa por bloque**, ordenada por
-fecha e ID; las muestras foliares no sustituyen al suelo. Si esa muestra no midió
-un nutriente, se muestra «Sin dato», sin recuperar silenciosamente valores viejos.
-Se muestran unidades, método, laboratorio, referencia y fecha. La interpretación
-preliminar conserva el perfil y el rango que la originaron, pero los colores del
-mapa siguen representando valores relativos, no deficiencia/óptimo. No se
-promedian muestras históricas. Los registros antiguos de monitoreo permanecen
-conservados, pero al no tener suficiente trazabilidad analítica no se convierten
-en muestras certificadas.
+El mapa utiliza **la última muestra de suelo registrada por bloque**, ordenada por
+fecha e ID; no exige que incluya todos los nutrientes. Las muestras foliares no
+sustituyen al suelo. Si la muestra más reciente no midió un nutriente, se muestra
+«Sin dato» en vez de recuperar silenciosamente un valor antiguo. Se muestran
+unidades, método, laboratorio, referencia y fecha, y no se promedian muestras
+históricas.
+
+En la vista real de **Análisis**, la interpretación del API usa el perfil activo de
+la finca compatible con cultivo, variedad opcional, tipo de muestra, nutriente y
+unidad; sin perfil o rango compatible muestra «Sin interpretar». No valida la
+compatibilidad por método de laboratorio. El API permite listar y crear perfiles
+y productos, pero no editarlos ni desactivarlos; para cambiar un perfil se puede
+crear otro, que queda priorizado por especificidad y luego por ID descendente. La capa de
+**Mapas → Nutrientes** todavía calcula su interpretación en el frontend con un
+perfil provisional incorporado para suelo de banano/plátano. Por eso, esa capa no
+debe tomarse como interpretación del perfil personalizado de la finca y puede
+mostrar un estado distinto al detalle del análisis. En demo se usa el mismo perfil
+provisional. En todos los casos los colores del mapa representan valores relativos,
+no una deficiencia ni un óptimo agronómico.
+
+Los registros antiguos de monitoreo permanecen conservados, pero al no tener
+suficiente trazabilidad analítica no se convierten en muestras certificadas.
 
 ## Relación con la cartilla local
 
@@ -151,8 +174,9 @@ de seguridad. Los perfiles de referencia ya son configurables por finca, cultivo
 variedad y tipo de muestra; su contenido debe ser validado por el responsable técnico.
 No hay integración automática con laboratorios, inventario o costos,
 análisis foliar comparativo ni correlaciones causales con rendimiento o sanidad.
-El catálogo no controla existencias ni compras. Todavía no hay validación específica
-por método de laboratorio, niveles de confianza ni recomendaciones automáticas de fertilización.
+El catálogo no controla existencias ni compras y sus perfiles/productos no se pueden
+editar ni desactivar desde la API actual. Todavía no hay validación específica por
+método de laboratorio, niveles de confianza ni recomendaciones automáticas de fertilización.
 La fecha de seguimiento se muestra en el módulo, no envía notificaciones externas.
 Los permisos se verifican en cada endpoint; archivos PDF se entregan como descarga,
 no se ejecutan ni se muestran embebidos. No hay escáner antivirus integrado.

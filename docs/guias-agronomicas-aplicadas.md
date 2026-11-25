@@ -1,6 +1,6 @@
 # Guías agronómicas aplicadas en Agro Core
 
-Fecha de revisión: **20 de octubre de 2026**.
+Fecha de revisión: **21 de noviembre de 2026**.
 
 ## Propósito
 
@@ -64,11 +64,13 @@ la temporada invernal](<../cartilla-platano-ICA-final-BAJA.pdf>), ICA, Colombia,
   método, síntomas y próxima visita.
 - **Implementado:** separación entre hallazgo sospechado, confirmado o descartado;
   una observación de campo no se presenta como diagnóstico confirmado.
-- **Implementado:** revisiones por supervisor, seguimientos enlazados, tratamientos
-  ejecutados, evidencias, fotografías y conservación de registros anulados.
-- **Implementado:** catálogo inicial administrable de Sigatoka, moko, Fusarium,
-  bacteriosis, picudos y nematodos; los problemas pueden crearse, editarse y
-  activarse/desactivarse conservando las referencias históricas.
+- **Implementado:** revisiones por ADMIN, SUPERVISOR o AGRONOMIST, seguimientos
+  enlazados, tratamientos registrados, evidencias, fotografías y conservación de
+  registros anulados. Registrar un tratamiento no implica un flujo de aprobación.
+- **Implementado:** catálogo compartido de Sigatoka, moko, Fusarium, bacteriosis,
+  picudos y nematodos. Los roles de gestión agronómica pueden crear, editar y
+  desactivar problemas; las inspecciones conservan la referencia histórica. El
+  catálogo no está particionado por finca.
 - **Parcial:** la ubicación llega a bloque y surco; todavía no se almacena el punto o
   polígono exacto de cada foco fitosanitario.
 - **Planificado:** resultados de laboratorio, cadena de muestras, zonas de contención
@@ -105,10 +107,11 @@ IES CINOC, Colombia, primera edición, febrero de 2025.
 
 - **Implementado:** análisis de suelo y foliar, planificación de fertilización por
   etapa, registro de aplicaciones y seguimiento posterior.
-- **Parcial:** bloque, cultivo, variedad, fecha de siembra y etapa pueden guardarse en
-  registros genéricos de monitoreo, pero aún no conforman un ciclo productivo completo.
-- **Planificado:** evaluación previa del terreno, lote de material vegetal, plan y
-  ejecución de siembra, supervivencia, resiembra, fenología y sucesión madre–hija–nieta.
+- **Implementado en primera fase:** catálogos de cultivo/variedad, ciclos por bloque,
+  evaluación y aprobación del sitio, lotes de material vegetal, planes y ejecuciones
+  de siembra, controles de establecimiento y observaciones fechadas de etapa.
+- **Parcial:** la primera fase no cubre todavía sucesión madre–hija–nieta, fenología
+  detallada, seguimiento individual de racimos ni un historial unificado del ciclo.
 - **No adoptado:** distancias, densidades, calendarios, cantidades de fertilización y
   tratamientos químicos del manual no son valores predeterminados del sistema.
 - **No adoptado:** las menciones a clorpirifos, aldicarb y otros tratamientos no se
@@ -117,8 +120,12 @@ IES CINOC, Colombia, primera edición, febrero de 2025.
 
 **Evidencia de implementación o base actual:**
 
+- [Flujo de ciclos y siembra](../src/main/java/com/yourco/agro/planting/PlantingController.java)
+- [Migración del flujo de ciclos productivos](../src/main/resources/db/migration/V12__planting_cycles_workflow.sql)
+- [Migración del flujo de producción y cosecha](../src/main/resources/db/migration/V18__production_records_workflow.sql)
+- [Pantalla de cosecha y producción](../frontend/src/pages/Operations.tsx)
+- [Auditoría de gestión de cultivos](crop-management-requirements.md)
 - [Registros genéricos de cultivo](../src/main/resources/db/migration/V4__crop_monitoring_records.sql)
-- [Campos actuales del ciclo](../src/main/java/com/yourco/agro/monitoring/CropMonitoringRecordDtos.java)
 - [Flujo de fertilización](../src/main/java/com/yourco/agro/fertilization/FertilizationService.java)
 - [Guía detallada de fertilización](fertilization.md)
 
@@ -156,10 +163,15 @@ Desarrollo Rural y Tierras y entidades asociadas, Bolivia.
   evidencia y autor de cada registro.
 - **Implementado transversalmente:** códigos de finca/campo/bloque/surco, autor,
   fechas, tareas y eventos para conservar el historial de campo.
-- **Planificado en siembra:** evaluación del terreno, lote de material vegetal,
-  plan de siembra, población esperada y real, supervivencia, reposición y ciclo.
-- **Planificado en ciclo/cosecha:** identificación semanal del racimo, edad, calibre,
-  pronóstico y vínculo entre cosecha y ciclo.
+- **Implementado en siembra:** ciclo por bloque, evaluación/aprobación del sitio,
+  lote de material vegetal, plan aprobado, tarea, ejecución y controles de
+  establecimiento/supervivencia. Las guías sirven como contexto; sus umbrales y
+  densidades no se aplican automáticamente.
+- **Implementado en cosecha:** registro estructurado vinculado a campo, bloque o
+  surco y ciclo, con fecha, área, rendimiento estimado, cantidad, unidad, calidad,
+  rechazo y motivo; se puede consultar y editar.
+- **Parcial en ciclo/cosecha:** faltan trazabilidad individual de racimos, edad y
+  calibre, sucesión y cierre productivo completo.
 - **No adoptado:** el umbral de mortalidad del 1 %, las distancias 2,5 × 2,5 m y
   2,7 × 2,7 m, las cuarentenas y las frecuencias del manual se tratarán como
   parámetros configurables, no como reglas universales.
@@ -202,9 +214,11 @@ Fund, GIZ, Fundación Humedales, ANDI, Uniban y Fundación Uniban, estado octubr
 
 - **Implementado:** capa de nutrientes basada en la última muestra de suelo por
   bloque, conservando valor, unidad, método, laboratorio y fecha.
-- **Implementado:** la capa muestra una interpretación preliminar bajo/en rango/alto
-  cuando existe un perfil base compatible; cada estado exige revisión técnica y no
-  se convierte en una dosis.
+- **Implementado con límite:** la capa muestra una interpretación preliminar
+  bajo/en rango/alto con el perfil provisional incorporado para suelo de
+  banano/plátano; todavía no usa los perfiles personalizados de cada finca. Cada
+  estado exige revisión técnica y no se convierte en una dosis. La pantalla de
+  análisis real sí usa el perfil activo configurado en el API.
 - **Implementado:** capa de humedad por sector con unidad, profundidad, origen,
   vigencia y límites configurados con fundamento técnico.
 - **Implementado:** documentación del consumo real o estimado de agua por ejecución.
@@ -213,9 +227,13 @@ Fund, GIZ, Fundación Humedales, ANDI, Uniban y Fundación Uniban, estado octubr
 - **Parcial:** existen polígonos de campos y bloques y líneas de surcos, pero todavía
   no hay capas de fuentes de agua, válvulas, drenajes, zonas de amortiguación,
   hábitats o corredores.
-- **Planificado:** evaluación ambiental previa a la siembra, exclusiones geográficas,
-  riesgos de erosión/compactación y línea base de biodiversidad.
-- **Planificado:** permisos, resultados de calidad de agua, descargas y eficiencia
+- **Parcial:** el flujo de siembra registra evaluación de uso anterior, vecinos, suelo,
+  pendiente, drenaje, inundación, viento, contaminación, riesgo fitosanitario y
+  restricciones ambientales, con decisión técnica. No calcula riesgo ni aplica
+  exclusiones geográficas, evaluación de erosión/compactación o línea base de
+  biodiversidad.
+- **Parcial:** se guardan fuentes y análisis de calidad de agua, activos hidráulicos,
+  balances y mantenimiento. Siguen pendientes permisos, descargas y eficiencia
   hídrica por unidad producida.
 - **No adoptado:** porcentajes de hábitat, anchos de amortiguación y listas de
   sustancias no se convierten en cumplimiento legal automático; primero deben
@@ -297,7 +315,7 @@ están en [la guía del módulo de fertilización](fertilization.md).
 | Planificar y asignar | BPA pp. 47–49 | Fecha/hora, duración, volumen, responsable, justificación e instrucciones | Implementado |
 | Documentar agua utilizada | Biodiversidad p. 35 | Contador o caudal estimado, duración efectiva e interrupciones | Implementado |
 | Controlar desviaciones | Principio BPA de trazabilidad | Motivo obligatorio cuando se supera duración o volumen programado | Implementado |
-| Integrar sensores | Necesidad de monitoreo continuo | Lecturas IoT asociables a sector y alertas por umbral | Implementado |
+| Integrar sensores | Necesidad de monitoreo continuo | Lecturas asociables a sector, alertas por umbral y registros de verificación/calibración | Implementado en registros; falta conector de campo/IoT |
 | Calidad, permisos e infraestructura hídrica | BPA pp. 18–19; Biodiversidad pp. 34–36 | Fuentes, análisis de calidad, activos hidráulicos, coordenadas, balances, mantenimiento y verificaciones de sensores | Implementado en registros operativos; permisos y mapa hidráulico completo pendientes |
 
 Los límites de humedad son definidos por el técnico en la unidad del sector
@@ -317,8 +335,9 @@ Actualmente existen estas capas:
    de suelo. El color no significa deficiencia ni recomendación de dosis.
 
 Los sensores admiten humedad del suelo, humedad del aire, temperatura del aire y
-temperatura del suelo. Las reglas de alerta son comparaciones transparentes contra
-umbrales configurados. No hay modelo predictivo ni recomendación agronómica automática.
+temperatura del suelo. También hay registros de verificación/calibración. Las reglas
+de alerta son comparaciones transparentes contra umbrales configurados. No hay un
+conector de campo/IoT incluido, modelo predictivo ni recomendación agronómica automática.
 
 Falta incorporar al mapa:
 
@@ -332,39 +351,48 @@ Falta incorporar al mapa:
 
 #### Situación actual
 
-El tipo genérico `CROP_CYCLE` permite guardar cultivo, variedad, fecha de siembra,
-etapa y fecha esperada/real de cosecha. También pueden crearse tareas de actividad
-`planting`. La primera fase especializada ya está implementada: expediente de ciclo,
-evaluación y aprobación del sitio, trazabilidad del material vegetal, plan versionado,
-ejecuciones parciales y controles de establecimiento. Fenología avanzada, sucesión,
-racimo y cierre productivo quedan para la siguiente fase.
+Además de los registros genéricos `CROP_CYCLE`, existe un flujo especializado con
+catálogo de cultivos y variedades, ciclos por bloque, evaluación/aprobación del
+sitio, lotes de material vegetal, planes de siembra, ejecuciones, controles de
+establecimiento y observaciones fechadas de etapas. Los planes aprobados pueden
+generar tareas de campo. El inventario de endpoints y sus límites está en la
+[auditoría de gestión de cultivos](crop-management-requirements.md).
 
-#### Flujo implementado y siguiente fase
+La cosecha también tiene un registro `HARVEST` estructurado y asociado al ciclo.
+Su captura y corrección son operativas; no debe confundirse con seguimiento por
+racimo ni con cierre automático del ciclo.
 
-| Paso | Información y control | Fuente |
-| --- | --- | --- |
-| 1. Evaluación del sitio | Historial, cultivos previos, vecinos, contaminación, inundación, pendiente, viento, drenaje y restricciones geográficas | BPA pp. 26–27; Manual técnico pp. 10–11; Biodiversidad pp. 11, 14 y 24 |
-| 2. Aprobación del terreno | Análisis de suelo vigente, riesgos, medidas requeridas y decisión versionada del responsable técnico | Manual técnico p. 10; Biodiversidad p. 21 |
-| 3. Lote de material vegetal | Cultivo, clon/variedad, tipo, proveedor, origen, certificado, cantidad, inspección sanitaria, aceptado/rechazado y documentos/fotos | BPA p. 28; Manual técnico pp. 12–14; ICA pp. 15, 36 y 39 |
-| 4. Plan de siembra | Geometría, sistema de trazado, distancia, densidad calculada, población objetivo, ventana, área, responsable y justificación | BPA p. 28; Manual técnico pp. 15–17; Biodiversidad pp. 26–27 |
-| 5. Ejecución | Fecha y área reales, lote vegetal usado, plantas sembradas/rechazadas, responsables, clima/humedad y evidencia | BPA pp. 28 y 47–49 |
-| 6. Establecimiento | Plantas vivas, mortalidad, causas, resiembras, lote de reposición, uniformidad y fotos | BPA p. 28 |
-| 7. Fenología | Observaciones fechadas de establecimiento, vegetativo, floración, llenado, cosecha y renovación | Manual técnico pp. 8–9 y 43; BPA pp. 32–33 |
-| 8. Sucesión | Relación madre–hija–nieta, sucesor seleccionado, deshijes y población efectiva | Manual técnico pp. 19–20; BPA p. 29 |
-| 9. Racimo | Fecha/semana de aparición, cinta, embolse, edad, calibre y pronóstico revisable de cosecha | BPA pp. 32–33 |
-| 10. Cierre del ciclo | Producción, calidad, pérdidas, duración real, razones de desviación y decisión de renovación | BPA pp. 33 y 47–49; Manual técnico p. 43 |
+#### Flujo de referencia y cobertura actual
+
+| Paso | Información y control de referencia | Cobertura actual en Agro Core | Fuente |
+| --- | --- | --- | --- |
+| 1. Evaluación del sitio | Historial, cultivos previos, vecinos, contaminación, inundación, pendiente, viento, drenaje y restricciones geográficas | La evaluación guarda el uso anterior, vecinos, análisis de suelo opcional, pendiente, drenaje, riesgos de inundación/viento/contaminación/sanidad, restricciones ambientales y notas. No calcula riesgos ni aplica exclusiones geográficas. | BPA pp. 26–27; Manual técnico pp. 10–11; Biodiversidad pp. 11, 14 y 24 |
+| 2. Aprobación del terreno | Análisis de suelo vigente, riesgos, medidas requeridas y decisión versionada del responsable técnico | Una evaluación por ciclo puede aprobarse o rechazarse con motivo y control de versión. No se puede reemplazar ni volver a decidir tras la primera decisión. El análisis de suelo es opcional; el API no exige que esté vigente ni comprueba medidas correctivas. | Manual técnico p. 10; Biodiversidad p. 21 |
+| 3. Lote de material vegetal | Cultivo, clon/variedad, tipo, proveedor, origen, certificado, cantidad, inspección sanitaria, decisión y documentos/fotos | El lote guarda tipo, proveedor, referencias de origen/certificado, cantidad recibida e inspección sanitaria en texto; aceptación/rechazo guarda cantidades y motivo. No se adjuntan certificados, fotos ni lotes de reposición al lote. | BPA p. 28; Manual técnico pp. 12–14; ICA pp. 15, 36 y 39 |
+| 4. Plan de siembra | Geometría, sistema de trazado, distancia, densidad calculada, población objetivo, ventana, área, responsable y justificación | El plan guarda sistema, distancias, densidad/población objetivo, ventana, área, responsable y fundamento técnico. Usa la ubicación existente del bloque/surco, sin geometría propia; el responsable genera la tarea manualmente. | BPA p. 28; Manual técnico pp. 15–17; Biodiversidad pp. 26–27 |
+| 5. Ejecución | Fecha y área reales, lote vegetal usado, plantas sembradas/rechazadas, responsables, clima/humedad y evidencia | Guarda fecha, área, plantas sembradas/rechazadas, ubicación detallada y notas; crea un evento agrícola enlazado. Clima, humedad y evidencia no son campos estructurados de la ejecución. | BPA pp. 28 y 47–49 |
+| 6. Establecimiento | Plantas vivas, mortalidad, causas, resiembras, lote de reposición, uniformidad y fotos | Los controles guardan plantas revisadas/vivas/muertas/repuestas, uniformidad, causas y notas. Se valida que vivas + muertas no supere revisadas, pero no se exige que las cantidades cuadren. No hay detalle estructurado de resiembra, enlace a lote de reposición ni adjuntos. | BPA p. 28 |
+| 7. Fenología | Observaciones fechadas de establecimiento, vegetativo, floración, llenado, cosecha y renovación | El usuario registra manualmente una etapa del catálogo actual (`PLANNED`, `ESTABLISHMENT`, `VEGETATIVE`, `FLOWERING`, `FILLING`, `HARVEST`, `RENEWAL` o `CLOSED`), fecha y notas, y actualiza el historial. No hay mediciones fenológicas detalladas, adjuntos ni tareas disparadas por etapa. | Manual técnico pp. 8–9 y 43; BPA pp. 32–33 |
+| 8. Sucesión | Relación madre–hija–nieta, sucesor seleccionado, deshijes y población efectiva | No implementado; no se guardan sucesores ni relaciones de sucesión. | Manual técnico pp. 19–20; BPA p. 29 |
+| 9. Racimo | Fecha/semana de aparición, cinta, embolse, edad, calibre y pronóstico revisable de cosecha | No implementado; los registros de cosecha no siguen racimos individuales, edad, cinta ni calibre. | BPA pp. 32–33 |
+| 10. Cierre del ciclo | Producción, calidad, pérdidas, duración real, razones de desviación y decisión de renovación | No hay flujo de cierre de ciclo; los registros estructurados de cosecha se conservan de forma independiente. | BPA pp. 33 y 47–49; Manual técnico p. 43 |
 
 #### Reglas de diseño acordadas
 
-- Las etapas cambian mediante observaciones reales con fecha, responsable y evidencia.
-  Una proyección nunca reemplaza silenciosamente una fecha real.
+- **Diseño objetivo:** las etapas cambian mediante observaciones reales con fecha,
+  responsable y evidencia. Hoy se registran fecha, autor y notas, sin adjunto directo
+  a la observación de etapa; una proyección nunca reemplazará una fecha real.
 - La densidad geométrica puede calcularse, pero debe identificarse como estimación y
   quedar aprobada por el técnico.
 - Distancias, densidades, mortalidad aceptable, frecuencias y ventanas serán parámetros
   configurables por protocolo; no se copiarán como constantes de los manuales.
-- Se conservará el historial de ciclos anteriores. Las correcciones usarán revisiones o
-  anulaciones justificadas en lugar de sobrescribir la trazabilidad.
-- El ciclo se integrará con tareas, inspecciones, fertilización, riego, fotos y cosecha.
+- **Diseño objetivo:** conservar el historial de ciclos anteriores y corregir con
+  revisiones o anulaciones justificadas. Hoy no hay rutas generales de edición o
+  cancelación de ciclos ni una auditoría unificada; algunas decisiones sí tienen
+  autor, fecha, motivo y control de versión.
+- El ciclo ya se relaciona con planes/tareas de siembra y con registros de cosecha;
+  su integración completa con inspecciones, fertilización, riego, fotos y cambios
+  de ciclo todavía no está resuelta.
 - Los mapas mostrarán ciclo, edad, lote vegetal, faltantes y resiembras solo cuando
   exista información real; `Sin dato` será distinto de `Sin problema`.
 
@@ -387,20 +415,32 @@ La siguiente fase agregará:
 
 #### Orden de implementación
 
-1. **Implementado:** ciclo productivo y evaluación/aprobación del sitio.
-2. **Implementado:** lotes de material vegetal y plan de siembra.
-3. **Implementado:** ejecuciones parciales, evento de campo y controles de supervivencia.
-4. **Siguiente fase:** fenología completa y sucesión madre–hija–nieta.
-5. **Siguiente fase:** seguimiento del racimo e integración con cosecha.
+1. **Implementado con límites:** ciclo productivo y evaluación/aprobación del sitio;
+   no se exige una muestra de suelo para aprobar.
+2. **Implementado con límites:** lotes de material vegetal y plan de siembra, sin
+   adjuntos documentales al lote ni geometría propia del plan.
+3. **Implementado en primera fase:** ejecuciones, generación manual de tareas,
+   controles de establecimiento y observaciones fechadas de etapa; falta evidencia
+   estructurada en ejecución y seguimiento de resiembra.
+4. **Siguiente fase:** fenología detallada y sucesión madre–hija–nieta.
+5. **Parcial:** cosecha estructurada y vinculada al ciclo; faltan seguimiento del
+   racimo y cierre productivo.
 6. **Siguiente fase:** capas del mapa, indicadores y alertas específicas de ciclos.
 
 ### Cosecha y producción
 
-Actualmente existen eventos y tareas de cosecha y registros genéricos con rendimiento
-estimado, cantidad cosechada, unidad, calidad y rechazo. Falta un flujo dedicado que
-vincule racimos, ciclo, edad/calibre, ejecución, clasificación y cierre productivo. Las
-fuentes principales para completarlo son el BPA de Bolivia, páginas PDF 32–33 y
-47–49, y el manual técnico colombiano, página PDF 43.
+La pantalla **Cosecha y producción** guarda registros `HARVEST` estructurados y
+asociados a un ciclo. Captura ubicación en campo, bloque o surco, fecha, área,
+rendimiento estimado, cantidad cosechada, unidad, calidad, cantidad y motivo del
+rechazo, y notas. Los registros se pueden consultar y editar; los totales y la
+varianza se presentan por unidad seleccionada. Los antiguos eventos `HARVEST_EVENT`
+y otros registros genéricos se conservan para compatibilidad histórica.
+
+Sigue pendiente la trazabilidad por racimo —edad, calibre y pronóstico—, la
+clasificación vinculada a una ejecución de corte y el cierre del ciclo con pérdidas,
+duración y decisión de renovación. Las fuentes principales para esa siguiente fase
+son el BPA de Bolivia, páginas PDF 32–33 y 47–49, y el manual técnico colombiano,
+página PDF 43.
 
 ## Decisiones que el sistema no debe automatizar
 
@@ -425,9 +465,9 @@ fuentes principales para completarlo son el BPA de Bolivia, páginas PDF 32–33
 | Fertilización | Alta para trazabilidad análisis → plan → aprobación → aplicación → seguimiento; falta balance nutricional anual. |
 | Riego | Alta para sector → medición → programación → ejecución y volumen; ahora incluye calidad, infraestructura, balance y mantenimiento; faltan permisos y mapa hidráulico completo. |
 | Mapas | Media: finca, salud, humedad y nutrientes; faltan biodiversidad, agua, drenaje, focos y siembra/ciclos. |
-| Sensores y alertas | Media: ingestión y umbrales transparentes; faltan calibración documentada, conectores y recomendaciones validadas. |
-| Siembra y ciclos | Media/alta en la primera fase: ciclo, lote, evaluación, aprobación, plan, ejecución y establecimiento; faltan fenología avanzada, sucesión, racimo y cierre productivo. |
-| Cosecha | Baja/parcial: eventos, tareas y cantidades genéricas; falta trazabilidad por racimo y cierre de ciclo. |
+| Sensores y alertas | Media: ingestión, umbrales transparentes y registros de verificación/calibración; falta un conector IoT de campo y recomendaciones validadas. |
+| Siembra y ciclos | Media/alta en la primera fase: catálogo, ciclo, lote, evaluación, aprobación, plan, tarea, ejecución, establecimiento y observaciones de etapa; faltan automatización, fenología avanzada, sucesión y auditabilidad unificada. |
+| Cosecha | Parcial: registros estructurados editables y vinculados al ciclo, con calidad, rechazo y varianza; faltan trazabilidad por racimo y cierre productivo completo. |
 
 ## Mantenimiento de esta guía
 
