@@ -7,6 +7,12 @@ casos automatizados que las verifican y las funciones pendientes. El
 El [listado de casos ejecutados](qa-evidence/test-cases.md) enlaza las pruebas
 de las suites de navegador, API y dominio.
 
+[Buenas prácticas agronómicas y requisitos funcionales · Versión 2](guias-agronomicas-aplicadas-v2.md)
+reúne las prácticas por módulo con referencias a las páginas de origen,
+cobertura de partida y criterios de aceptación. La [auditoría de cobertura](cobertura-requisitos-agronomicos-v2.md)
+contrasta sus 65 requisitos con el código y las pruebas y propone un orden de implementación. La
+[primera versión](guias-agronomicas-aplicadas.md) documenta las decisiones originales.
+
 | Módulo | Requerimientos, funciones y cobertura |
 | --- | --- |
 | Acceso a la finca y configuración | [Acceso, roles, equipo y catálogos](access-and-settings.md) |

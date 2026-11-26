@@ -3,6 +3,9 @@
 Última revisión de las fuentes **21 de noviembre de 2026**. Revisión de la
 implementación **25 de noviembre de 2026**.
 
+La [versión 2](guias-agronomicas-aplicadas-v2.md) amplía la revisión de las fuentes
+y detalla requisitos funcionales con criterios de aceptación.
+
 ## Propósito
 
 Este documento registra de dónde surgieron las principales decisiones agronómicas
