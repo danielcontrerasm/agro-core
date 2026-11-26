@@ -1,5 +1,61 @@
 # Informe de resultados de pruebas de AgroVision
 
+## Laboratorio e historial fitosanitario del 26 de noviembre de 2026
+
+La regresión aprobó **74 pruebas de Gradle**, **30 ejecuciones de Chrome** y
+**11 pruebas unitarias del frontend**, sin fallos ni omisiones. Gradle ejecutó
+las 21 suites, incluidas siete pruebas de integración con PostGIS. Chrome
+ejecutó 15 casos por perfil con datos de demostración y una finca de QA en
+PostGIS temporal. En las bases de QA se aplicaron las migraciones V34 y V35.
+
+| Verificación | Aprobadas | Evidencia |
+| --- | ---: | --- |
+| Gradle con H2 y PostGIS | 74 | [Informe local de Gradle](../frontend/playwright-report/sanidad-laboratorio-e-historial-20261126-113937-d2f0/gradle/index.html) |
+| Chrome de escritorio | 15 | [Informe de Playwright](../frontend/playwright-report/sanidad-laboratorio-e-historial-20261126-113937-d2f0/index.html) |
+| Chrome móvil | 15 | [Informe de Playwright](../frontend/playwright-report/sanidad-laboratorio-e-historial-20261126-113803-3610/index.html) |
+| Pruebas unitarias del frontend | 11 | [Casos de dominio](qa-evidence/test-cases.md#unitarias-del-frontend) |
+
+La compilación de producción completó con un aviso de Vite por el tamaño
+del paquete de JavaScript.
+
+Los siete casos nuevos de backend verificaron el vínculo con la inspección,
+las fechas y los reintentos de laboratorio, y la edición histórica con
+versiones y registro de valores anteriores. Los cuatro casos nuevos de Chrome
+pasaron en cada perfil. Los demás casos cubrieron inspecciones, monitoreo,
+tratamientos, prevención y fotos. [Casos nuevos](qa-evidence/test-cases.md#laboratorio-y-observaciones-históricas) ·
+[Ficha del módulo](pest-disease-management.md#laboratorio-y-observaciones-históricas) ·
+[Pantallazos y videos](qa-evidence/README.md#laboratorio-e-historial-fitosanitario)
+
+## Revalidación de Fertilización del 26 de noviembre de 2026
+
+La verificación del módulo aprobó el recorrido grabado de 11 pasos, las 10
+ejecuciones de Chrome en escritorio y móvil y las 8 pruebas de API en H2.
+El caso conectado con PostGIS comprobó que, al aprobar un plan recurrente,
+sus dos tareas se pueden usar de inmediato. Una aplicación parcial mantuvo
+el saldo por ocurrencia y registró la salida de inventario y el gasto.
+[Desglose por prueba](fertilization.md#revalidación-del-26-de-noviembre-de-2026) ·
+[Capturas y video](qa-evidence/README.md#fertilización-ampliada)
+
+A las 10:31 se amplió la verificación de Fertilización a **16 ejecuciones
+aprobadas, 0 fallidas y 0 omitidas**. Las seis nuevas cubrieron diagnóstico y
+revisión técnica, catálogo y unidades, e informe foliar con Chrome y PostGIS
+temporal. [Informe](../frontend/playwright-report/fertilizacion-cobertura-20261126-103132-3c0d/index.html) ·
+[Diez pantallazos](qa-evidence/README.md#diagnóstico-catálogo-e-informe-foliar)
+
+A las 10:47 se verificó el flujo de muestra con ubicación y foto, la
+reasignación de una tarea pendiente a otro integrante, la foto de la
+aplicación y la cobertura por ocurrencia y por bloque. Pasaron **20
+ejecuciones de Chrome** en escritorio y móvil y **14 pruebas de API** de
+Fertilización y fotos en H2. La integración de Fertilización en PostGIS
+aprobó sus dos pruebas, incluida la persistencia de la foto de muestra.
+[Informe de Chrome](../frontend/playwright-report/fertilizacion-cobertura-20261126-104728-45e5/index.html) ·
+[Capturas y videos](qa-evidence/README.md#ejecución-de-fertilización-por-bloque)
+
+La revalidación del encuadre del mapa pasó en escritorio y móvil. Los 11
+pasos del recorrido independiente de demostración también volvieron a pasar.
+[Mapa en escritorio y móvil](../frontend/playwright-report/fertilizacion-cobertura-20261126-105142-e955/index.html) ·
+[Recorrido independiente](../frontend/playwright-report/qa-modulos-20261126-105037-a49b62/index.html)
+
 ## Regresión de sanidad del 26 de noviembre de 2026
 
 **146 ejecuciones aprobadas, 0 fallidas y 0 omitidas** en la regresión iniciada

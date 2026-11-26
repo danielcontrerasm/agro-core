@@ -69,10 +69,28 @@ test('real server onboarding and agricultural record creation', async ({ page })
   await page.evaluate(() => { window.location.hash = 'reports'; });
   await page.getByRole('button', { name: 'Registrar actividad', exact: true }).click();
   dialog = page.getByRole('dialog');
-  await dialog.getByRole('combobox', { name: 'Tipo de actividad', exact: true }).selectOption('IRRIGATION_EVENT');
-  await dialog.getByRole('combobox', { name: 'Bloque', exact: true }).selectOption({ label: 'Bloque real' });
+  const activityType = dialog.getByRole('combobox', { name: 'Tipo de actividad', exact: true });
+  await expect(activityType.locator('option[value="FERTILIZER_APPLICATION"], option[value="TREATMENT_APPLICATION"]')).toHaveCount(0);
+  await activityType.selectOption('IRRIGATION_EVENT');
+  const block = dialog.getByRole('combobox', { name: 'Bloque', exact: true });
+  await block.selectOption({ label: 'Bloque real' });
+  const blockId = Number(await block.inputValue());
   await dialog.getByLabel('Notas', { exact: true }).fill('Registro real de verificación del frontend.');
   await dialog.getByRole('button', { name: 'Registrar actividad', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByText('Registro real de verificación del frontend.', { exact: true })).toBeVisible();
+
+  const csrfResponse = await page.request.get('/api/v1/auth/csrf');
+  expect(csrfResponse.ok()).toBe(true);
+  const csrf = await csrfResponse.json();
+  const timestamp = new Date().toISOString();
+  const requests = [
+    { path: '/api/v1/events', data: { eventType: 'FERTILIZER_APPLICATION', blockId, occurredAt: timestamp } },
+    { path: '/api/v1/events', data: { eventType: 'TREATMENT_APPLICATION', blockId, occurredAt: timestamp } },
+    { path: '/api/v1/monitoring-records', data: { recordType: 'FERTILIZER_APPLICATION', blockId, recordedAt: timestamp } },
+  ];
+  for (const { path, data } of requests) {
+    const result = await page.request.post(path, { data, headers: { [csrf.headerName]: csrf.token } });
+    expect(result.status()).toBe(400);
+  }
 });

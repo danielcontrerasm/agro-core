@@ -2,6 +2,8 @@
 
 La pantalla **Cosecha y producción** registra cortes y resultados productivos asociados a su ubicación y ciclo de cultivo. El ciclo se administra en [Gestión del cultivo](crop-management-requirements.md).
 
+![Mockup · Mapa de producción y resumen de calidad](<mockups/13_Cosecha_y_produccion.png>)
+
 ## Requerimientos funcionales y estado
 
 | ID | Requerimiento | Estado y funcionalidad disponible |
@@ -27,6 +29,9 @@ La pantalla **Cosecha y producción** registra cortes y resultados productivos a
 | [Prueba de recuperación ante error de API](../frontend/tests/live-api.spec.ts) | Simular una respuesta 503, comprobar que la vista muestra el error y deshabilita el registro, y recuperar la pantalla mediante **Reintentar**. | 2 de 2 aprobadas el 26 de noviembre, en escritorio y móvil. |
 
 [Informe consolidado de resultados](test-results.md) · [Capturas por paso y video del recorrido](qa-evidence/README.md#cosecha)
+
+![Captura de QA · Detalle de una cosecha abierta desde el historial · 25 nov 2026](<qa-evidence/2026-11-25/cosecha/02.jpg>)
+![Captura de QA · Historial de cosecha en PostGIS de QA · 26 nov 2026](<qa-evidence/2026-11-26/conectado/finca-qa-cosecha.jpg>)
 
 ## Funcionalidades pendientes
 

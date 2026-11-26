@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { AlertTriangle, ArrowDownUp, Box, Clock3, Download, List, Plus, RefreshCw } from 'lucide-react';
 import { useApp } from '../context';
 import { ApiError } from '../lib/api';
+import { formatCop } from '../lib/costs';
 import { number } from '../lib/domain';
 import { inventoryApi } from '../lib/inventory';
 import type { InventoryDirection, InventoryLot, InventoryLotStatus, InventoryOverview, InventoryProduct } from '../lib/inventory';
@@ -23,11 +24,11 @@ const lotStatuses: Record<InventoryLotStatus, { label: string; tone: string }> =
   EMPTY: { label: 'Sin saldo', tone: 'neutral' },
 };
 
-const formTitles = { product: 'Nuevo producto', lot: 'Nuevo lote', movement: 'Registrar movimiento' };
-type InventoryEditor = { kind: 'product' } | { kind: 'lot'; productId?: number } | { kind: 'movement'; lotId?: number; requestId: string };
+const formTitles = { product: 'Nuevo producto', lot: 'Nuevo lote', cost: 'Editar costo del lote', movement: 'Registrar movimiento' };
+type InventoryEditor = { kind: 'product' } | { kind: 'lot'; productId?: number } | { kind: 'cost'; lot: InventoryLot } | { kind: 'movement'; lotId?: number; requestId: string };
 
 const dateOnly = (value: string) => new Date(`${value}T12:00:00`).toLocaleDateString('es-CO');
-const quantityLabel = (value: number, unit: string) => `${number(value, 3)} ${unit}`;
+const quantityLabel = (value: number, unit: string) => `${number(value, 6)} ${unit}`;
 
 export default function ConnectedInventory() {
   const { farmId, role, search, notify } = useApp();
@@ -104,9 +105,13 @@ export default function ConnectedInventory() {
         setTab('Existencias');
         notify('Producto registrado.');
       } else if (editor.kind === 'lot') {
-        await inventoryApi.createLot({ farmId, productId: Number(value('productId')), code: value('code'), expiresOn: value('expiresOn') || null });
+        await inventoryApi.createLot({ farmId, productId: Number(value('productId')), code: value('code'),
+          expiresOn: value('expiresOn') || null, unitCostCop: value('unitCostCop') || null });
         setTab('Lotes');
         notify('Lote registrado. Registra una entrada para agregar existencias.');
+      } else if (editor.kind === 'cost') {
+        await inventoryApi.updateLotCost(editor.lot.id, { farmId, unitCostCop: value('unitCostCop') || null });
+        notify('Costo unitario actualizado.');
       } else {
         await inventoryApi.createMovement({ farmId, lotId: Number(value('lotId')), requestId: editor.requestId,
           direction: value('direction') as InventoryDirection, quantity: value('quantity'), reference: value('reference') || null, notes: value('notes') || null });
@@ -172,18 +177,22 @@ export default function ConnectedInventory() {
       </Panel>}
 
       {tab === 'Lotes' && <Panel title="Lotes registrados">
-        {visibleLots.length ? <AdminTable headers={['Lote', 'Producto', 'Vencimiento', 'Saldo físico', 'Estado', ...(manage ? ['Acciones'] : [])]}
+        {visibleLots.length ? <AdminTable headers={['Lote', 'Producto', 'Vencimiento', 'Saldo físico', 'Estado', ...(manage ? ['Costo unitario', 'Valor del saldo', 'Acciones'] : [])]}
           rows={visibleLots.map(lot => {
             const product = productById.get(lot.productId);
             return { key: lot.id, cells: [lot.code, product?.name, lot.expiresOn ? dateOnly(lot.expiresOn) : 'Sin registrar',
               quantityLabel(lot.balance, product?.unit ?? ''), <Badge tone={lotStatuses[lot.status].tone}>{lotStatuses[lot.status].label}</Badge>,
-              ...(manage ? [<button className="text-button" aria-label={`Registrar movimiento del lote ${lot.code}`} disabled={actionUnavailable} onClick={() => openMovement(lot.id)}>Registrar en lote</button>] : []),
+              ...(manage ? [lot.unitCostCop == null ? 'Sin costo registrado' : formatCop(lot.unitCostCop), lot.stockValueCop == null ? '—' : formatCop(lot.stockValueCop),
+                <div className="admin-filters">
+                  <button className="text-button" aria-label={`Registrar movimiento del lote ${lot.code}`} disabled={actionUnavailable} onClick={() => openMovement(lot.id)}>Registrar en lote</button>
+                  <button className="text-button" aria-label={`Editar costo del lote ${lot.code}`} disabled={actionUnavailable} onClick={() => open({ kind: 'cost', lot })}>Editar costo</button>
+                </div>] : []),
             ] };
           })} /> : <Empty title="Sin lotes en la selección" description="Aquí aparecen los lotes registrados para los productos seleccionados." />}
       </Panel>}
 
       {tab === 'Movimientos' && <Panel title="Historial de movimientos">
-        {visibleMovements.length ? <AdminTable headers={['Producto / lote', 'Movimiento', 'Cantidad', 'Saldo del lote', 'Registrado', 'Referencia']}
+        {visibleMovements.length ? <AdminTable headers={['Producto / lote', 'Movimiento', 'Cantidad', 'Saldo del lote', 'Registrado', 'Referencia', ...(manage ? ['Costo de aplicación'] : [])]}
           rows={visibleMovements.map(move => {
             const lot = lotById.get(move.lotId);
             const product = lot && productById.get(lot.productId);
@@ -191,7 +200,8 @@ export default function ConnectedInventory() {
               <>{product?.name}<small>{lot?.code}</small></>, <Badge tone={move.direction === 'IN' ? 'green' : 'gold'}>{move.direction === 'IN' ? 'Entrada' : 'Salida'}</Badge>,
               quantityLabel(move.quantity, product?.unit ?? ''), quantityLabel(move.balanceAfter, product?.unit ?? ''),
               <>{new Date(move.createdAt).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}<small>{move.createdBy}</small></>,
-              <>{move.reference || '—'}{move.notes && <small>{move.notes}</small>}</>,
+              <>{move.reference || '—'}{move.appliedOn && <small>Aplicado el {dateOnly(move.appliedOn)}</small>}{move.notes && <small>{move.notes}</small>}</>,
+              ...(manage ? [move.costCop == null ? '—' : <>{formatCop(move.costCop)}{move.unitCostCop != null && <small>{formatCop(move.unitCostCop)} por {product?.unit}</small>}</>] : []),
             ] };
           })} /> : <p className="admin-empty-copy">{inventory.movements.nextBeforeId ? 'Sin movimientos para la selección en las páginas cargadas.' : 'Sin movimientos en la selección.'}</p>}
         {historyError && <p className="form-error" role="alert">{historyError}</p>}
@@ -226,7 +236,7 @@ function InventoryFields({ editor, products, lots }: { editor: InventoryEditor; 
     <label>Nombre<input name="name" required maxLength={150} /></label>
     <label>Categoría<input name="category" required maxLength={80} /></label>
     <label>Unidad<input name="unit" required maxLength={30} placeholder="kg, L, unidades" /></label>
-    <label>Existencia mínima<input name="minimum" required type="number" min="0" step="0.001" defaultValue="0" /></label>
+    <label>Existencia mínima<input name="minimum" required type="number" min="0" step="0.000001" defaultValue="0" /></label>
   </>;
   if (editor.kind === 'lot') return <>
     <label>Producto<select name="productId" required defaultValue={editor.productId ?? ''}>
@@ -234,6 +244,12 @@ function InventoryFields({ editor, products, lots }: { editor: InventoryEditor; 
     </select></label>
     <label>Código de lote<input name="code" required maxLength={80} /></label>
     <label>Vencimiento<input name="expiresOn" type="date" /></label>
+    <UnitCostField />
+  </>;
+  if (editor.kind === 'cost') return <>
+    <p className="muted">{products.find(product => product.id === editor.lot.productId)?.name} · {editor.lot.code}</p>
+    <UnitCostField initial={editor.lot.unitCostCop} />
+    <p className="muted">El costo actualizado se usa en las próximas aplicaciones del lote.</p>
   </>;
   return <>
     <label>Lote<select name="lotId" required defaultValue={editor.lotId ?? ''}>
@@ -243,8 +259,13 @@ function InventoryFields({ editor, products, lots }: { editor: InventoryEditor; 
       })}
     </select></label>
     <label>Tipo de movimiento<select name="direction"><option value="IN">Entrada</option><option value="OUT">Salida</option></select></label>
-    <label>Cantidad<input name="quantity" required type="number" min="0.001" step="0.001" /></label>
+    <label>Cantidad<input name="quantity" required type="number" min="0.000001" step="0.000001" /></label>
     <label>Origen o destino<input name="reference" maxLength={180} /></label>
     <label>Notas<textarea name="notes" maxLength={1000} rows={3} /></label>
   </>;
+}
+
+function UnitCostField({ initial }: { initial?: number | null }) {
+  return <label>Costo unitario (COP)<input name="unitCostCop" type="number" min="0" max="999999999999.99" step="0.01"
+    defaultValue={initial ?? ''} placeholder="Sin costo registrado" /></label>;
 }

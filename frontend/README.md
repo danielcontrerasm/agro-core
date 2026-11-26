@@ -83,11 +83,18 @@ muestra las tareas bloqueadas de la jornada. Las pantallas indican si faltan
 registros o si falló la consulta al servidor.
 
 En **Inventario**, crea un producto y su lote antes de registrar la primera
-entrada. El saldo disponible excluye los lotes vencidos. En **Costos**, registra
-los gastos e ingresos y vincúlalos a un campo o bloque cuando corresponda. En
-**Trabajadores → Asistencia**, usa la fecha de trabajo para consultar o registrar
-la jornada. Inventario y costos se registran manualmente. El guardado de una
-labor agrícola es independiente de esos registros.
+entrada. Registra el **Costo unitario (COP)** del lote para usarlo en una
+aplicación. Puedes completar el costo de un lote existente desde **Lotes**.
+En fertilización, usa el mismo nombre de producto del plan y la unidad de la
+cantidad aplicada (kg o L). En tratamientos con insumos, la selección del lote
+determina el producto y la unidad.
+
+Guardar una aplicación con insumos descuenta la cantidad exacta y registra el
+gasto en **Costos**, en el bloque y la fecha de la aplicación. El gasto es la
+cantidad usada por el costo unitario del lote, redondeada a dos decimales de
+COP. Los administradores pueden consultar el gasto vinculado a la aplicación.
+El saldo disponible de Inventario excluye los lotes vencidos. En **Trabajadores
+→ Asistencia**, usa la fecha de trabajo para consultar o registrar la jornada.
 
 En **Mi trabajo de hoy → Nueva tarea**, administradores, supervisores y agrónomos
 pueden elegir un campo o bloque y asignar un miembro real de la finca. No es necesario

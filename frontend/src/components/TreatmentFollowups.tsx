@@ -7,11 +7,13 @@ import { number } from '../lib/domain';
 import type { Inspection } from '../lib/inspections';
 import { treatmentFollowupApi, treatmentOutcomes } from '../lib/treatment-followups';
 import type { TreatmentFollowup, TreatmentOutcome } from '../lib/treatment-followups';
+import ApplicationLotSelect, { useApplicationLots } from './ApplicationLotSelect';
 import { Badge } from './ui';
 
 type Action =
   | { kind: 'authorize'; requestId: string }
-  | { kind: 'execute' | 'verify'; followup: TreatmentFollowup };
+  | { kind: 'execute'; followup: TreatmentFollowup; operationId: string }
+  | { kind: 'verify'; followup: TreatmentFollowup };
 
 const labels = {
   authorize: 'Autorizar tratamiento',
@@ -38,6 +40,11 @@ export default function TreatmentFollowups({ inspection, disabled, onBusyChange,
   const [saving, setSaving] = useState(false);
   const [reload, setReload] = useState(0);
   const [error, setError] = useState('');
+  const [selectedLotId, setSelectedLotId] = useState<number>();
+  const executionInstant = useRef<string | undefined>(undefined);
+  const expectedProduct = action?.kind === 'execute' ? action.followup.product : undefined;
+  const lots = useApplicationLots(live && expectedProduct ? inspection.farmId : undefined, { productName: expectedProduct ?? undefined });
+  const selectedLot = lots.lots.find(lot => lot.id === selectedLotId);
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
@@ -57,7 +64,9 @@ export default function TreatmentFollowups({ inspection, disabled, onBusyChange,
   }, [live, inspection.id, reload]);
 
   const writable = !inspection.canceledAt && !loading && !loadError;
-  const start = (next: Action | null) => { setError(''); setAction(next); };
+  const start = (next: Action | null) => {
+    setError(''); setAction(next); setSelectedLotId(undefined); executionInstant.current = undefined;
+  };
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -72,7 +81,8 @@ export default function TreatmentFollowups({ inspection, disabled, onBusyChange,
     setSaving(true);
     onBusyChange(true);
     try {
-      const instant = text('recordedAt') ? new Date(text('recordedAt')).toISOString() : now;
+      const instant = text('recordedAt') ? new Date(text('recordedAt')).toISOString()
+        : action.kind === 'execute' ? (executionInstant.current ??= now) : now;
       let saved: TreatmentFollowup;
       if (action.kind === 'authorize') {
         const description = text('description');
@@ -94,14 +104,21 @@ export default function TreatmentFollowups({ inspection, disabled, onBusyChange,
           const productLot = text('productLot');
           const quantity = text('quantity') ? Number(text('quantity')) : null;
           const unit = text('unit');
-          if (previous.product && !productLot) throw new Error('Indica el lote del producto aplicado.');
-          if ((quantity === null) !== !unit) throw new Error('Indica cantidad y unidad juntas.');
-          const payload = { version: previous.version, occurredAt: instant, productLot: productLot || null, quantity, unit: unit || null };
-          saved = live ? await treatmentFollowupApi.execute(id, previous.id, payload) : {
-            ...previous, status: 'EXECUTED', treatmentId: Date.now(), executedByUserId: user.id,
-            executedByName: user.name, executedAt: instant, productLot: payload.productLot,
-            quantity, unit: payload.unit, version: previous.version + 1,
-          };
+          if (live) {
+            if (previous.product && (!selectedLot || quantity == null)) throw new Error('Indica el lote de inventario y la cantidad aplicada.');
+            saved = await treatmentFollowupApi.execute(id, previous.id, {
+              version: previous.version, occurredAt: instant, inventoryLotId: selectedLot?.id,
+              quantity: quantity ?? undefined, operationId: action.operationId,
+            });
+          } else {
+            if (previous.product && !productLot) throw new Error('Indica el lote del producto aplicado.');
+            if ((quantity === null) !== !unit) throw new Error('Indica cantidad y unidad juntas.');
+            saved = {
+              ...previous, status: 'EXECUTED', treatmentId: Date.now(), executedByUserId: user.id,
+              executedByName: user.name, executedAt: instant, productLot: productLot || null,
+              quantity, unit: unit || null, version: previous.version + 1,
+            };
+          }
         } else {
           const notes = text('notes');
           if (!notes) throw new Error('Registra las observaciones de la verificación.');
@@ -120,7 +137,7 @@ export default function TreatmentFollowups({ inspection, disabled, onBusyChange,
       setRecords(next);
       start(null);
     } catch (failure) {
-      if (failure instanceof ApiError && failure.status === 409 && action.kind !== 'authorize') {
+      if (failure instanceof ApiError && failure.status === 409 && action.kind === 'verify') {
         setAction(null);
         setReload(value => value + 1);
         setError('El tratamiento cambió. Revisa su estado actualizado antes de continuar.');
@@ -155,7 +172,10 @@ export default function TreatmentFollowups({ inspection, disabled, onBusyChange,
           <input type="datetime-local" name="recordedAt" aria-describedby="treatment-recorded-at-help" />
         </label>
         <small id="treatment-recorded-at-help">Si se deja vacía se registra la hora actual.</small>
-        {action.kind === 'execute' ? <>
+        {action.kind === 'execute' ? live ? action.followup.product && <>
+          <ApplicationLotSelect {...lots} value={selectedLotId} onChange={lot => setSelectedLotId(lot?.id)} label="Lote del producto" />
+          <label>Cantidad ejecutada{selectedLot ? ` (${selectedLot.unit})` : ''}<input name="quantity" type="number" min="0.000001" step="0.000001" max={selectedLot?.balance} required /></label>
+        </> : <>
           {action.followup.product && <label>Lote del producto<input name="productLot" maxLength={80} required /></label>}
           <label>Cantidad ejecutada (opcional)<input name="quantity" type="number" min="0.000001" step="any" /></label>
           <label>Unidad ejecutada<input name="unit" maxLength={40} placeholder="kg, L…" /></label>
@@ -176,7 +196,7 @@ export default function TreatmentFollowups({ inspection, disabled, onBusyChange,
     {!loading && !loadError && !records.length && <p className="inspection-empty-copy">Sin tratamientos autorizados.</p>}
     {records.map(record => <article className="inspection-treatment" key={record.id} aria-label={`Seguimiento ${record.id}`}>
       <div>
-        <strong>{record.product || 'Intervención sin producto'}</strong>
+        <strong>{record.appliedProduct ?? (record.product || 'Intervención sin producto')}</strong>
         {record.status === 'AUTHORIZED' ? <Badge tone="gold">Autorizado</Badge>
           : record.status === 'EXECUTED' ? <Badge tone="gold">Pendiente de verificación</Badge>
           : <Badge tone="green">Verificado</Badge>}
@@ -190,7 +210,7 @@ export default function TreatmentFollowups({ inspection, disabled, onBusyChange,
       {record.outcome && <p>Resultado · {treatmentOutcomes[record.outcome]}</p>}
       {record.verificationNotes && <p>{record.verificationNotes}</p>}
       {writable && record.status === 'AUTHORIZED' && <button type="button" className="text-button" disabled={disabled}
-        onClick={() => start({ kind: 'execute', followup: record })}>Registrar ejecución</button>}
+        onClick={() => start({ kind: 'execute', followup: record, operationId: crypto.randomUUID() })}>Registrar ejecución</button>}
       {writable && record.status === 'EXECUTED' && canReview && <button type="button" className="text-button" disabled={disabled}
         onClick={() => start({ kind: 'verify', followup: record })}>Registrar verificación</button>}
     </article>)}

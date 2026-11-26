@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 import com.yourco.agro.auth.FarmAccess;
-import com.yourco.agro.persistence.JpaSql;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -19,17 +18,18 @@ public class EventController {
   private final EventService service;
   private final FieldEventRepository repo;
   private final FarmAccess access;
-  private final JpaSql queries;
 
-  public EventController(EventService service, FieldEventRepository repo, FarmAccess access, JpaSql queries) {
+  public EventController(EventService service, FieldEventRepository repo, FarmAccess access) {
     this.service = service;
     this.repo = repo;
     this.access = access;
-    this.queries = queries;
   }
 
   @PostMapping
   public Object create(@Valid @RequestBody CreateEventRequest req) {
+    if (req.eventType == EventType.FERTILIZER_APPLICATION || req.eventType == EventType.TREATMENT_APPLICATION) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Registra la aplicación desde un plan de fertilización o una inspección fitosanitaria.");
+    }
     return service.create(req);
   }
 
@@ -58,13 +58,6 @@ public class EventController {
 
   @DeleteMapping("/{id}")
   public void delete(@PathVariable Long id) {
-    access.require(access.eventFarm(id), true);
-    if (queries.value("SELECT COUNT(*) FROM irrigation_execution WHERE event_id=?",Integer.class,id)>0) {
-      throw new ResponseStatusException(HttpStatus.CONFLICT,"La ejecución pertenece a una programación de riego y conserva su trazabilidad; no se puede eliminar desde el historial.");
-    }
-    if (queries.value("SELECT COUNT(*) FROM fertilization_application WHERE event_id=?",Integer.class,id)>0) {
-      throw new ResponseStatusException(HttpStatus.CONFLICT,"La aplicación pertenece a un plan aprobado y conserva su trazabilidad; no se puede eliminar desde el historial.");
-    }
-    repo.deleteById(id);
+    service.delete(id);
   }
 }

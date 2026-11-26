@@ -24,6 +24,8 @@ La pestaña **Prevención** de Plagas y enfermedades convierte las medidas de mo
 
 [Informe consolidado de resultados](test-results.md) · [Capturas por paso y video del recorrido](qa-evidence/README.md#prevencion)
 
+![Captura de QA · Medida ejecutada con referencia adjunta · 25 nov 2026](<qa-evidence/2026-11-25/prevencion/03.jpg>)
+
 ## Funcionalidades pendientes
 
 | ID | Requerimiento pendiente | Criterio de aceptación propuesto |

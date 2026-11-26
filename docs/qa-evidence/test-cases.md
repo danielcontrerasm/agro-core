@@ -5,6 +5,23 @@ Los nombres corresponden a los del código para que se puedan localizar en el
 informe. Los recorridos visuales y las capturas de cada paso están en la
 [galería de QA](README.md).
 
+## Laboratorio y observaciones históricas
+
+| Caso de Chrome | Prueba | Escritorio | Móvil |
+| --- | --- | --- | --- |
+| El resultado de laboratorio persiste en demostración y sigue disponible después de anular la inspección. | [Prueba](../../frontend/tests/inspection-laboratory-results.spec.ts#L67) | Aprobado | Aprobado |
+| El resultado se vincula a la inspección conectada a PostGIS y conserva el estado de la evaluación de campo. | [Prueba](../../frontend/tests/inspection-laboratory-results.spec.ts#L113) | Aprobado | Aprobado |
+| La corrección histórica de demostración conserva los valores de la revisión al reabrirla. | [Prueba](../../frontend/tests/legacy-observation.spec.ts#L74) | Aprobado | Aprobado |
+| La observación histórica mantiene su identidad y auditoría al recargar desde PostGIS. | [Prueba](../../frontend/tests/legacy-observation.spec.ts#L84) | Aprobado | Aprobado |
+
+| Suite de Gradle | Casos aprobados |
+| --- | --- |
+| [InspectionLaboratoryApiTest](../../src/test/java/com/yourco/agro/InspectionLaboratoryApiTest.java) | `retainsLaboratoryHistoryWithoutChangingFieldReview`, `validatesDatesAndIdempotentRetries`, `isolatesFarmsAndRetainsResultsAfterCancellation` |
+| [InspectionLaboratoryPostgresTest](../../src/test/java/com/yourco/agro/InspectionLaboratoryPostgresTest.java) | `persistsLinkedLaboratoryResultWithNativeUuidAndDates` |
+| [LegacyObservationApiTest](../../src/test/java/com/yourco/agro/LegacyObservationApiTest.java) | `revisesTheObservationAndKeepsPriorValuesAndOriginalMetadata`, `addsObservationDataToAnOldEventThatOnlyHadNotes`, `enforcesCatalogVersionPermissionsAndPreventsDeletingTheAudit` |
+
+[Informe de la regresión](../test-results.md#laboratorio-e-historial-fitosanitario-del-26-de-noviembre-de-2026)
+
 ## Playwright
 
 | Caso | Prueba | Escritorio | Móvil |

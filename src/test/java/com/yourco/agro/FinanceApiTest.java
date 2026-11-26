@@ -40,7 +40,8 @@ class FinanceApiTest {
     @Bean
     LocalContainerEntityManagerFactoryBean entityManagerFactory() throws IOException {
       return JpaTestConfig.database("auth-schema.sql", "db/migration/V2__users_and_memberships.sql",
-        "finance-schema.sql", "db/migration/V26__farm_finances.sql");
+        "finance-schema.sql", "db/migration/V25__inventory.sql", "db/migration/V26__farm_finances.sql",
+        "db/migration/V30__inventory_application_costs.sql");
     }
   }
 

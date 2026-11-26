@@ -33,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -47,7 +48,8 @@ class InventoryApiTest {
   static class DatabaseConfig {
     @Bean
     LocalContainerEntityManagerFactoryBean entityManagerFactory() throws IOException {
-      return JpaTestConfig.database("auth-schema.sql", "db/migration/V2__users_and_memberships.sql", "db/migration/V25__inventory.sql");
+      return JpaTestConfig.database("auth-schema.sql", "db/migration/V2__users_and_memberships.sql", "db/migration/V25__inventory.sql",
+        "db/migration/V26__farm_finances.sql", "db/migration/V30__inventory_application_costs.sql");
     }
   }
 
@@ -121,6 +123,26 @@ class InventoryApiTest {
       .andExpect(jsonPath("$.products[0].available").value(1))
       .andExpect(jsonPath("$.lots[0].balance").value(1))
       .andExpect(jsonPath("$.movements.entries.length()").value(2));
+  }
+
+  @Test
+  void managersCanPriceLegacyLotsAndOnlyManagersCanSeePrices() throws Exception {
+    long lotId = createLot(createProduct(), "fresh", null);
+    String path = API + "/lots/" + lotId + "/cost";
+    String body = """
+      {"farmId":10,"unitCostCop":"12.75"}
+      """;
+    mvc.perform(patch(path).with(authentication(user(2))).with(csrf()).contentType("application/json").content(body))
+      .andExpect(status().isForbidden());
+    mvc.perform(patch(path).with(authentication(user(1))).with(csrf()).contentType("application/json").content(body))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.unitCostCop").value(12.75));
+    write("/movements", 1, movement(10, lotId, UUID.randomUUID(), "IN", "2.000001")).andExpect(status().isCreated());
+    mvc.perform(get(API).param("farmId", "10").with(authentication(user(2))))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.lots[0].hasUnitCost").value(true))
+      .andExpect(jsonPath("$.lots[0].unitCostCop").doesNotExist()).andExpect(jsonPath("$.lots[0].stockValueCop").doesNotExist());
+    mvc.perform(get(API).param("farmId", "10").with(authentication(user(1))))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.lots[0].unitCostCop").value(12.75))
+      .andExpect(jsonPath("$.lots[0].stockValueCop").value(25.50)).andExpect(jsonPath("$.lots[0].balance").value(2.000001));
   }
 
   private long createProduct() throws Exception {

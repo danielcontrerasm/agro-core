@@ -11,6 +11,7 @@ import java.util.Set;
 
 @Service
 public class FarmAccess {
+  private static final Set<String> MANAGER_ROLES = Set.of("ADMIN", "SUPERVISOR");
   private final JpaSql queries;
 
   public FarmAccess(JpaSql queries) { this.queries = queries; }
@@ -26,9 +27,14 @@ public class FarmAccess {
   public void require(Long farmId, boolean manage) {
     var roles = queries.values("SELECT role FROM farm_membership WHERE farm_id = ? AND user_id = ?",
       String.class, farmId, userId());
-    if (roles.isEmpty() || (manage && !Set.of("ADMIN", "SUPERVISOR").contains(roles.get(0)))) {
+    if (roles.isEmpty() || (manage && !MANAGER_ROLES.contains(roles.get(0)))) {
       throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Farm access denied");
     }
+  }
+
+  public boolean canManage(long farmId) {
+    return queries.values("SELECT role FROM farm_membership WHERE farm_id = ? AND user_id = ?",
+      String.class, farmId, userId()).stream().anyMatch(MANAGER_ROLES::contains);
   }
 
   public void requireAgronomic(Long farmId) {

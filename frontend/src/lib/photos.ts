@@ -1,4 +1,4 @@
-export interface PhotoTarget { eventId?: number; inspectionId?: number; treatmentId?: number }
+export interface PhotoTarget { eventId?: number; inspectionId?: number; treatmentId?: number; analysisId?: number }
 export interface Photo extends PhotoTarget {
   id: string; originalName: string; contentType: string; sizeBytes: number;
   createdByUserId: number; createdAt: string;
@@ -11,6 +11,7 @@ export function photoQuery(target: PhotoTarget) {
   if (target.eventId != null) query.set('eventId', String(target.eventId));
   if (target.inspectionId != null) query.set('inspectionId', String(target.inspectionId));
   if (target.treatmentId != null) query.set('treatmentId', String(target.treatmentId));
+  if (target.analysisId != null) query.set('analysisId', String(target.analysisId));
   return query.toString();
 }
 
@@ -50,8 +51,11 @@ export async function demoPhotoList(target: PhotoTarget): Promise<DemoPhoto[]> {
       transaction.oncomplete = () => resolve(request.result);
       transaction.onabort = () => reject(new Error('No se pudieron leer las fotos de demostración.'));
     });
-    return photos.filter(photo => target.eventId != null ? photo.eventId === target.eventId : photo.inspectionId === target.inspectionId)
-      .filter(photo => target.treatmentId == null || photo.treatmentId === target.treatmentId);
+    if (target.analysisId != null) return photos.filter(photo => photo.analysisId === target.analysisId);
+    if (target.eventId != null) return photos.filter(photo => photo.eventId === target.eventId);
+    if (target.inspectionId == null) return [];
+    return photos.filter(photo => photo.inspectionId === target.inspectionId
+      && (target.treatmentId == null || photo.treatmentId === target.treatmentId));
   } finally { database.close(); }
 }
 

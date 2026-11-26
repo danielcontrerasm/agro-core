@@ -11,6 +11,7 @@ import { EventForm } from '../components/Forms';
 import { EventIcon } from './Dashboard';
 import Inspections from './Inspections';
 import PhotoGallery from '../components/PhotoGallery';
+import LegacyObservationEditor from '../components/LegacyObservationEditor';
 import FarmMap from '../components/FarmMap';
 import Fertilization from './Fertilization';
 import Irrigation from './Irrigation';
@@ -540,7 +541,7 @@ function ReportOverview() {
 }
 
 function OperationsHistory({ page }: { page: Page }) {
-  const { data, mode, farmId, search, tasks, setDate, navigate, notify } = useApp();
+  const { data, mode, farmId, search, tasks, setDate, navigate, notify, replaceEvent } = useApp();
   const [form, setForm] = useState(false);
   const [selected, setSelected] = useState<FieldEvent | null>(null);
   const [type, setType] = useState('all');
@@ -583,17 +584,21 @@ function OperationsHistory({ page }: { page: Page }) {
     {module && <p className="page-note">Este historial muestra los eventos de campo y sus notas. Consulta los registros estructurados en el módulo de la actividad.</p>}
     </>}
     {form && <EventForm key={page} initialType={module?.type} onClose={() => setForm(false)} />}
-    {selected && <EventDetail event={selected} onClose={() => setSelected(null)} />}
+    {selected && <EventDetail key={selected.id} event={selected} historicalObservation={page === 'disease' && selected.eventType === 'SCOUTING_OBSERVATION'}
+      onChange={event => { replaceEvent(event); setSelected(event); }} onClose={() => setSelected(null)} />}
   </>;
 }
 
-function EventDetail({ event, onClose }: { event: FieldEvent; onClose: () => void }) {
+function EventDetail({ event, historicalObservation, onChange, onClose }: {
+  event: FieldEvent; historicalObservation: boolean; onChange: (event: FieldEvent) => void; onClose: () => void;
+}) {
   const { mode, role, remove, notify } = useApp();
   const [media, setMedia] = useState<{ id: number; kind: string; s3Key: string; contentType?: string }[]>([]);
   const [error, setError] = useState('');
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
+  const [hasRevision, setHasRevision] = useState(mode === 'live' && historicalObservation || Boolean(event.legacyObservation?.version));
   useEffect(() => {
     if (mode === 'demo') { setMedia(readDemo(`media.${event.id}`, [])); return; }
     let active = true;
@@ -636,10 +641,10 @@ function EventDetail({ event, onClose }: { event: FieldEvent; onClose: () => voi
         <div><dt>Autor</dt><dd>Usuario #{event.createdByUserId}</dd></div>
         {event.plantIndexStart != null && <div><dt>Rango de plantas</dt><dd>{event.plantIndexStart}–{event.plantIndexEnd}</dd></div>}
       </dl>
-      <section className="activity-detail-section">
+      {historicalObservation ? <LegacyObservationEditor event={event} disabled={busy} onBusy={setBusy} onSaved={onChange} onAuditStatus={setHasRevision} /> : <section className="activity-detail-section">
         <div className="panel-heading"><h3>Notas de la actividad</h3></div>
         <p className="activity-detail-note">{event.notes || 'No se registraron notas.'}</p>
-      </section>
+      </section>}
       <div className="activity-detail-section">
         <PhotoGallery target={{ eventId: event.id }} onBusyChange={setBusy} />
       </div>
@@ -661,7 +666,7 @@ function EventDetail({ event, onClose }: { event: FieldEvent; onClose: () => voi
       </section>
       {error && <p role="alert" className="form-error">{error}</p>}
       <div className="form-actions">
-        {role !== 'WORKER' && (confirm ? <>
+        {role !== 'WORKER' && !hasRevision && (confirm ? <>
           <p>¿Eliminar esta actividad y sus referencias asociadas? Esta acción es permanente.</p>
           <button className="button secondary" onClick={() => setConfirm(false)} disabled={busy}>Cancelar</button>
           <button className="button danger" disabled={busy} onClick={() => void deleteEvent()}>Confirmar eliminación</button>

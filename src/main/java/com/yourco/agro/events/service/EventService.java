@@ -7,6 +7,7 @@ import com.yourco.agro.events.repo.ObservationDetailRepository;
 import com.yourco.agro.farm.repo.BlockRepository;
 import com.yourco.agro.farm.repo.RowRepository;
 import com.yourco.agro.geo.GeoMapper;
+import com.yourco.agro.persistence.JpaSql;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 import com.yourco.agro.auth.FarmAccess;
@@ -21,16 +22,18 @@ public class EventService {
   private final RowRepository rowRepo;
   private final GeoMapper geo = new GeoMapper();
   private final FarmAccess access;
+  private final JpaSql queries;
 
   public EventService(FieldEventRepository eventRepo,
                       ObservationDetailRepository obsRepo,
                       BlockRepository blockRepo,
-                      RowRepository rowRepo, FarmAccess access) {
+                      RowRepository rowRepo, FarmAccess access, JpaSql queries) {
     this.eventRepo = eventRepo;
     this.obsRepo = obsRepo;
     this.blockRepo = blockRepo;
     this.rowRepo = rowRepo;
     this.access = access;
+    this.queries = queries;
   }
 
   @Transactional
@@ -70,5 +73,26 @@ public class EventService {
     }
 
     return saved;
+  }
+
+  @Transactional
+  public void delete(long id) {
+    access.require(access.eventFarm(id), true);
+    long observationVersion = queries.values("""
+      SELECT legacy_observation_version FROM field_event WHERE id = ? FOR UPDATE
+      """, Long.class, id).stream().findFirst()
+      .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Actividad no encontrada."));
+    if (observationVersion > 0) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "La observación histórica conserva un historial de cambios.");
+    }
+    if (queries.value("SELECT COUNT(*) FROM irrigation_execution WHERE event_id=?", Integer.class, id) > 0) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT,
+        "La ejecución pertenece a una programación de riego y conserva su trazabilidad; no se puede eliminar desde el historial.");
+    }
+    if (queries.value("SELECT COUNT(*) FROM fertilization_application WHERE event_id=?", Integer.class, id) > 0) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT,
+        "La aplicación pertenece a un plan aprobado y conserva su trazabilidad; no se puede eliminar desde el historial.");
+    }
+    eventRepo.deleteById(id);
   }
 }

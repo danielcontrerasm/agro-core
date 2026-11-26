@@ -28,6 +28,10 @@ public class FertilizationController {
   @PostMapping("/plans/{id}/approve") public Map<String,Object> approve(@PathVariable long id,@Valid @RequestBody Decision request) { return service.decision(id,request,true); }
   @PostMapping("/plans/{id}/cancel") public Map<String,Object> cancel(@PathVariable long id,@Valid @RequestBody Decision request) { return service.decision(id,request,false); }
   @PostMapping("/plans/{id}/task") public Map<String,Object> task(@PathVariable long id) { return service.task(id); }
+  @PatchMapping("/plans/{id}/tasks/{taskId}/assignment") @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void assignTask(@PathVariable long id, @PathVariable long taskId, @Valid @RequestBody TaskAssignment request) {
+    service.assignTask(id, taskId, request);
+  }
   @PostMapping("/plans/{id}/applications") @ResponseStatus(HttpStatus.CREATED)
   public Map<String,Object> apply(@PathVariable long id,@Valid @RequestBody Application request) { return service.apply(id,request); }
   @PostMapping("/plans/{id}/followups") @ResponseStatus(HttpStatus.NO_CONTENT)

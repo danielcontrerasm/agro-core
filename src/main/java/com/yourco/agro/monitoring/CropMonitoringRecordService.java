@@ -42,6 +42,9 @@ public class CropMonitoringRecordService {
 
   @Transactional
   public CropMonitoringRecord create(CropMonitoringRecordDtos.CreateRequest request) {
+    if (request.recordType == MonitoringRecordType.FERTILIZER_APPLICATION) {
+      throw bad("Registra la aplicación desde un plan de fertilización.");
+    }
     var location = resolveLocation(request);
     access.require(location.field().getFarm().getId(), false);
     var cycle = resolveCycle(request.cropCycleId, location);

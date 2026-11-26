@@ -81,8 +81,15 @@ Crop and variety catalogs and regional calendars are managed from **Configuraci�
 The main crop-management API groups are `/api/v1/catalog/crops`,
 `/api/v1/planting`, and `/api/v1/planting-calendars`.
 
+![Mockup · Detalle del ciclo, fechas y avance](<mockups/07_Siembra_y_ciclos.png>)
+![Captura de QA · Ciclo y material vegetal tras recargar · 25 nov 2026](<qa-evidence/2026-11-25/siembra/04.jpg>)
+
 **Campos de la Finca** (`#/fields`) shows the field tree, field detail, list
 and map. Field and block polygons come from coordinates recorded on create.
+
+![Mockup · Mapa y árbol de campos y bloques](<mockups/06_Campos_y_bloques.png>)
+![Captura de QA · Mapa y estructura de campos · 25 nov 2026](<qa-evidence/2026-11-25/campos/01.jpg>)
+
 **Surcos y plantas** (`#/plants`) filters rows by block and shows field, crop
 variety, estimated counts, line geometry, and activity history. The plant
 position filter uses the activity's recorded position or position range within
@@ -90,11 +97,17 @@ the row. These views use the farm-scoped `fields`, `blocks` and `rows` API
 resources. Their controllers expose create, list, detail, and delete operations.
 [Field and row screens](../frontend/src/pages/Records.tsx) · [Field controller](../src/main/java/com/yourco/agro/farm/controller/FieldController.java) · [Block controller](../src/main/java/com/yourco/agro/farm/controller/BlockController.java) · [Row controller](../src/main/java/com/yourco/agro/farm/controller/RowController.java)
 
+![Mockup · Inventario y ubicación de plantas](<mockups/11_Gestion_de_plantas.png>)
+![Mockup · Propuesta de ficha individual por planta](<mockups/12_Ficha_individual.png>)
+![Captura de QA · Inventario de surcos filtrado por bloque · 25 nov 2026](<qa-evidence/2026-11-25/plantas/01.jpg>)
+
 **Centro agronómico** (`#/insights`) summarizes farm conditions from map analytics.
 Select a block or a layer for health, moisture or nutrients, refresh the
 analysis, or use the priority panel to open the source module. The search box
 filters the four built-in guides by title, description or link label.
 [Agronomic Center implementation](../frontend/src/pages/Operations.tsx)
+
+![Captura de QA · Guías del centro agronómico en Chrome · 25 nov 2026](<qa-evidence/2026-11-25/centro-agronomico/01.jpg>)
 
 ## Complete endpoint inventory
 

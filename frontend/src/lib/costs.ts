@@ -13,6 +13,12 @@ export const financeCategoryLabels = {
 
 export type FinanceCategory = keyof typeof financeCategoryLabels;
 export type FinanceEntryType = 'EXPENSE' | 'INCOME';
+export type FinanceSourceType = 'FERTILIZATION_APPLICATION' | 'PHYTOSANITARY_TREATMENT';
+
+export const financeSourceLabels: Record<FinanceSourceType, string> = {
+  FERTILIZATION_APPLICATION: 'Aplicación de fertilización',
+  PHYTOSANITARY_TREATMENT: 'Tratamiento fitosanitario',
+};
 
 export const financeCategories: Record<FinanceEntryType, FinanceCategory[]> = {
   EXPENSE: ['FERTILIZERS', 'PHYTOSANITARY', 'LABOR', 'IRRIGATION_ENERGY', 'MAINTENANCE', 'OTHER_EXPENSE'],
@@ -37,6 +43,8 @@ export interface FinanceEntry extends FinanceEntryData {
   fieldName: string | null;
   blockCode: string | null;
   version: number;
+  sourceType?: FinanceSourceType | null;
+  sourceId?: number | null;
 }
 
 export interface FinanceBudget {

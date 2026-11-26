@@ -8,7 +8,10 @@ import type { InspectionTreatment } from '../lib/inspections';
 
 interface DisplayPhoto extends Photo { url: string }
 
-export default function PhotoGallery({ target, treatments = [], readOnly = false, onBusyChange }: { target: PhotoTarget; treatments?: InspectionTreatment[]; readOnly?: boolean; onBusyChange?: (busy: boolean) => void }) {
+export default function PhotoGallery({ target, treatments = [], readOnly = false, onBusyChange, emptyMessage = 'Sin fotos adjuntas.' }: {
+  target: PhotoTarget; treatments?: InspectionTreatment[]; readOnly?: boolean;
+  onBusyChange?: (busy: boolean) => void; emptyMessage?: string;
+}) {
   const { mode, profile } = useApp();
   const [photos, setPhotos] = useState<DisplayPhoto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,7 +32,7 @@ export default function PhotoGallery({ target, treatments = [], readOnly = false
     })) : api.photos(target).then(items => items.map(item => ({ ...item, url: `/api/v1/photos/${item.id}/content` })));
     load.then(items => { if (active) setPhotos(items); }).catch(failure => { if (active) setError(failure.message); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; mounted.current = false; objectUrls.current.forEach(url => URL.revokeObjectURL(url)); objectUrls.current = []; };
-  }, [mode, target.eventId, target.inspectionId, target.treatmentId]);
+  }, [mode, target.eventId, target.inspectionId, target.treatmentId, target.analysisId]);
 
   async function upload(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = '';
@@ -71,7 +74,7 @@ export default function PhotoGallery({ target, treatments = [], readOnly = false
     </>}
     {loading && <p role="status">Cargando fotos…</p>}{busy && <p role="status">Guardando fotos…</p>}{status && <p role="status">{status}</p>}
     {error && <p className="form-error" role="alert">{error}</p>}
-    {!loading && !error && !photos.length && <p>Sin fotos adjuntas.</p>}
+    {!loading && !error && !photos.length && <p>{emptyMessage}</p>}
     <div className="photo-grid">{photos.map(photo => <figure key={photo.id}><button type="button" className="photo-thumbnail" aria-label={`Ver foto ${photo.originalName}`} onClick={() => setEnlarged(photo.id)}><img src={photo.url} alt={photo.originalName} loading="lazy" onError={() => setError('No se pudo mostrar una foto. Revisa tu sesión o vuelve a abrir el detalle.')} /></button><figcaption>{photo.originalName}{photo.treatmentId && <small>Tratamiento #{photo.treatmentId}</small>}<a href={mode === 'live' ? `${photo.url}?download=true` : photo.url} download={photo.originalName}>Descargar foto</a></figcaption></figure>)}</div>
     {selected && <div className="photo-expanded"><button type="button" className="button secondary small" onClick={() => setEnlarged(null)}>Cerrar vista ampliada</button><img src={selected.url} alt={`Foto ampliada: ${selected.originalName}`} /></div>}
   </section>;

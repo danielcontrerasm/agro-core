@@ -121,6 +121,8 @@ network in demo mode. On a connected farm it shows assets that have recorded
 coordinates. Select a colored block to open the details for its visible sectors.
 **Programar riego** opens the scheduling form for authorized users.
 
+![Mockup · Irrigation overview with sector map and alerts](<mockups/08_Riego.png>)
+
 - **Sectores** shows configuration, moisture history, and operational alerts.
 - **Programación** provides one-time and recurring schedules, task and occurrence
   generation, upcoming-occurrence preview, pause/resume/edit/cancel controls,
@@ -130,6 +132,9 @@ coordinates. Select a colored block to open the details for its visible sectors.
   separately. Open a record to review interruptions, variance, moisture readings
   before and after execution, and attached evidence. **Exportar CSV** exports
   execution records.
+![Captura de QA · Recording effective time and water used · 25 Nov 2026](<qa-evidence/2026-11-25/riego/04.jpg>)
+![Captura de QA · Saved irrigation execution and evidence after reload · 25 Nov 2026](<qa-evidence/2026-11-25/riego/05.jpg>)
+
 - **Sensores** shows the readings recorded with sensor origin.
 - **Infraestructura** contains sources, quality, hydraulic assets, balances,
   maintenance, and sensor calibration checks.

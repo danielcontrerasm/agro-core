@@ -106,6 +106,8 @@ de la regresión del 26 de noviembre.
 4. [Registrar el tiempo y el agua utilizados](2026-11-25/riego/04.jpg)
 5. [Comprobar la evidencia al recargar](2026-11-25/riego/05.jpg)
 
+![Captura de QA · Ejecución de riego y evidencia recuperadas después de recargar](<2026-11-25/riego/05.jpg>)
+
 ## fertilizacion
 
 **Fertilización** · 5 pasos aprobados.
@@ -116,6 +118,59 @@ de la regresión del 26 de noviembre.
 3. [Aprobar y generar la tarea](2026-11-25/fertilizacion/03.jpg)
 4. [Registrar una aplicación parcial](2026-11-25/fertilizacion/04.jpg)
 5. [Evidencia y resumen actualizado](2026-11-25/fertilizacion/05.jpg)
+
+## Fertilización ampliada
+
+El 26 de noviembre de 2026 pasó el recorrido ampliado de Fertilización
+en Chrome con datos de demostración. Se grabaron once pasos.
+[Prueba automatizada](../../frontend/qa/modules/fertilizacion.spec.ts) ·
+[Informe de Playwright](../../frontend/playwright-report/qa-modulos-20261126-093141-0f87cf/playwright/index.html) ·
+[Video WebM](2026-11-26/fertilizacion/recorrido.webm)
+
+1. [Mapa de potasio y alerta nutricional](2026-11-26/fertilizacion/01.jpg)
+2. [Crear un plan desde una alerta](2026-11-26/fertilizacion/02.jpg)
+3. [Aprobar y generar la tarea](2026-11-26/fertilizacion/03.jpg)
+4. [Registrar una aplicación parcial](2026-11-26/fertilizacion/04.jpg)
+5. [Evidencia y resumen actualizado](2026-11-26/fertilizacion/05.jpg)
+6. [Registrar seguimiento técnico del plan](2026-11-26/fertilizacion/06.jpg)
+7. [Rechazar una cantidad que supera el saldo](2026-11-26/fertilizacion/07.jpg)
+8. [Completar los 25 kg aprobados](2026-11-26/fertilizacion/08.jpg)
+9. [Preparar una muestra foliar y rechazar un archivo inválido](2026-11-26/fertilizacion/09.jpg)
+10. [Guardar el informe y comprobar la descarga](2026-11-26/fertilizacion/10.jpg)
+11. [Recuperar saldos, seguimiento y foto](2026-11-26/fertilizacion/11.jpg)
+
+![Captura de QA · Aplicación, saldo, seguimiento y foto después de recargar](<2026-11-26/fertilizacion/11.jpg>)
+
+## Diagnóstico, catálogo e informe foliar
+
+Capturas de las pruebas con PostGIS temporal del 26 de noviembre de 2026.
+[Informe de las 16 ejecuciones](../../frontend/playwright-report/fertilizacion-cobertura-20261126-103132-3c0d/index.html) ·
+[Cobertura de Fertilización](../fertilization.md#cobertura-conectada-adicional)
+
+| Comprobación | Escritorio | Móvil |
+| --- | --- | --- |
+| Interpretación con el perfil de la variedad | [Pantallazo](2026-11-26/fertilizacion-conectada/perfil-nutricional-desktop.jpg) | [Pantallazo](2026-11-26/fertilizacion-conectada/perfil-nutricional-mobile.jpg) |
+| Revisión confirmada tras recargar | [Pantallazo](2026-11-26/fertilizacion-conectada/revision-confirmada-desktop.jpg) | [Pantallazo](2026-11-26/fertilizacion-conectada/revision-confirmada-mobile.jpg) |
+| Rechazo de la unidad de dosis incompatible | [Pantallazo](2026-11-26/fertilizacion-conectada/unidad-incompatible-desktop.jpg) | [Pantallazo](2026-11-26/fertilizacion-conectada/unidad-incompatible-mobile.jpg) |
+| Plan con composición del catálogo | [Pantallazo](2026-11-26/fertilizacion-conectada/producto-del-catalogo-desktop.jpg) | [Pantallazo](2026-11-26/fertilizacion-conectada/producto-del-catalogo-mobile.jpg) |
+| Muestra foliar con el informe disponible tras recargar | [Pantallazo](2026-11-26/fertilizacion-conectada/informe-foliar-desktop.jpg) | [Pantallazo](2026-11-26/fertilizacion-conectada/informe-foliar-mobile.jpg) |
+
+## Ejecución de Fertilización por bloque
+
+Grabaciones con una finca temporal en PostGIS.
+[Registrar muestra y adjuntar una foto](../../frontend/test-results/fertilizacion-cobertura-20261126-104728-45e5/browser/fertilization-sample-evide-470b0-int-and-authenticated-photo-desktop/video.webm) ·
+[Crear el plan, repartir tareas, adjuntar una foto de la aplicación y ver mapas](../../frontend/test-results/fertilizacion-cobertura-20261126-105142-e955/browser/fertilization-connected-re-c224f-tible-inventory-consumption-desktop/video.webm) ·
+[Informe de la suite](../../frontend/playwright-report/fertilizacion-cobertura-20261126-104728-45e5/index.html) ·
+[Revalidación del encuadre del mapa](../../frontend/playwright-report/fertilizacion-cobertura-20261126-105142-e955/index.html)
+
+| Paso | Escritorio | Móvil |
+| --- | --- | --- |
+| Registrar la ubicación de la muestra | [Pantallazo](2026-11-26/ejecucion-fertilizacion/registrar-muestra-desktop.jpg) | [Pantallazo](2026-11-26/ejecucion-fertilizacion/registrar-muestra-mobile.jpg) |
+| Consultar la ubicación y la foto guardadas | [Pantallazo](2026-11-26/ejecucion-fertilizacion/muestra-foto-ubicacion-desktop.jpg) | [Pantallazo](2026-11-26/ejecucion-fertilizacion/muestra-foto-ubicacion-mobile.jpg) |
+| Repartir las tareas por ocurrencia | [Pantallazo](2026-11-26/ejecucion-fertilizacion/tareas-desktop.jpg) | [Pantallazo](2026-11-26/ejecucion-fertilizacion/tareas-mobile.jpg) |
+| Consultar lo cubierto y lo pendiente del plan | [Pantallazo](2026-11-26/ejecucion-fertilizacion/plan-parcial-desktop.jpg) | [Pantallazo](2026-11-26/ejecucion-fertilizacion/plan-parcial-mobile.jpg) |
+| Recuperar la foto de la aplicación desde el plan | [Pantallazo](2026-11-26/ejecucion-fertilizacion/aplicacion-foto-desktop.jpg) | [Pantallazo](2026-11-26/ejecucion-fertilizacion/aplicacion-foto-mobile.jpg) |
+| Consultar el mapa de la finca por campo y bloque | [Pantallazo](2026-11-26/ejecucion-fertilizacion/mapa-finca-desktop.jpg) | [Pantallazo](2026-11-26/ejecucion-fertilizacion/mapa-finca-mobile.jpg) |
 
 ## plagas
 
@@ -148,6 +203,20 @@ en Chrome de escritorio. Los datos de la grabación son de demostración.
 | Tratamiento verificado | [Pantallazo](2026-11-26/sanidad/tratamiento-desktop.jpg) | [Pantallazo](2026-11-26/sanidad/tratamiento-mobile.jpg) |
 
 [Resultado de la revalidación en Chrome](../../frontend/playwright-report/sanidad-revalidacion/index.html)
+
+![Captura de QA · Inspección y tratamiento recuperados desde el historial](<2026-11-26/sanidad/06.jpg>)
+
+## Laboratorio e historial fitosanitario
+
+Las capturas del 26 de noviembre de 2026 muestran los datos recuperados al
+recargar cada flujo de Chrome conectado a PostGIS temporal.
+
+| Prueba con PostGIS | Escritorio | Móvil | Video de escritorio |
+| --- | --- | --- | --- |
+| Resultado de laboratorio vinculado a la inspección | [Pantallazo](2026-11-26/laboratorio-historial/laboratorio-desktop.jpg) | [Pantallazo](2026-11-26/laboratorio-historial/laboratorio-mobile.jpg) | [Video WebM](2026-11-26/laboratorio-historial/laboratorio-desktop.webm) |
+| Corrección histórica y auditoría con valores previos y posteriores | [Pantallazo](2026-11-26/laboratorio-historial/historial-desktop.jpg) | [Pantallazo](2026-11-26/laboratorio-historial/historial-mobile.jpg) | [Video WebM](2026-11-26/laboratorio-historial/historial-desktop.webm) |
+
+[Resultados y enlaces a pruebas](../pest-disease-management.md#laboratorio-y-observaciones-históricas)
 
 ## prevencion
 

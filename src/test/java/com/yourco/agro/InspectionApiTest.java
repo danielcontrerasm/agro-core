@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yourco.agro.auth.AuthDtos;
 import com.yourco.agro.auth.FarmAccess;
 import com.yourco.agro.config.SecurityConfig;
+import com.yourco.agro.finances.FinanceService;
+import com.yourco.agro.inventory.InventoryService;
 import com.yourco.agro.inspections.*;
 import com.yourco.agro.persistence.JpaSql;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,7 +32,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(InspectionController.class)
-@Import({SecurityConfig.class, FarmAccess.class, InspectionService.class, InspectionApiTest.DatabaseConfig.class})
+@Import({SecurityConfig.class, FarmAccess.class, InspectionService.class, InventoryService.class, FinanceService.class, InspectionApiTest.DatabaseConfig.class})
 class InspectionApiTest {
   @TestConfiguration
   @Import(JpaTestConfig.class)
@@ -43,7 +45,10 @@ class InspectionApiTest {
         "db/migration/V6__phytosanitary_inspections.sql",
         "db/migration/V7__inspection_treatments_and_evidence.sql",
         "db/migration/V8__photos.sql",
-        "db/migration/V22__phytosanitary_catalog_and_inspection_area.sql"
+        "db/migration/V22__phytosanitary_catalog_and_inspection_area.sql",
+        "db/migration/V25__inventory.sql", "db/migration/V26__farm_finances.sql",
+        "db/migration/V29__inspection_treatment_followups.sql", "db/migration/V30__inventory_application_costs.sql",
+        "db/migration/V32__treatment_application_inventory.sql"
       );
     }
   }
@@ -148,7 +153,7 @@ class InspectionApiTest {
   @Test void treatmentsAndEvidenceRemainLinkedAndRespectFarmAccess() throws Exception {
     long id = create(payload());
     var treatment = mvc.perform(post("/api/v1/inspections/" + id + "/treatments").with(authentication(login(1))).with(csrf())
-      .contentType("application/json").content("{\"occurredAt\":\"2026-01-11T12:00:00Z\",\"description\":\"Deshoje sanitario según plan\",\"product\":\"Producto de prueba\",\"quantity\":2,\"unit\":\"L\"}"))
+      .contentType("application/json").content("{\"occurredAt\":\"2026-01-11T12:00:00Z\",\"description\":\"Deshoje sanitario según plan\"}"))
       .andExpect(status().isOk()).andExpect(jsonPath("authorName").value("Worker")).andReturn();
     long treatmentId = json.readTree(treatment.getResponse().getContentAsString()).get("id").asLong();
     mvc.perform(post("/api/v1/inspections/" + id + "/evidence").with(authentication(login(1))).with(csrf())

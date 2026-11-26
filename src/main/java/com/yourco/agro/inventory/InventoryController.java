@@ -29,6 +29,11 @@ public class InventoryController {
   @ResponseStatus(HttpStatus.CREATED)
   public Lot createLot(@Valid @RequestBody CreateLot request) { return inventory.createLot(request); }
 
+  @PatchMapping("/lots/{id}/cost")
+  public Lot updateLotCost(@PathVariable long id, @Valid @RequestBody UpdateLotCost request) {
+    return inventory.updateLotCost(id, request);
+  }
+
   @PostMapping("/movements")
   @ResponseStatus(HttpStatus.CREATED)
   public Movement createMovement(@Valid @RequestBody CreateMovement request) { return inventory.createMovement(request); }

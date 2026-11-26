@@ -26,6 +26,7 @@ export interface FarmMapProps {
   onSelectField?: (id: number) => void;
   onInspectBlock?: () => void;
   blockPresentation?: ReadonlyMap<number, BlockPresentation>;
+  fitWholeGeometry?: boolean;
   irrigationNetwork?: boolean;
   infrastructurePoints?: MapPoint[];
   legend?: ReactNode;

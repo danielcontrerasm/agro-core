@@ -2,16 +2,20 @@ package com.yourco.agro.finances;
 
 import com.yourco.agro.auth.FarmAccess;
 import com.yourco.agro.persistence.JpaSql;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.Objects;
+import java.util.UUID;
 
 import static com.yourco.agro.finances.FinanceDtos.*;
 
@@ -19,12 +23,13 @@ import static com.yourco.agro.finances.FinanceDtos.*;
 public class FinanceService {
   private static final String ENTRY_SELECT = """
     SELECT e.id, e.farm_id, e.entry_date, e.entry_type, e.category, e.amount, e.description, e.field_id,
-           f.name AS field_name, e.block_id, b.code AS block_code, e.version
+           f.name AS field_name, e.block_id, b.code AS block_code, e.version, e.source_type, e.source_id
       FROM farm_financial_entry e
       LEFT JOIN field f ON f.id = e.field_id
       LEFT JOIN block b ON b.id = e.block_id
     """;
   private static final Balance ZERO = new Balance(BigDecimal.ZERO, BigDecimal.ZERO);
+  private static final BigDecimal AMOUNT_LIMIT = new BigDecimal("1000000000000");
 
   private final JpaSql queries;
   private final FarmAccess access;
@@ -74,7 +79,7 @@ public class FinanceService {
       Long.class, farmId, request.operationId());
     if (!previous.isEmpty()) {
       var saved = entry(farmId, previous.get(0));
-      if (!sameEntry(saved, entry, fieldId)) {
+      if (saved.sourceType() != null || !sameEntry(saved, entry, fieldId)) {
         throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya se registró un movimiento con este envío. Actualiza el periodo para consultar el movimiento guardado.");
       }
       return saved;
@@ -89,6 +94,42 @@ public class FinanceService {
     return entry(farmId, id);
   }
 
+  @Transactional(propagation = Propagation.MANDATORY)
+  public long recordApplicationExpense(long farmId, long blockId, UUID operationId, LocalDate appliedOn, Category category,
+                                       BigDecimal amount, String description, String sourceType, long sourceId) {
+    access.require(farmId, false);
+    boolean validSource = ("FERTILIZATION_APPLICATION".equals(sourceType) && category == Category.FERTILIZERS)
+      || ("PHYTOSANITARY_TREATMENT".equals(sourceType) && category == Category.PHYTOSANITARY);
+    if (!validSource || sourceId <= 0 || operationId == null) throw badRequest("El gasto requiere una aplicación válida.");
+    if (amount == null || amount.signum() < 0 || amount.stripTrailingZeros().scale() > 2 || amount.compareTo(AMOUNT_LIMIT) >= 0) {
+      throw badRequest("El costo de la aplicación está fuera del rango permitido.");
+    }
+    if (appliedOn == null || description == null || description.isBlank() || description.length() > 300) {
+      throw badRequest("Completa la fecha y la descripción del gasto de la aplicación.");
+    }
+
+    var data = new EntryData(appliedOn, EntryType.EXPENSE, category, amount, description, null, blockId);
+    Long fieldId = validateEntry(farmId, data);
+    var previous = queries.select(ENTRY_SELECT + " WHERE e.farm_id = ? AND e.operation_id = ?",
+      FinanceService::projectEntry, farmId, operationId).stream().findFirst();
+    if (previous.isPresent()) {
+      var saved = previous.get();
+      if (sourceType.equals(saved.sourceType()) && Objects.equals(saved.sourceId(), sourceId) && sameEntry(saved, data, fieldId)) return saved.id();
+      throw applicationExpenseConflict();
+    }
+
+    long userId = access.userId();
+    try {
+      return queries.insert("""
+        INSERT INTO farm_financial_entry(farm_id, field_id, block_id, operation_id, entry_date, entry_type,
+          category, amount, description, created_by, updated_by, source_type, source_id)
+        VALUES (?, ?, ?, ?, ?, 'EXPENSE', ?, ?, ?, ?, ?, ?, ?)
+        """, farmId, fieldId, blockId, operationId, appliedOn, category.name(), amount, description.trim(), userId, userId, sourceType, sourceId);
+    } catch (DuplicateKeyException failure) {
+      throw applicationExpenseConflict();
+    }
+  }
+
   @Transactional
   public Entry updateEntry(long id, UpdateEntry request) {
     long farmId = request.farmId();
@@ -98,10 +139,11 @@ public class FinanceService {
     int updated = queries.execute("""
       UPDATE farm_financial_entry SET field_id = ?, block_id = ?, entry_date = ?, entry_type = ?, category = ?,
         amount = ?, description = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP, version = version + 1
-      WHERE farm_id = ? AND id = ? AND version = ?
+      WHERE farm_id = ? AND id = ? AND version = ? AND source_type IS NULL
       """, fieldId, entry.blockId(), entry.entryDate(), entry.type().name(), entry.category().name(), entry.amount(),
       entry.description().trim(), access.userId(), farmId, id, request.version());
     var saved = entry(farmId, id);
+    if (saved.sourceType() != null) throw new ResponseStatusException(HttpStatus.CONFLICT, "Los gastos generados por aplicaciones conservan su costo registrado y su origen.");
     if (updated == 0) throw new ResponseStatusException(HttpStatus.CONFLICT, "El movimiento cambió. Cierra el formulario y actualiza el periodo antes de editarlo de nuevo.");
     return saved;
   }
@@ -168,7 +210,8 @@ public class FinanceService {
     return new Entry(row.longValue("id"), row.longValue("farm_id"), row.date("entry_date"),
       EntryType.valueOf(row.text("entry_type")), Category.valueOf(row.text("category")), row.value("amount", BigDecimal.class),
       row.text("description"), row.value("field_id", Long.class), row.text("field_name"),
-      row.value("block_id", Long.class), row.text("block_code"), row.longValue("version"));
+      row.value("block_id", Long.class), row.text("block_code"), row.longValue("version"),
+      row.text("source_type"), row.value("source_id", Long.class));
   }
 
   private static boolean sameEntry(Entry saved, EntryData request, Long fieldId) {
@@ -186,6 +229,10 @@ public class FinanceService {
 
   private static ResponseStatusException badRequest(String reason) {
     return new ResponseStatusException(HttpStatus.BAD_REQUEST, reason);
+  }
+
+  private static ResponseStatusException applicationExpenseConflict() {
+    return new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe un gasto para esta aplicación o identificador de envío.");
   }
 
   private record BlockRef(long id, String code, String fieldName) {}

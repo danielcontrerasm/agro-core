@@ -10,10 +10,48 @@
 | FERT-02 | Interpretar resultados con el perfil compatible de la finca, mostrar la trazabilidad de la muestra y priorizar la revisión por bloque. | Implementado. La validación de compatibilidad por método y el ciclo de edición y desactivación de perfiles están pendientes. |
 | FERT-03 | Preparar un plan con diagnóstico, referencia analítica, contexto sanitario opcional, dosis técnica, cobertura, producto, responsable y fechas. | Implementado para planes únicos y recurrentes. Los productos se pueden crear y consultar. Faltan edición y desactivación de productos. |
 | FERT-04 | Aprobar o anular con justificación, controlar la versión y generar una tarea por ocurrencia sin duplicados. | Implementado. Los planes recurrentes aprobados generan las tareas al aprobarse. Falta una operación que reprograme o anule ocurrencias futuras preservando el historial. |
-| FERT-05 | Registrar aplicaciones parciales con evento, lote, cantidad, cobertura, método y fotos. | Implementado. El saldo se valida por ocurrencia y se preserva el flujo de revisión de la tarea. |
-| FERT-06 | Registrar seguimiento técnico, comparar lo programado con lo aplicado y consultar mapas e historial. | Implementado. Los avisos externos, la comparación foliar y la integración con inventario y costos están pendientes. |
+| FERT-05 | Registrar aplicaciones parciales con evento, lote, cantidad, cobertura, método y fotos. | Implementado. Valida el saldo por ocurrencia y descuenta del lote la cantidad utilizada. Registra el gasto en el bloque de la aplicación. |
+| FERT-06 | Registrar seguimiento técnico, comparar lo programado con lo aplicado y consultar mapas e historial. | Implementado. Pendientes los avisos externos y la comparación foliar. |
 
 ## Funcionalidades y pantallas disponibles
+
+### De la muestra al mapa de ejecución
+
+1. En **Fertilización → Nuevo análisis**, selecciona el bloque y el tipo de
+   muestra. Registra laboratorio, fecha, referencia, profundidad y cada valor
+   medido con su método. Marca el punto sobre el contorno disponible, toma la
+   ubicación del dispositivo o escribe latitud y longitud.
+2. **Guardar y adjuntar fotos** comprueba que haya ubicación y abre el análisis.
+   En **Fotos adjuntas** puedes elegir imágenes o usar la cámara. La ubicación y
+   las fotos se guardan vinculadas al análisis. **Guardar** sigue disponible
+   para dejar registros sin evidencia y completarlos después.
+3. En **Planes → Nuevo plan**, relaciona la muestra, define dosis, área o
+   plantas, método, fecha y responsable inicial. Un plan único requiere
+   **Aprobar** y luego **Generar tarea**. Un plan recurrente genera una tarea
+   por ocurrencia al aprobarlo.
+4. En **Ver plan → Tareas y distribución del trabajo** consulta fecha,
+   responsable, estado y cantidad aplicada y pendiente. Administradores y
+   supervisores pueden reasignar individualmente las tareas pendientes a
+   miembros de la finca. Cada persona encuentra sus asignaciones en **Mi
+   trabajo de hoy**.
+5. **Registrar aplicación** relaciona la ejecución con la tarea. Indica fecha,
+   cantidad, cobertura, método y lote. Después de guardar se abre el detalle
+   con **Fotos adjuntas**. El plan permite volver a abrir cada aplicación con
+   **Ver aplicación y fotos**.
+6. **Ver plan → Mapa de ejecución del plan** muestra el bloque objetivo y
+   separa cobertura programada, registrada y pendiente de la cantidad de
+   producto. Puedes filtrar por ocurrencia. En **Resumen → Mapa de ejecución
+   de la finca** puedes seleccionar cada bloque, abrir sus planes y consultar
+   los conteos por campo.
+
+El mapa colorea el bloque por su estado. Para un bloque parcial muestra cuántas
+hectáreas o plantas se registraron y cuántas faltan según la meta del plan.
+Cuando hay varias pasadas, la suma de las coberturas declaradas puede contar
+dos veces una zona superpuesta. El perímetro exacto tratado dentro del bloque
+queda pendiente de captura.
+
+[Pantallazos y grabaciones de la muestra, las tareas y los mapas](qa-evidence/README.md#ejecución-de-fertilización-por-bloque)
+[Pruebas de Fertilización en Chrome](../frontend/playwright-report/fertilizacion-cobertura-20261126-104728-45e5/index.html)
 
 La sección **Fertilización** conserva el historial anterior y reúne cuatro vistas:
 
@@ -42,22 +80,24 @@ La sección **Fertilización** conserva el historial anterior y reúne cuatro vi
   trazabilidad.
 - **Aplicaciones**: desde un plan aprobado con tarea, el responsable asignado
   o un administrador/supervisor de la finca registra cantidades parciales, fecha
-  real, lote de producto, cobertura, método y notas. En planes recurrentes se
+  real, lote de inventario, cobertura, método y notas. El lote debe tener el
+  mismo nombre de producto del plan, unidad compatible, saldo suficiente y
+  costo unitario en COP. La salida y el gasto se guardan con la aplicación. En planes recurrentes se
   selecciona la ocurrencia concreta; cada ocurrencia conserva su propia cantidad
   aplicada. La aplicación crea un evento agrícola; después se pueden adjuntar
   fotos JPEG/PNG con el módulo existente. En cada ocurrencia, la suma no puede
   superar la cantidad aprobada para esa aplicación.
-  La cobertura describe cada pasada y no se suma: dos aplicaciones parciales
-  pueden recorrer el mismo bloque. Una aplicación inicia la tarea, pero no la
-  completa ni sustituye su revisión habitual.
+  La cobertura de cada aplicación describe una pasada. El mapa agrega las
+  cantidades declaradas, con un aviso cuando hay varias pasadas en la selección.
+  Una aplicación inicia la tarea. El cierre requiere enviarla a revisión y
+  aprobar el trabajo.
 
 El filtro de bloque actualiza los registros y los indicadores en todo el módulo.
 En **Resumen**, el cumplimiento expresa la proporción de planes aprobados que
 alcanzaron la cantidad prevista. El área pendiente corresponde a los bloques
 con saldo, que se cuentan una sola vez. El gráfico de nutrientes muestra qué
 proporción de las muestras con rango compatible está dentro de ese rango. El
-indicador de costo aparece sin valor mientras la finca carezca de registros de
-costo vinculados a fertilización.
+costo de las aplicaciones queda disponible en **Costos** para administradores.
 
 **Análisis** resume cuántos resultados quedan dentro o fuera del rango de referencia.
 **Planes** muestra el avance de la cantidad aplicada frente a la prevista.
@@ -111,6 +151,8 @@ Endpoints de apoyo:
 En modo real, estas pantallas consumen los endpoints anteriores; en modo demo,
 los datos de fertilización se conservan localmente en el navegador:
 
+![Mockup · Resumen nutricional con mapa, alertas y aplicaciones recientes](<mockups/09_Fertilizacion.png>)
+
 - **Fertilización** (`#/fertilization`) abre en **Resumen**. **Historial anterior**
   abre los eventos de fertilización registrados antes del flujo estructurado.
   - **Resumen**: capas por nutriente, alertas y porcentaje de planes completados.
@@ -132,6 +174,9 @@ los datos de fertilización se conservan localmente en el navegador:
     cultivo, variedad y muestra, y registrar una decisión técnica confirmada,
     pendiente de seguimiento o rechazada desde el detalle del análisis.
     También pueden registrar productos con composición y unidad estándar.
+![Captura de QA · Registro de una aplicación parcial · 26 nov 2026](<qa-evidence/2026-11-26/fertilizacion/04.jpg>)
+![Captura de QA · Saldos, seguimiento y evidencia recuperados · 26 nov 2026](<qa-evidence/2026-11-26/fertilizacion/11.jpg>)
+
 - **Mapas → Nutrientes** (`#/maps`) muestra rangos observados entre muestras
   comparables, área de los bloques con esas muestras y una comparativa por bloque.
   La trazabilidad conserva fecha, referencia, unidad, método, laboratorio e
@@ -201,14 +246,14 @@ Las asociaciones se documentan, no se presentan como causalidad demostrada.
 
 ## Operación y límites
 
-Flyway aplica las migraciones V9, V10, V19 y V21 al reiniciar el backend. Los
+Flyway aplica las migraciones V9, V10, V19, V21, V30 y V31 al reiniciar el backend. Los
 registros, PDF e imágenes se guardan en PostgreSQL; deben incluirse en sus copias
 de seguridad. Los perfiles de referencia ya son configurables por finca, cultivo,
 variedad y tipo de muestra; su contenido debe ser validado por el responsable técnico.
-No hay integración automática con laboratorios, inventario o costos,
-análisis foliar comparativo ni correlaciones causales con rendimiento o sanidad.
-El catálogo no controla existencias ni compras y sus perfiles/productos no se pueden
-editar ni desactivar desde la API actual. Todavía no hay validación específica por
+Quedan pendientes la integración con laboratorios, el análisis foliar
+comparativo y las correlaciones causales con rendimiento o sanidad. Las
+existencias y el costo unitario de cada lote se gestionan en **Inventario**.
+Todavía no hay validación específica por
 método de laboratorio, niveles de confianza ni recomendaciones automáticas de fertilización.
 La fecha de seguimiento se muestra en el módulo, no envía notificaciones externas.
 Los permisos se verifican en cada endpoint; archivos PDF se entregan como descarga,
@@ -237,9 +282,97 @@ tarea, aplicación y seguimiento contra la API conectada a PostGIS.
 
 ### Funcionalidades probadas y resultados
 
+#### Recorrido conectado de Fertilización
+
+Desde la raíz del repositorio, este comando abre Chrome visible, prueba solo
+Fertilización y deja 15 segundos para revisar cada paso. Inicia una finca de
+QA en PostGIS temporal y guarda el informe, el video y las capturas en
+`frontend/playwright-report/qa-modulos-*`.
+
+```sh
+scripts/qa-modulos/fertilizacion.sh --postgis --pause-ms 15000 --action-ms 700
+```
+
+El [guion automatizado](../frontend/tests/fertilization.spec.ts) prepara la
+finca por API y abre directamente **Fertilización**. El recorrido conserva la
+muestra de suelo con GPS y foto, el plan, la aplicación parcial de 4 kg con
+su foto, el seguimiento y el mapa de ejecución del plan. Abre **Mi trabajo
+de hoy** únicamente para ejecutar y revisar las tareas de Fertilización.
+Las comprobaciones de las salidas y los gastos asociados usan la API.
+
+| Comprobación | Alcance |
+| --- | --- |
+| Operario reasignado | Ve su tarea, aplica los 10 kg de su ocurrencia y envía el trabajo a revisión. Se confirma que otro operario recibe un rechazo y que el costo de la aplicación se reserva a los roles autorizados. |
+| Cierre de ambas recurrencias | Las dos tareas llegan a completadas y el plan conserva 20 de 20 kg tras recargar. Las tres aplicaciones generan gastos por 5.000 COP y dejan 6 kg en el lote. |
+| [Mapa por campo y bloque](../frontend/tests/support/fertilization-map-qa.ts) | Cuatro bloques de prueba muestran los estados cubierto, parcial, pendiente y sin plan. Se revisan leyenda, contadores, selección y los planes de cada bloque. |
+| [Calendario mensual](../frontend/tests/support/fertilization-resilience-qa.ts) | El período empieza el 31 de enero e incluye febrero y marzo. Se comprueban las fechas generadas, el límite y el reintento de generación de tareas. |
+| [Guardados simultáneos](../frontend/tests/support/fertilization-resilience-qa.ts) | Dos aplicaciones compiten por las existencias. El reintento de la ganadora recupera el mismo evento, salida y gasto. |
+| [Recuperación de evidencia](../frontend/tests/support/fertilization-evidence-qa.ts) | Los reintentos de la foto y el PDF conservan el mismo análisis y sus coordenadas, notas y resultados. |
+
+El 26 de noviembre de 2026 se aprobaron los **20 pasos en Chrome visible**
+con pausas de 15 segundos. La prueba duró 7 minutos y 17 segundos. También
+aprobó la comprobación independiente del perfil móvil con PostGIS.
+[Video y 20 capturas](../frontend/playwright-report/qa-modulos-20261126-123724-2cc5ce/modulos/fertilizacion.html) ·
+[Informe de Chrome visible](../frontend/playwright-report/qa-modulos-20261126-123724-2cc5ce/playwright/index.html) ·
+[Informe móvil](../frontend/playwright-report/fertilizacion-cobertura-20261126-124324-bafc/index.html)
+
+#### Recorrido de Fertilización en demostración
+
+Desde la raíz del repositorio, abre Chrome y deja 15 segundos para leer cada
+paso. El recorrido utiliza la aplicación actual con datos de demostración.
+
+```sh
+scripts/qa-modulos/fertilizacion.sh --pause-ms 15000 --action-ms 700
+```
+
+El [recorrido automatizado](../frontend/qa/modules/fertilizacion.spec.ts)
+muestra el mapa de potasio, crea el plan desde una alerta, exige aprobación y
+tarea, y registra una aplicación de 5 kg con su foto. Después guarda el
+seguimiento, comprueba que 21 kg exceden los 20 kg de saldo, registra los
+20 kg restantes y verifica que el plan ya no permite aplicar. También
+registra una muestra foliar, rechaza un archivo con firma inválida y compara
+los bytes del informe descargado tras recargar. La recarga conserva el
+saldo, el seguimiento y la foto.
+[Informe, pantallazos y video del recorrido ampliado](qa-evidence/README.md#fertilización-ampliada)
+
+Los perfiles personalizados y la revisión persistida del diagnóstico usan
+una finca conectada. El seguimiento del plan que muestra el recorrido es
+una revisión posterior a la aplicación.
+
+#### Revalidación del 26 de noviembre de 2026
+
+| Pruebas | Comprobaciones nuevas | Resultado |
+| --- | --- | --- |
+| [Recorrido grabado](../frontend/qa/modules/fertilizacion.spec.ts) | Once pasos con los casos de aprobación, saldo, seguimiento, muestra foliar, informe y foto descritos arriba. | 1 aprobada. [Pantallazos y video](qa-evidence/README.md#fertilización-ampliada) |
+| [Suite de Fertilización en Chrome](../frontend/tests/fertilization.spec.ts) | Anular un borrador, conservar el motivo y excluir otro bloque al exportar los planes. Incluye los casos anteriores de análisis, aplicación, mapa y permisos. | 8 ejecuciones aprobadas en escritorio y móvil con demo o API simulada. [Informe](../frontend/playwright-report/fertilizacion-audit-demo/index.html) |
+| [Caso conectado en Chrome](../frontend/tests/fertilization.spec.ts) | Aprobar y abrir dos ocurrencias semanales sin recargar, conservar saldos separados, excluir el lote vencido, descontar 4 kg, generar una salida y un gasto de 1.000 COP. Recuperar el seguimiento con un análisis posterior vinculado. | 2 ejecuciones aprobadas contra PostGIS temporal, en escritorio y móvil. [Informe](../frontend/playwright-report/fertilizacion-audit-live/index.html) |
+| [API de Fertilización](../src/test/java/com/yourco/agro/FertilizationApiTest.java) | Incluye los nombres de campos de fechas, tareas y seguimientos que consume el navegador, además de permisos, lotes, idempotencia y reversión. | 8 aprobadas con H2. [Informe](../frontend/playwright-report/fertilizacion-audit-api/index.html) |
+
+#### Cobertura conectada adicional
+
+Las pruebas siguientes usan la interfaz de Chrome y una finca temporal en
+PostGIS. Pasaron las **6 ejecuciones nuevas** y las **16 de la suite de
+Fertilización** en conjunto, con escritorio y móvil.
+[Informe de Playwright](../frontend/playwright-report/fertilizacion-cobertura-20261126-103132-3c0d/index.html) ·
+[Pantallazos](qa-evidence/README.md#diagnóstico-catálogo-e-informe-foliar)
+
+| Prueba | Qué verifica |
+| --- | --- |
+| [Diagnóstico y revisión técnica](../frontend/tests/fertilization-diagnosis.spec.ts) | Rechazar rangos invertidos. Aplicar el perfil específico de la variedad aunque exista un perfil general más reciente. Distinguir alto, bajo, en rango y sin interpretar por unidad incompatible. Guardar una revisión, recuperar su decisión y notas y actualizarla de seguimiento a confirmada. |
+| [Catálogo y unidad de dosis](../frontend/tests/fertilization-catalog.spec.ts) | Crear un producto con unidad estándar L/ha. Verificar que la API rechaza kg/ha. Guardar el plan con la unidad correcta y recuperar el nombre y la composición del catálogo y la cantidad calculada tras recargar. |
+| [Informe foliar](../frontend/tests/fertilization-report.spec.ts) | Rechazar un archivo con firma inválida. Crear la muestra foliar de 0 cm con su resultado y método, cargar el PDF por la API y descargar el mismo contenido tras recargar. |
+
+El recorrido conectado ampliado comprueba la recuperación tras un fallo al
+cargar el informe y el cierre de dos ocurrencias con cargos separados en
+PostGIS.
+
+![Captura de QA · Revisión técnica confirmada después de recargar en móvil · PostGIS de QA, 26 nov 2026](<qa-evidence/2026-11-26/fertilizacion-conectada/revision-confirmada-mobile.jpg>)
+
+#### Resultados históricos
+
 | Prueba automatizada | Funcionalidades verificadas | Resultado del 25 de noviembre de 2026 |
 | --- | --- | --- |
-| [Recorrido de Fertilización en Playwright](../frontend/qa/modules/fertilizacion.spec.ts) | Consultar potasio y alertas por bloque. Crear el plan desde la alerta con muestra y lote precargados. Aprobar y generar tarea. Registrar 5 kg, 0,5 ha y lote de producto. Adjuntar la foto y comprobar cantidades y producto en el resumen. | 1 aprobada en la revalidación, con datos de demostración. [Informe por módulo](test-results.md#recorridos-por-módulo-del-25-de-noviembre) |
+| [Recorrido original de Fertilización](qa-evidence/README.md#fertilizacion) | Consultar potasio y alertas por bloque. Crear el plan desde la alerta con muestra y lote precargados. Aprobar y generar tarea. Registrar 5 kg, 0,5 ha y lote de producto. Adjuntar la foto y comprobar cantidades y producto en el resumen. | 1 aprobada en la revalidación, con datos de demostración. [Informe por módulo](test-results.md#recorridos-por-módulo-del-25-de-noviembre) |
 | [Suite de Fertilización en Chrome](../frontend/tests/fertilization.spec.ts) | Guardar B y el método de laboratorio. Convertir g/planta a kg. Exigir aprobación y tarea. Persistir aplicación parcial, foto y seguimiento tras recargar. Consultar unidad, método y referencia de B, verificar la unidad de Ca y distinguir N, P y B en el mapa. En modo conectado con API simulada, registrar una muestra como trabajador con CSRF y sin consultar miembros. | 6 aprobadas, 3 en escritorio y 3 en móvil. [Informe de Chrome](../frontend/playwright-report/agro-qa-20261125-155129-bcbe583c/browser/index.html) |
 | [Pruebas unitarias de dominio](../frontend/src/lib/domain.test.ts) | Clasificar resultados compatibles y dejar pendientes los no interpretables. Resumir atención y revisión técnica sin generar dosis. | 2 casos de nutrición aprobados en la suite de 11. [Salida de unitarias](../frontend/playwright-report/agro-qa-20261125-155129-bcbe583c/unitarias-frontend.txt) |
 | [API de Fertilización en H2](../src/test/java/com/yourco/agro/FertilizationApiTest.java) | Validar finca, permisos, bloque, coordenadas, fechas y unidades. Crear un perfil, interpretar y revisar una muestra con autorización. Aprobar con versión, generar la tarea sin duplicados y guardar aplicaciones parciales válidas con evento y saldo. Rechazar estados o cantidades inválidas. Descargar el PDF autenticado y validar seguimientos. Elegir la última muestra de suelo. Convertir las cuatro unidades de dosis, conservar la auditoría de anulación y comprobar el catálogo, la generación recurrente y el saldo por ocurrencia. | 7 aprobadas. [Informe de Gradle](../frontend/playwright-report/agro-qa-20261125-155129-bcbe583c/gradle/classes/com.yourco.agro.FertilizationApiTest.html) |

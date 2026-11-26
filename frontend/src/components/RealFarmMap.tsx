@@ -122,10 +122,11 @@ class PlantPointsLayer extends L.Layer {
   };
 }
 
-function focusMap(map: L.Map, points: L.LatLngExpression[], animate = false) {
+function focusMap(map: L.Map, points: L.LatLngExpression[], animate = false, fitWholeGeometry = false) {
   if (!points.length) return;
   const bounds = L.latLngBounds(points);
-  map.fitBounds(bounds.pad(mapFitPadding), { maxZoom: 21, animate });
+  map.fitBounds(bounds.pad(fitWholeGeometry ? 0.12 : mapFitPadding), { maxZoom: 21, animate });
+  if (fitWholeGeometry) return;
   const zoom = map.getZoom();
   if (zoom > 0) map.setZoom(Math.min(zoom + mapFitZoomBoost, 21), { animate });
 }
@@ -210,7 +211,7 @@ function createBaseLayer(mode: BaseLayer) {
 
 const irrigationPointIcon = L.divIcon({ className: 'irrigation-map-point', iconSize: [19, 19], iconAnchor: [9, 9] });
 
-export default function RealFarmMap({ blocks, farm, fields = [], rows = [], layer = 'satellite', comparisonLayer, nutrient = 'Nitrógeno (N)', large = false, selected, onSelect, onSelectField, blockPresentation, infrastructurePoints, legend, toolsOpen = false, onToolsChange, expandSignal, disease, analytics, baseLayer = 'map' }: FarmMapProps) {
+export default function RealFarmMap({ blocks, farm, fields = [], rows = [], layer = 'satellite', comparisonLayer, nutrient = 'Nitrógeno (N)', large = false, selected, onSelect, onSelectField, blockPresentation, fitWholeGeometry = false, infrastructurePoints, legend, toolsOpen = false, onToolsChange, expandSignal, disease, analytics, baseLayer = 'map' }: FarmMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const baseRef = useRef<L.Layer | null>(null);
@@ -278,14 +279,14 @@ export default function RealFarmMap({ blocks, farm, fields = [], rows = [], laye
     visibleBlocks.forEach(block => block.geom?.coordinates.flat().forEach(([longitude, latitude]) => points.push([latitude, longitude])));
     visibleRows.forEach(row => row.geom?.coordinates.forEach(([longitude, latitude]) => points.push([latitude, longitude])));
     visibleDisease?.forEach(feature => feature.geometry.coordinates.forEach(([longitude, latitude]) => points.push([latitude, longitude])));
-    focusMap(map, points.length ? points : (infrastructurePoints ?? []).map(point => [point.latitude, point.longitude]));
-  }, [blocks, blockFilter, disease, divisionFilter, farm, fields, filterActive, infrastructurePoints, rowFilter, rows, visibleBlocks, visibleDisease, visibleFields, visibleRows]);
+    focusMap(map, points.length ? points : (infrastructurePoints ?? []).map(point => [point.latitude, point.longitude]), false, fitWholeGeometry);
+  }, [blocks, blockFilter, disease, divisionFilter, farm, fields, filterActive, fitWholeGeometry, infrastructurePoints, rowFilter, rows, visibleBlocks, visibleDisease, visibleFields, visibleRows]);
 
   useEffect(() => {
     const map = mapRef.current;
     const geometry = blocks.find(block => block.id === selected)?.geom;
-    if (map && validPolygon(geometry)) focusMap(map, polygonCoordinates(geometry).flat(), true);
-  }, [blocks, selected]);
+    if (map && validPolygon(geometry)) focusMap(map, polygonCoordinates(geometry).flat(), true, fitWholeGeometry);
+  }, [blocks, fitWholeGeometry, selected]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -387,7 +388,7 @@ export default function RealFarmMap({ blocks, farm, fields = [], rows = [], laye
     visibleBlocks.forEach(block => block.geom?.coordinates.flat().forEach(([longitude, latitude]) => points.push([latitude, longitude])));
     visibleRows.forEach(row => row.geom?.coordinates.forEach(([longitude, latitude]) => points.push([latitude, longitude])));
     if (!points.length) infrastructurePoints?.forEach(point => points.push([point.latitude, point.longitude]));
-    if (points.length) focusMap(map, points, true);
+    if (points.length) focusMap(map, points, true, fitWholeGeometry);
     else map.setView([4.5709, -74.2973], 6);
   };
 

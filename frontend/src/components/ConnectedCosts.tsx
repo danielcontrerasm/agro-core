@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { BarChart3, Download, FileText, LayoutGrid, Plus, Receipt, Wallet } from 'lucide-react';
 import { useApp } from '../context';
 import { number } from '../lib/domain';
-import { financeApi, financeCategories, financeCategoryLabels, financeTypeLabels, formatCop } from '../lib/costs';
+import { financeApi, financeCategories, financeCategoryLabels, financeSourceLabels, financeTypeLabels, formatCop } from '../lib/costs';
 import type { FinanceCategory, FinanceEntry, FinanceEntryData, FinanceEntryType, FinanceMonth } from '../lib/costs';
 import { AdminHeading, AdminTable, AdminTabs, downloadCsv, Metrics } from './AdministrationUI';
 import { Badge, Empty, LinkButton, Loading, Modal, Panel } from './ui';
@@ -72,7 +72,7 @@ function FinanceWorkspace() {
   const query = search.trim().toLocaleLowerCase('es');
   const entries = (data?.entries ?? []).filter(entry => {
     const matchesType = (tab !== 'Gastos' || entry.type === 'EXPENSE') && (tab !== 'Ingresos' || entry.type === 'INCOME');
-    return matchesType && [entry.description, entry.fieldName, entry.blockCode, financeCategoryLabels[entry.category]]
+    return matchesType && [entry.description, entry.fieldName, entry.blockCode, financeCategoryLabels[entry.category], entry.sourceType && financeSourceLabels[entry.sourceType]]
       .some(value => value?.toLocaleLowerCase('es').includes(query));
   });
   const showEntries = ['Resumen', 'Gastos', 'Ingresos'].includes(tab);
@@ -80,9 +80,10 @@ function FinanceWorkspace() {
   function exportEntries() {
     if (!data) return;
     downloadCsv(`movimientos-${month}.csv`, [
-      ['Fecha', 'Tipo', 'Categoría', 'Descripción', 'Campo', 'Bloque', 'Valor (COP)'],
+      ['Fecha', 'Tipo', 'Categoría', 'Descripción', 'Campo', 'Bloque', 'Valor (COP)', 'Origen', 'ID de origen'],
       ...data.entries.map(entry => [entry.entryDate, financeTypeLabels[entry.type], financeCategoryLabels[entry.category],
-        entry.description, entry.fieldName ?? '', entry.blockCode ?? '', entry.amount]),
+        entry.description, entry.fieldName ?? '', entry.blockCode ?? '', entry.amount,
+        entry.sourceType ? financeSourceLabels[entry.sourceType] : '', entry.sourceId ?? '']),
     ]);
   }
 
@@ -125,7 +126,8 @@ function FinanceWorkspace() {
           {showEntries && <Panel title={tab === 'Resumen' ? 'Últimos movimientos' : tab}>
             {entries.length ? <AdminTable headers={['Descripción', 'Fecha', 'Tipo', 'Categoría', 'Ubicación', 'Valor (COP)']}
               rows={(tab === 'Resumen' ? entries.slice(0, 6) : entries).map(entry => ({ key: entry.id, cells: [
-                <button type="button" className="text-button" onClick={() => setEditor({ entry })} aria-label={`Editar ${entry.description}`}>{entry.description}</button>,
+                entry.sourceType ? <>{entry.description}<small>{financeSourceLabels[entry.sourceType]} #{entry.sourceId}</small></>
+                  : <button type="button" className="text-button" onClick={() => setEditor({ entry })} aria-label={`Editar ${entry.description}`}>{entry.description}</button>,
                 entry.entryDate, financeTypeLabels[entry.type], financeCategoryLabels[entry.category], [entry.fieldName, entry.blockCode].filter(Boolean).join(' · ') || 'Sin ubicación vinculada',
                 formatCop(entry.amount),
               ] }))} /> : <p className="admin-empty-copy">Sin movimientos para este mes y filtro.</p>}

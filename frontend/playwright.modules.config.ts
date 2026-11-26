@@ -5,16 +5,17 @@ const baseURL = 'http://127.0.0.1:' + port;
 const pause = Number(process.env.AGRO_MODULE_PAUSE_MS ?? '12000');
 const speed = Number(process.env.AGRO_MODULE_ACTION_MS ?? '350');
 const viewport = { width: 1440, height: 900 };
+const connected = process.env.AGRO_MODULE_CONNECTED === '1';
 
 export default defineConfig({
-  testDir: './qa/modules',
+  testDir: connected ? './tests' : './qa/modules',
   outputDir: process.env.AGRO_MODULE_RESULTS ?? './test-results/modulos-locales',
   reporter: [
     ['list', { printSteps: true }],
     ['html', { outputFolder: process.env.AGRO_MODULE_HTML ?? './playwright-report/modulos-locales', open: 'never' }],
     ['json', { outputFile: process.env.AGRO_MODULE_JSON ?? './test-results/modulos-locales.json' }],
   ],
-  timeout: 90_000 + 12 * (pause + 12 * speed),
+  timeout: 90_000 + (connected ? 24 : 12) * (pause + 12 * speed),
   use: {
     baseURL,
     channel: 'chrome',

@@ -2,6 +2,8 @@
 
 El módulo **Plagas y enfermedades** reúne la vigilancia fitosanitaria por bloque y surco, la revisión de hallazgos y el historial de intervenciones. El trabajo preventivo programado se describe en [Medidas preventivas](preventive-management.md).
 
+![Mockup · Mapa, alertas y seguimiento fitosanitario](<mockups/10_Plagas_y_enfermedades.png>)
+
 ## Requerimientos funcionales y estado
 
 | ID | Requerimiento | Estado y funcionalidad disponible |
@@ -15,8 +17,10 @@ El módulo **Plagas y enfermedades** reúne la vigilancia fitosanitaria por bloq
 | SAN-07 | Consultar, filtrar y exportar inspecciones y tratamientos. | Implementado. Hay filtros de bloque, problema y fechas, CSV del historial filtrado y CSV de tratamientos con sus referencias. También están disponibles las observaciones y los tratamientos del historial anterior. |
 | SAN-08 | Anular una inspección con motivo y preservar su trazabilidad. | Implementado. La anulación requiere permiso, motivo y versión vigente. Se conservan el registro, los tratamientos y la evidencia y se bloquea la incorporación de nuevos adjuntos. |
 | SAN-09 | Visualizar el estado sanitario por bloque. | Parcial. El mapa muestra hallazgos activos, ausencia de hallazgos activos o ausencia de evaluación reciente. Falta ubicar el foco exacto y mostrar su evolución territorial. |
+| SAN-11 | Registrar el resultado de laboratorio asociado a una inspección. | Implementado para el registro de referencia de muestra, laboratorio, fechas, resultado, notas y referencia del informe. La cadena de custodia y la carga del documento quedan pendientes. |
 | SAN-15 | Programar el monitoreo periódico y registrar umbrales de revisión. | Implementado. **Monitoreo** permite crear un plan por bloque y problema, editar el calendario y el umbral, pausar y reanudar. Las visitas actualizan el calendario. Las alertas conservan la incidencia, el umbral aplicado, la inspección de origen y la decisión técnica. |
 | SAN-16 | Aprobar, registrar y verificar una intervención. | Implementado. En el detalle de la inspección se registran los estados **Autorizado**, **Pendiente de verificación** y **Verificado**, los responsables y las fechas. Si se autorizó un producto, la ejecución exige su lote. La verificación conserva resultado y observaciones. |
+| SAN-17 | Corregir observaciones históricas con trazabilidad. | Implementado. El historial conserva autor original, ubicación, fecha, adjuntos y referencia anterior. Cada corrección guarda motivo, editor, fecha, versión y valores previos y posteriores. |
 
 [Pantalla de inspecciones](../frontend/src/pages/Inspections.tsx) · [Acciones del detalle](../frontend/src/components/InspectionActions.tsx) · [API y reglas de inspección](../src/main/java/com/yourco/agro/inspections/InspectionService.java) · [Criterios de las guías agronómicas](guias-agronomicas-aplicadas.md#inspecciones-plagas-y-enfermedades)
 
@@ -49,23 +53,72 @@ y muestra su condición. Las alertas quedan en la pestaña **Monitoreo**.
 
 1. Un administrador, supervisor o agrónomo autoriza la intervención desde el
    detalle de la inspección. Puede registrar un producto en la autorización.
-2. Un integrante de la finca registra la ejecución. Si hay producto autorizado,
-   registra su lote. Cantidad y unidad se presentan juntas cuando se informan.
-   La ejecución aparece en **Tratamientos realizados** y permite asociar fotos
-   y referencias desde el mismo detalle.
+2. Un integrante de la finca registra la ejecución. Cuando se aplica un
+   producto, elige su lote de inventario e indica la cantidad usada. La unidad
+   corresponde al producto del lote. La ejecución descuenta el saldo, registra
+   el gasto con el costo unitario del lote y aparece en **Tratamientos realizados**.
+   Desde el mismo detalle se pueden asociar fotos y referencias.
 3. Un rol agronómico verifica el resultado como **Eficaz**, **Parcialmente
    eficaz** o **Sin efecto observado** y deja observaciones. El sistema conserva
    los responsables y las fechas de cada etapa.
 
-Los registros anteriores y el alta directa de tratamientos siguen disponibles.
-La anulación de la inspección deja su historial en consulta. El lote se guarda
-como referencia de la aplicación. La vinculación con el inventario queda pendiente.
+El alta directa de tratamientos aplica el mismo descuento y registro de gasto
+cuando se utiliza un producto. Las intervenciones sin insumos se registran como
+actividades técnicas. La anulación de la inspección conserva en el historial la
+aplicación realizada y sus movimientos.
 
 [Pantalla de seguimiento](../frontend/src/components/TreatmentFollowups.tsx) ·
 [API de seguimiento](../src/main/java/com/yourco/agro/inspections/TreatmentFollowupController.java) ·
 [Migración V29](../src/main/resources/db/migration/V29__inspection_treatment_followups.sql)
 
+![Captura de QA · Tratamiento verificado en escritorio · PostGIS de QA, 26 nov 2026](<qa-evidence/2026-11-26/sanidad/tratamiento-desktop.jpg>)
+![Captura de QA · Detalle del mismo tratamiento en móvil · PostGIS de QA, 26 nov 2026](<qa-evidence/2026-11-26/sanidad/tratamiento-mobile.jpg>)
+
+## Resultados de laboratorio
+
+En **Inspecciones → Ver detalle → Resultados de laboratorio** un
+administrador, supervisor o agrónomo registra la referencia de muestra,
+laboratorio, fecha de toma, fecha de resultado y el resultado **Confirmado**,
+**No detectado** o **No concluyente**. Puede añadir notas y una referencia al
+informe. Se conserva el autor y la fecha de registro de cada resultado.
+
+Los resultados se consultan desde la inspección original. Quedan disponibles
+después de anularla y el sistema deja de aceptar nuevos resultados en esa
+inspección. La evaluación de campo se gestiona desde su propio formulario.
+
+[API de resultados](../src/main/java/com/yourco/agro/inspections/InspectionLaboratoryController.java) ·
+[Migración V34](../src/main/resources/db/migration/V34__inspection_laboratory_results.sql)
+
+## Corrección de observaciones históricas
+
+En **Historial anterior y tratamientos → Ver actividad → Editar observación
+histórica**, los roles agronómicos pueden corregir el problema, la severidad,
+los síntomas o las notas. Un motivo es obligatorio. El **Historial de
+cambios** muestra qué cambió, quién lo corrigió y cuándo, con los valores de
+antes y después.
+
+La corrección conserva el tipo de actividad, autor original, ubicación,
+fecha y evidencias de la observación. Las actividades con revisiones quedan
+protegidas contra el borrado desde el historial. El control de versión
+rechaza una corrección sobre datos desactualizados.
+
+[API de edición histórica](../src/main/java/com/yourco/agro/events/controller/LegacyObservationController.java) ·
+[Migración V35](../src/main/resources/db/migration/V35__legacy_observation_revisions.sql)
+
 ## Funcionalidades verificadas
+
+### Laboratorio y observaciones históricas
+
+| Prueba automatizada | Comprobaciones | Resultado del 26 de noviembre de 2026 |
+| --- | --- | --- |
+| [API de laboratorio](../src/test/java/com/yourco/agro/InspectionLaboratoryApiTest.java) | Vincular el resultado y su autor con la inspección, validar fechas y permisos, rechazar la reutilización del identificador con otros datos, comprobar aislamiento entre fincas y conservar la consulta después de anular. | **3 de 3 aprobadas** con Gradle y H2. |
+| [Persistencia de laboratorio](../src/test/java/com/yourco/agro/InspectionLaboratoryPostgresTest.java) | Aplicar las migraciones, guardar fechas y UUID nativos, recuperar el mismo registro al repetir la solicitud y mantener el historial tras anular. | **1 de 1 aprobada** con Gradle y PostGIS. |
+| [API de observaciones históricas](../src/test/java/com/yourco/agro/LegacyObservationApiTest.java) | Conservar metadatos originales y los valores de cada revisión, corregir una observación que solo tenía notas, validar motivo, catálogo, permisos y versión, y proteger el historial contra el borrado. | **3 de 3 aprobadas** con Gradle y H2. |
+| [Laboratorio en Chrome](../frontend/tests/inspection-laboratory-results.spec.ts) | Registrar el resultado con su referencia de muestra e informe, validar el orden de fechas, conservar la consulta al recargar y después de anular, y comprobar que la evaluación de campo conserva su estado. | **4 de 4 aprobadas** en demostración y con PostGIS, en escritorio y móvil. |
+| [Correcciones históricas en Chrome](../frontend/tests/legacy-observation.spec.ts) | Corregir problema, severidad, síntomas y notas, consultar los valores previos y posteriores con motivo y recuperar el historial al recargar. El caso conectado comprueba el ID y el bloque originales. | **4 de 4 aprobadas** en demostración y con PostGIS, en escritorio y móvil. |
+
+[Informe de resultados](test-results.md#laboratorio-e-historial-fitosanitario-del-26-de-noviembre-de-2026) ·
+[Pantallazos y videos](qa-evidence/README.md#laboratorio-e-historial-fitosanitario)
 
 ### Monitoreo, alertas y tratamientos
 
@@ -99,7 +152,7 @@ fotos con ambos perfiles de navegador. [Resultados](test-results.md#regresión-d
 | ID | Requerimiento pendiente | Criterio de aceptación propuesto |
 | --- | --- | --- |
 | SAN-10 | Georreferenciar el foco de cada hallazgo. | Registrar un punto o polígono dentro de la ubicación seleccionada y mostrar focos fechados junto con su historial de visitas. |
-| SAN-11 | Registrar muestras y resultados de diagnóstico. | Vincular a la inspección un identificador de muestra, cadena de custodia, laboratorio, estado, resultado fechado y documento de respaldo. |
+| SAN-11 | Completar la trazabilidad de la muestra de laboratorio. | Registrar la cadena de custodia y adjuntar el archivo del informe al resultado. |
 | SAN-12 | Escalar sospechas que requieran notificación formal. | Registrar quién evalúa, autoriza y envía el aviso, cuándo lo hace y el número o referencia del trámite recibido. |
 | SAN-13 | Asignar tareas o enviar recordatorios de visitas vencidas. | La agenda muestra el vencimiento. Falta crear la asignación o el recordatorio, indicar responsable y conservar su vínculo con la visita. |
 | SAN-14 | Comparar la evolución de un foco y las intervenciones realizadas. | Mostrar por visita la muestra, incidencia, severidad, área y tratamientos, con fechas y métodos de evaluación visibles. |

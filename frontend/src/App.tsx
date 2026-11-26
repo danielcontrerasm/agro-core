@@ -182,6 +182,9 @@ export default function App() {
         : resource === 'blocks' ? block?.id === id : resource === 'fields' ? block?.field.id === id
           : resource === 'farms' && block?.field.farm.id === id;
     }).map(event => event.id);
+    if (allData.events.some(event => deletedEventIds.includes(event.id) && event.legacyObservation?.history.length)) {
+      throw new Error('La eliminación borraría el historial de cambios de una observación.');
+    }
     await deleteDemoEventPhotos(deletedEventIds);
     setAllData(previous => {
       const fieldIds = previous.fields.filter(field => resource === 'farms' ? field.farm.id === id : resource === 'fields' && field.id === id).map(field => field.id);
@@ -272,7 +275,10 @@ export default function App() {
     const fieldId = data.blocks.find(block => block.id === id)?.field.id;
     if (mapFieldId && fieldId && mapFieldId !== fieldId) setMapFieldId(fieldId);
   }
-  const context = { mode, profile, data, allData, farmId, role, tasks: visibleTasks, date, search, loading, fieldContextId, mapFieldId, mapBlockId, setMapBlockId: selectMapBlock, setDate, setFarmId, setFieldContextId, navigate, notify, setTasks, createTask, updateTask, create, remove, refresh: async (quiet = false) => { if (mode === 'live') await loadLive(undefined, quiet); }, connect: () => setAuthOpen(true), setDemoRole, resetDemo };
+  const replaceEvent = (event: FarmData['events'][number]) => setAllData(previous => ({
+    ...previous, events: previous.events.map(current => current.id === event.id ? event : current),
+  }));
+  const context = { mode, profile, data, allData, farmId, role, tasks: visibleTasks, date, search, loading, fieldContextId, mapFieldId, mapBlockId, setMapBlockId: selectMapBlock, setDate, setFarmId, setFieldContextId, navigate, notify, setTasks, createTask, updateTask, create, replaceEvent, remove, refresh: async (quiet = false) => { if (mode === 'live') await loadLive(undefined, quiet); }, connect: () => setAuthOpen(true), setDemoRole, resetDemo };
   const currentFarm = allData.farms.find(farm => farm.id === farmId);
   const isFarmAdministration = page === 'workers' || page === 'inventory' || page === 'costs';
   const pageLabel = navigation.find(item => item.id === page)?.label;

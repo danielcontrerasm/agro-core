@@ -1,0 +1,34 @@
+.sample-location-fields {
+  display: grid;
+  gap: 10px;
+}
+.sample-location-fields p {
+  margin: 0;
+}
+.sample-location-coordinates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.sample-location-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.sample-location-map {
+  height: 220px;
+  width: 100%;
+  border: 1px solid #bfd9ca;
+  border-radius: 10px;
+  background: #f0f6f1;
+  isolation: isolate;
+}
+.sample-location-map-selectable {
+  cursor: crosshair;
+}
+@media (max-width: 440px) {
+  .sample-location-coordinates {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,12 +1,14 @@
 package com.yourco.agro.inspections;
 
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -25,8 +27,9 @@ public final class TreatmentFollowupDtos {
     @NotNull @Min(0) Long version,
     @NotNull @PastOrPresent Instant occurredAt,
     @Size(max = 80) String productLot,
-    @Positive Double quantity,
-    @Size(max = 40) String unit) {}
+    @Positive @Digits(integer = 13, fraction = 6) BigDecimal quantity,
+    @Size(max = 40) String unit,
+    @Positive Long inventoryLotId, UUID operationId) {}
 
   public record Verify(
     @NotNull @Min(0) Long version,
@@ -38,7 +41,8 @@ public final class TreatmentFollowupDtos {
     long id, long inspectionId, Status status, String description, String product,
     long authorizedByUserId, String authorizedByName, Instant authorizedAt,
     Long treatmentId, Long executedByUserId, String executedByName, Instant executedAt,
-    String productLot, Double quantity, String unit,
+    String productLot, BigDecimal quantity, String unit, String appliedProduct,
+    Long inventoryLotId, Long inventoryMovementId,
     Long verifiedByUserId, String verifiedByName, Instant verifiedAt, Outcome outcome,
     String verificationNotes, long version) {}
 }

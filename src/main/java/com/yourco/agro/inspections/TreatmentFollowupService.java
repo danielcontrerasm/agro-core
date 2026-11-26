@@ -19,10 +19,12 @@ public class TreatmentFollowupService {
   private static final String SELECT = """
     SELECT f.*, a.name AS authorized_by_name, t.occurred_at AS executed_at,
       t.created_by_user_id AS executed_by_user_id, e.name AS executed_by_name, t.quantity, t.unit,
+      t.product AS applied_product, t.inventory_lot_id, t.inventory_movement_id, m.quantity AS inventory_quantity,
       v.name AS verified_by_name
     FROM inspection_treatment_followup f
     JOIN app_user a ON a.id = f.authorized_by_user_id
     LEFT JOIN inspection_treatment t ON t.id = f.treatment_id
+    LEFT JOIN inventory_movement m ON m.id = t.inventory_movement_id
     LEFT JOIN app_user e ON e.id = t.created_by_user_id
     LEFT JOIN app_user v ON v.id = f.verified_by_user_id
     """;
@@ -70,21 +72,25 @@ public class TreatmentFollowupService {
 
   @Transactional
   public Followup execute(long inspectionId, long id, Execute request) {
-    inspections.writable(inspectionId);
+    var inspection = inspections.lockedInspection(inspectionId);
     var followup = get(inspectionId, id);
+    var application = new InspectionDtos.TreatmentRequest(request.occurredAt(), followup.description(), null,
+      request.quantity(), request.unit(), request.inventoryLotId(), request.operationId());
+    if (optionalText(request.productLot()) == null && inspections.replayedTreatment(inspectionId, application, id) != null) {
+      return followup;
+    }
+    inspections.requireWritable(inspection);
     requireTransition(followup, request.version(), Status.AUTHORIZED);
     if (request.occurredAt().isBefore(followup.authorizedAt().truncatedTo(ChronoUnit.MINUTES))) {
       throw badRequest("La ejecución no puede ser anterior a la autorización");
     }
-    String productLot = optionalText(request.productLot());
-    if (followup.product() != null && productLot == null) throw badRequest("Registra el lote del producto aplicado");
-    if (followup.product() == null && productLot != null) throw badRequest("El lote debe corresponder a un producto autorizado");
-    if (request.quantity() != null && !Double.isFinite(request.quantity())) throw badRequest("La cantidad no es válida");
-    var treatment = inspections.addTreatment(inspectionId, new InspectionDtos.TreatmentRequest(
-      request.occurredAt(), followup.description(), followup.product(), request.quantity(), optionalText(request.unit())));
+    if (optionalText(request.productLot()) != null) throw badRequest("Selecciona el lote del producto en el inventario");
+    if (followup.product() != null && request.inventoryLotId() == null) throw badRequest("Selecciona el lote del producto autorizado");
+    if (followup.product() == null && request.inventoryLotId() != null) throw badRequest("El lote debe corresponder a un producto autorizado");
+    var treatment = inspections.createTreatment(inspection, application, id, followup.product());
     queries.execute("""
       UPDATE inspection_treatment_followup SET treatment_id = ?, product_lot = ?, version = version + 1 WHERE id = ?
-      """, treatment.id(), productLot, id);
+      """, treatment.id(), treatment.inventoryLotCode(), id);
     return get(inspectionId, id);
   }
 
@@ -125,8 +131,9 @@ public class TreatmentFollowupService {
     return new Followup(row.longValue("id"), row.longValue("inspection_id"), status,
       row.text("description"), row.text("product"), row.longValue("authorized_by_user_id"),
       row.text("authorized_by_name"), row.instant("authorized_at"), treatmentId, row.value("executed_by_user_id", Long.class),
-      row.text("executed_by_name"), row.instant("executed_at"), row.text("product_lot"), row.value("quantity", Double.class),
-      row.text("unit"), row.value("verified_by_user_id", Long.class), row.text("verified_by_name"), verifiedAt,
+      row.text("executed_by_name"), row.instant("executed_at"), row.text("product_lot"), InspectionService.treatmentQuantity(row),
+      row.text("unit"), row.text("applied_product"), row.value("inventory_lot_id", Long.class), row.value("inventory_movement_id", Long.class),
+      row.value("verified_by_user_id", Long.class), row.text("verified_by_name"), verifiedAt,
       outcome == null ? null : Outcome.valueOf(outcome), row.text("verification_notes"), row.longValue("version"));
   }
 

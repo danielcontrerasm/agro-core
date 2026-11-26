@@ -358,18 +358,65 @@ test('recorrido manual: finca, lote, riego, fertilización y cosecha', async ({ 
     await expect(planRow.getByRole('button', { name: 'Registrar aplicación', exact: true })).toBeVisible();
   });
 
-  await visibleStep(page, 14, 'Registrar la aplicación de fertilizante', 'Se aplicaron 5 kg sobre 0.5 ha y se registró el lote del producto.', async () => {
+  await visibleStep(page, 14, 'Registrar la aplicación de fertilizante', 'Se descontaron 5 kg del lote y se registró su costo.', async () => {
+    const productCode = `INS-${token}`;
+    const lotCode = `LOTE-${token}`;
+    const farmId = await page.getByLabel('Seleccionar finca', { exact: true }).inputValue();
+    await page.getByRole('button', { name: 'Inventario', exact: true }).click();
+    await page.getByRole('button', { name: 'Nuevo producto', exact: true }).click();
+    let dialog = page.getByRole('dialog', { name: 'Nuevo producto', exact: true });
+    await dialog.getByLabel('Código', { exact: true }).fill(productCode);
+    await dialog.getByLabel('Nombre', { exact: true }).fill(names.product);
+    await dialog.getByLabel('Categoría', { exact: true }).fill('Fertilizantes');
+    await dialog.getByLabel('Unidad', { exact: true }).fill('kg');
+    await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Nuevo lote', exact: true }).click();
+    dialog = page.getByRole('dialog', { name: 'Nuevo lote', exact: true });
+    await selectOptionContaining(dialog.getByRole('combobox', { name: 'Producto', exact: true }), productCode);
+    await dialog.getByLabel('Código de lote', { exact: true }).fill(lotCode);
+    await dialog.getByLabel('Costo unitario (COP)', { exact: true }).fill('250');
+    await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Registrar movimiento', exact: true }).click();
+    dialog = page.getByRole('dialog', { name: 'Registrar movimiento', exact: true });
+    await selectOptionContaining(dialog.getByRole('combobox', { name: 'Lote', exact: true }), lotCode);
+    await dialog.getByLabel('Cantidad', { exact: true }).fill('10');
+    await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Fertilización', exact: true }).click();
+    await page.getByRole('button', { name: 'Planes', exact: true }).click();
     const planRow = page.getByRole('row').filter({ hasText: names.product });
     await planRow.getByRole('button', { name: 'Registrar aplicación', exact: true }).click();
-    const dialog = page.getByRole('dialog', { name: 'Registrar aplicación', exact: true });
+    dialog = page.getByRole('dialog', { name: 'Registrar aplicación', exact: true });
     await dialog.getByLabel('Fecha y hora reales', { exact: true }).fill(`${yesterday}T08:30`);
     await dialog.getByLabel('Cantidad aplicada (kg)', { exact: true }).fill('5');
     await dialog.getByLabel('Cobertura real (ha)', { exact: true }).fill('0.5');
     await dialog.getByLabel('Método real', { exact: true }).fill('Aplicación manual simulada para E2E.');
-    await dialog.getByLabel('Lote del producto', { exact: true }).fill(`LOTE-${token}`);
+    await selectOptionContaining(dialog.getByRole('combobox', { name: 'Lote de inventario', exact: true }), lotCode);
     await dialog.getByLabel('Observaciones de campo', { exact: true }).fill('Aplicación de prueba, sin uso operativo.');
+    const saved = page.waitForResponse(response => response.request().method() === 'POST'
+      && /^\/api\/v1\/fertilization\/plans\/\d+\/applications$/.test(new URL(response.url()).pathname));
     await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
+    const application = await saved;
+    expect(application.ok()).toBe(true);
+    const record = await application.json();
     await expect(page.getByRole('dialog', { name: /Aplicación #/ })).toContainText('5 kg');
+
+    const inventory = await page.request.get(`/api/v1/inventory?farmId=${farmId}`);
+    expect(inventory.ok()).toBe(true);
+    const stock = await inventory.json();
+    expect(stock.lots).toContainEqual(expect.objectContaining({ code: lotCode, balance: 5 }));
+    expect(stock.movements.entries).toContainEqual(expect.objectContaining({ id: record.inventoryMovementId, direction: 'OUT', quantity: 5 }));
+    if (automated) {
+      const month = new Date(record.occurredAt).toISOString().slice(0, 7);
+      const finance = await page.request.get(`/api/v1/finances?farmId=${farmId}&month=${month}`);
+      expect(finance.ok()).toBe(true);
+      expect((await finance.json()).entries).toContainEqual(expect.objectContaining({ id: record.financialEntryId, category: 'FERTILIZERS', amount: 1250 }));
+    }
   });
 
   await visibleStep(page, 15, 'Registrar seguimiento de fertilización', 'El plan conserva una revisión técnica posterior a la aplicación.', async () => {

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yourco.agro.auth.AuthDtos;
 import com.yourco.agro.auth.FarmAccess;
 import com.yourco.agro.config.SecurityConfig;
+import com.yourco.agro.finances.FinanceService;
+import com.yourco.agro.inventory.InventoryService;
 import com.yourco.agro.inspections.InspectionController;
 import com.yourco.agro.inspections.InspectionMonitoringController;
 import com.yourco.agro.inspections.InspectionMonitoringService;
@@ -35,7 +37,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest({InspectionController.class, InspectionMonitoringController.class})
-@Import({SecurityConfig.class, FarmAccess.class, InspectionService.class, InspectionMonitoringService.class,
+@Import({SecurityConfig.class, FarmAccess.class, InspectionService.class, InspectionMonitoringService.class, InventoryService.class, FinanceService.class,
   InspectionMonitoringApiTest.DatabaseConfig.class})
 @Transactional
 class InspectionMonitoringApiTest {

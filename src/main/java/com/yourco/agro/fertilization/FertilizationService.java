@@ -3,6 +3,9 @@ package com.yourco.agro.fertilization;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yourco.agro.auth.FarmAccess;
+import com.yourco.agro.finances.FinanceDtos;
+import com.yourco.agro.finances.FinanceService;
+import com.yourco.agro.inventory.InventoryService;
 import com.yourco.agro.persistence.JpaSql;
 import com.yourco.agro.tasks.TaskDtos;
 import com.yourco.agro.tasks.TaskService;
@@ -14,17 +17,29 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.*;
 import static com.yourco.agro.fertilization.FertilizationDtos.*;
 
 @Service
 public class FertilizationService {
+  private static final String APPLICATION_SELECT = """
+    SELECT a.*, expense.amount AS cost_cop FROM fertilization_application a
+    LEFT JOIN farm_financial_entry expense ON expense.id=a.financial_entry_id
+    """;
+  private record ApplicationDetails(Instant occurredAt, BigDecimal quantity, BigDecimal coverage,
+                                    String method, String lot, String notes) {}
+
   private final JpaSql queries;
   private final FarmAccess access;
   private final TaskService tasks;
+  private final InventoryService inventory;
+  private final FinanceService finance;
   private final ObjectMapper json;
-  public FertilizationService(JpaSql queries, FarmAccess access, TaskService tasks, ObjectMapper json) {
-    this.queries = queries; this.access = access; this.tasks = tasks; this.json = json;
+  public FertilizationService(JpaSql queries, FarmAccess access, TaskService tasks,
+                             InventoryService inventory, FinanceService finance, ObjectMapper json) {
+    this.queries = queries; this.access = access; this.tasks = tasks;
+    this.inventory = inventory; this.finance = finance; this.json = json;
   }
   private ResponseStatusException bad(String message) { return new ResponseStatusException(HttpStatus.BAD_REQUEST, message); }
   private String encode(Object value) {
@@ -57,29 +72,62 @@ public class FertilizationService {
     result.put("review", reviewRow(number(row,"id")));
     return result;
   }
+  private record PlanTask(long taskId, LocalDate occurrenceOn) {}
+  private record PlanFollowup(long id, Long analysisId, String observations, long reviewedBy, Instant reviewedAt) {}
+
   private Map<String,Object> presentPlan(Map<String,Object> row) {
     var result = decode((String) row.get("details"));
     for (var entry : Map.ofEntries(Map.entry("id","id"),Map.entry("status","status"),Map.entry("version","version"),Map.entry("taskId","task_id"),Map.entry("totalQuantity","total_quantity"),Map.entry("createdBy","created_by"),Map.entry("approvedBy","approved_by"),Map.entry("approvedAt","approved_at"),Map.entry("decisionReason","decision_reason"),Map.entry("productId","product_id"),Map.entry("recurrence","recurrence"),Map.entry("recurrenceUntil","recurrence_until")).entrySet()) {
       Object value = row.get(entry.getValue()); result.put(entry.getKey(),value == null ? null : value instanceof java.time.temporal.TemporalAccessor ? value.toString() : value);
     }
     result.put("appliedQuantity",queries.value("SELECT COALESCE(SUM(quantity),0) FROM fertilization_application WHERE plan_id=?",BigDecimal.class,row.get("id")));
-    result.put("tasks",queries.rows("SELECT task_id AS \"taskId\", occurrence_on AS \"occurrenceOn\" FROM fertilization_plan_task WHERE plan_id=? ORDER BY occurrence_on",row.get("id")));
-    if (!"NONE".equals(row.get("recurrence"))) {
-      var occurrences = queries.value("SELECT COUNT(*) FROM fertilization_plan_task WHERE plan_id=?",Integer.class,row.get("id"));
-      if (occurrences != null && occurrences > 0) result.put("totalQuantity",((BigDecimal) row.get("total_quantity")).multiply(BigDecimal.valueOf(occurrences)));
+    var tasks = queries.select("""
+      SELECT task_id, occurrence_on FROM fertilization_plan_task WHERE plan_id = ? ORDER BY occurrence_on
+      """, task -> new PlanTask(task.longValue("task_id"), task.date("occurrence_on")), row.get("id"));
+    result.put("tasks", tasks);
+    if (!"NONE".equals(row.get("recurrence")) && !tasks.isEmpty()) {
+      result.put("totalQuantity",((BigDecimal) row.get("total_quantity")).multiply(BigDecimal.valueOf(tasks.size())));
     }
     result.put("canceledBy",row.get("canceled_by")); result.put("canceledAt",row.get("canceled_at"));
-    result.put("followups",queries.rows("SELECT id, analysis_id AS \"analysisId\", observations, reviewed_by AS \"reviewedBy\", reviewed_at AS \"reviewedAt\" FROM fertilization_followup WHERE plan_id=? ORDER BY id DESC",row.get("id")));
+    result.put("followups", queries.select("""
+      SELECT id, analysis_id, observations, reviewed_by, reviewed_at
+      FROM fertilization_followup WHERE plan_id = ? ORDER BY id DESC
+      """, followup -> new PlanFollowup(followup.longValue("id"), followup.value("analysis_id", Long.class),
+      followup.text("observations"), followup.longValue("reviewed_by"), followup.instant("reviewed_at")), row.get("id")));
     return result;
   }
   public Map<String,Object> list(long farmId) {
     access.require(farmId,false);
     var analyses = queries.rows("SELECT a.id,a.block_id,a.details,a.created_by,a.report_type FROM soil_analysis a JOIN block b ON b.id=a.block_id JOIN field f ON f.id=b.field_id WHERE f.farm_id=? ORDER BY sampled_on DESC,a.id DESC",farmId).stream().map(this::presentAnalysis).toList();
     var plans = queries.rows("SELECT p.* FROM fertilization_plan p JOIN block b ON b.id=p.block_id JOIN field f ON f.id=b.field_id WHERE f.farm_id=? ORDER BY p.id DESC",farmId).stream().map(this::presentPlan).toList();
-    var applications = queries.rows("SELECT a.* FROM fertilization_application a JOIN fertilization_plan p ON p.id=a.plan_id JOIN block b ON b.id=p.block_id JOIN field f ON f.id=b.field_id WHERE f.farm_id=? ORDER BY a.id DESC",farmId).stream().map(row -> {
-      var result = decode((String) row.get("details")); result.put("id",row.get("id")); result.put("planId",row.get("plan_id")); result.put("taskId",row.get("task_id")); result.put("eventId",row.get("event_id")); result.put("createdBy",row.get("created_by")); return result;
-    }).toList();
+    boolean includeFinance = canReadFinance(farmId);
+    var applications = queries.rows(APPLICATION_SELECT + """
+      JOIN fertilization_plan p ON p.id=a.plan_id JOIN block b ON b.id=p.block_id
+      JOIN field f ON f.id=b.field_id WHERE f.farm_id=? ORDER BY a.id DESC
+      """, farmId).stream().map(row -> presentApplication(row, includeFinance)).toList();
     return Map.of("analyses",analyses,"plans",plans,"applications",applications);
+  }
+  private boolean canReadFinance(long farmId) {
+    return "ADMIN".equals(queries.value("SELECT role FROM farm_membership WHERE farm_id=? AND user_id=?",
+      String.class, farmId, access.userId()));
+  }
+  private Map<String,Object> presentApplication(Map<String,Object> row, boolean includeFinance) {
+    var result = decode((String) row.get("details"));
+    result.put("id", row.get("id"));
+    result.put("planId", row.get("plan_id"));
+    result.put("taskId", row.get("task_id"));
+    result.put("eventId", row.get("event_id"));
+    result.put("createdBy", row.get("created_by"));
+    if (row.get("operation_id") != null) {
+      result.put("operationId", row.get("operation_id"));
+      result.put("inventoryLotId", row.get("inventory_lot_id"));
+      result.put("inventoryMovementId", row.get("inventory_movement_id"));
+      if (includeFinance) {
+        result.put("financialEntryId", row.get("financial_entry_id"));
+        result.put("costCop", row.get("cost_cop"));
+      }
+    }
+    return result;
   }
   public List<Map<String,Object>> profiles(long farmId) {
     access.require(farmId,false);
@@ -281,30 +329,89 @@ public class FertilizationService {
   private LocalDate nextOccurrence(LocalDate date, Recurrence recurrence) {
     return switch (recurrence) { case WEEKLY -> date.plusWeeks(1); case BIWEEKLY -> date.plusWeeks(2); case MONTHLY -> date.plusMonths(1); case NONE -> date.plusYears(10); };
   }
+  @Transactional
+  public void assignTask(long id, long taskId, TaskAssignment request) {
+    var plan = planRow(id, true, true);
+    if (!"APPROVED".equals(plan.get("status"))) throw bad("Aprueba el plan antes de asignar sus tareas");
+    long farmId = access.blockFarm(number(plan, "block_id"));
+    if (!Objects.equals(taskId, JpaSql.convert(plan.get("task_id"), Long.class))
+        && queries.value("SELECT COUNT(*) FROM fertilization_plan_task WHERE plan_id=? AND task_id=?", Long.class, id, taskId) == 0) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "La tarea no pertenece al plan");
+    }
+    if (queries.values("SELECT user_id FROM farm_membership WHERE farm_id=? AND user_id=? FOR UPDATE",
+        Long.class, farmId, request.assigneeId()).isEmpty()) {
+      throw bad("El responsable debe pertenecer a la finca");
+    }
+    int changed = queries.execute("""
+      UPDATE farm_task SET assignee_id=?, version=version+1, updated_at=CURRENT_TIMESTAMP
+      WHERE id=? AND farm_id=? AND status='pending' AND version=?
+      """, request.assigneeId(), taskId, farmId, request.version());
+    if (changed == 0) throw new ResponseStatusException(HttpStatus.CONFLICT,
+      "Solo puedes reasignar una tarea pendiente con su versión actual");
+  }
   public static String quantityUnit(DoseUnit unit) { return unit==DoseUnit.L_HA || unit==DoseUnit.ML_PLANT ? "L":"kg"; }
   @Transactional
   public Map<String,Object> apply(long id, Application request) {
     var row = planRow(id,false,true);
-    if (!"APPROVED".equals(row.get("status")) || row.get("task_id")==null) throw bad("Se requiere un plan aprobado con tarea");
     Plan plan = json.convertValue(decode((String) row.get("details")),Plan.class);
+    long farmId = access.blockFarm(plan.blockId());
+    long userId = access.userId();
     Recurrence recurrence = recurrence(plan);
-    Long taskId = request.taskId() == null ? number(row,"task_id") : request.taskId();
+    Long taskId = request.taskId();
+    if (taskId == null && recurrence == Recurrence.NONE && row.get("task_id") != null) taskId = number(row, "task_id");
+    var previous = queries.rows(APPLICATION_SELECT + " WHERE a.plan_id=? AND a.operation_id=?", id, request.operationId())
+      .stream().findFirst();
+    if (previous.isPresent()) {
+      var saved = previous.get();
+      if (number(saved, "created_by") != userId || !sameApplication(saved, taskId, request)) {
+        throw new ResponseStatusException(HttpStatus.CONFLICT, "Este identificador ya corresponde a otra aplicación. Consulta los registros de fertilización.");
+      }
+      return presentApplication(saved, canReadFinance(farmId));
+    }
+
+    if (!"APPROVED".equals(row.get("status")) || row.get("task_id")==null) throw bad("Se requiere un plan aprobado con tarea");
     if (recurrence!=Recurrence.NONE && request.taskId()==null) throw bad("Selecciona la ocurrencia de la tarea recurrente");
     if (request.taskId()!=null && queries.value("SELECT COUNT(*) FROM fertilization_plan_task WHERE plan_id=? AND task_id=?",Integer.class,id,request.taskId())!=1) throw bad("La tarea no pertenece a la ocurrencia del plan");
     var task = queries.row("SELECT assignee_id,status FROM farm_task WHERE id=? FOR UPDATE",taskId);
-    access.require(access.blockFarm(plan.blockId()),false);
-    if (number(task,"assignee_id")!=access.userId()) access.require(access.blockFarm(plan.blockId()),true);
+    if (number(task,"assignee_id")!=userId) access.require(farmId,true);
     if (!Set.of("pending","progress").contains(task.get("status"))) throw bad("La tarea debe estar pendiente o en progreso");
-    if (request.occurredAt().isAfter(Instant.now()) || request.occurredAt().atZone(java.time.ZoneOffset.UTC).toLocalDate().isBefore(json.convertValue(decode((String) analysisRow(plan.analysisId()).get("details")),Analysis.class).sampledOn())) throw bad("Fecha de aplicación inválida");
+    LocalDate appliedOn = request.occurredAt().atOffset(ZoneOffset.UTC).toLocalDate();
+    if (request.occurredAt().isAfter(Instant.now()) || appliedOn.isBefore(json.convertValue(decode((String) analysisRow(plan.analysisId()).get("details")),Analysis.class).sampledOn())) throw bad("Fecha de aplicación inválida");
     if (request.coverage().compareTo(plan.coverage())>0 || ((plan.doseUnit()==DoseUnit.G_PLANT || plan.doseUnit()==DoseUnit.ML_PLANT) && request.coverage().stripTrailingZeros().scale()>0)) throw bad("Cobertura inválida");
     BigDecimal applied = recurrence==Recurrence.NONE
       ? queries.value("SELECT COALESCE(SUM(quantity),0) FROM fertilization_application WHERE plan_id=?",BigDecimal.class,id)
       : queries.value("SELECT COALESCE(SUM(quantity),0) FROM fertilization_application WHERE plan_id=? AND task_id=?",BigDecimal.class,id,taskId);
     if (applied.add(request.quantity()).compareTo((BigDecimal) row.get("total_quantity"))>0) throw bad("La cantidad acumulada supera el plan aprobado; requiere un nuevo plan");
-    long eventId = queries.insert("INSERT INTO field_event(event_type,occurred_at,created_by_user_id,block_id,notes) VALUES ('FERTILIZER_APPLICATION',?,?,?,?)",request.occurredAt(),access.userId(),plan.blockId(),"Plan #"+id+" · "+plan.product()+" · "+request.quantity()+" "+quantityUnit(plan.doseUnit())+" · "+Objects.toString(request.notes(),""));
-    long applicationId = queries.insert("INSERT INTO fertilization_application(plan_id,event_id,task_id,quantity,details,created_by) VALUES (?,?,?,?,?,?)",id,eventId,taskId,request.quantity(),encode(request),access.userId());
+    String unit = quantityUnit(plan.doseUnit());
+    var consumption = inventory.consumeForApplication(farmId, request.inventoryLotId(), request.operationId(),
+      request.quantity(), plan.product(), unit, appliedOn, "Fertilización · plan #" + id);
+    var details = new ApplicationDetails(request.occurredAt(), request.quantity(), request.coverage(),
+      request.method(), consumption.lotCode(), request.notes());
+    String eventNotes = String.join(" · ", "Plan #" + id, plan.product(), request.quantity() + " " + unit,
+      "Lote " + consumption.lotCode(), Objects.toString(request.notes(), ""));
+    long eventId = queries.insert("INSERT INTO field_event(event_type,occurred_at,created_by_user_id,block_id,notes) VALUES ('FERTILIZER_APPLICATION',?,?,?,?)",
+      request.occurredAt(), userId, plan.blockId(), eventNotes);
+    long applicationId = queries.insert("""
+      INSERT INTO fertilization_application(plan_id,event_id,task_id,quantity,details,created_by,operation_id,inventory_lot_id,inventory_movement_id)
+      VALUES (?,?,?,?,?,?,?,?,?)
+      """, id, eventId, taskId, request.quantity(), encode(details), userId, request.operationId(), request.inventoryLotId(), consumption.movementId());
+    long entryId = finance.recordApplicationExpense(farmId, plan.blockId(), request.operationId(), appliedOn,
+      FinanceDtos.Category.FERTILIZERS, consumption.costCop(),
+      "Fertilización · " + consumption.productName() + " · lote " + consumption.lotCode(), "FERTILIZATION_APPLICATION", applicationId);
+    queries.execute("UPDATE fertilization_application SET financial_entry_id=? WHERE id=?", entryId, applicationId);
     queries.execute("UPDATE farm_task SET status='progress',version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'",taskId);
-    var result = new LinkedHashMap<String,Object>(json.convertValue(request,new TypeReference<Map<String,Object>>() {})); result.put("id",applicationId); result.put("planId",id); result.put("taskId",taskId); result.put("eventId",eventId); result.put("createdBy",access.userId()); return result;
+    return presentApplication(queries.row(APPLICATION_SELECT + " WHERE a.id=?", applicationId), canReadFinance(farmId));
+  }
+  private boolean sameApplication(Map<String,Object> row, Long taskId, Application request) {
+    if (!Objects.equals(taskId, JpaSql.convert(row.get("task_id"), Long.class))
+      || !Objects.equals(request.inventoryLotId(), JpaSql.convert(row.get("inventory_lot_id"), Long.class))) return false;
+    ApplicationDetails saved;
+    try { saved = json.readValue((String) row.get("details"), ApplicationDetails.class); }
+    catch (Exception exception) { throw new IllegalStateException(exception); }
+    return saved.occurredAt().equals(request.occurredAt())
+      && saved.quantity().compareTo(request.quantity()) == 0
+      && saved.coverage().compareTo(request.coverage()) == 0
+      && saved.method().equals(request.method()) && Objects.equals(saved.notes(), request.notes());
   }
   @Transactional
   public void followup(long id, Followup request) {

@@ -18,6 +18,8 @@ Esta ficha describe las funciones de cuenta, sesión, membresías y configuraci�
 - Comprobar el correo normalizado y su unicidad, el uso de hash, el rechazo de credenciales o token inválidos, la rotación de sesión y token, la revocación al cerrar y la membresía del creador de la finca. El informe histórico registra las pruebas de backend aprobadas. [Pruebas de integración de acceso](../src/test/java/com/yourco/agro/AuthIntegrationTest.java) · [Resultado de backend](test-results.md#verificación-histórica-del-25-de-noviembre-de-2026)
 - Registrar una cuenta e iniciar sesión ante la API local para crear la finca de QA. El alta y el recorrido conectado pasaron el 26 de noviembre. [Prueba de alta conectada](../frontend/tests/live-api.spec.ts) · [Recorrido completo de QA](../frontend/tests/manual-agricultural-workflow.spec.ts) · [Resultado del recorrido](test-results.md#regresión-de-sanidad-del-26-de-noviembre-de-2026)
 
+![Captura de QA · Entrada a la finca con autenticación simulada · 25 nov 2026](<qa-evidence/2026-11-25/acceso/02.jpg>)
+
 ## Equipo y permisos
 
 | Requisito funcional | Estado actual |
@@ -49,3 +51,5 @@ Esta ficha describe las funciones de cuenta, sesión, membresías y configuraci�
 - Consultar el catálogo de cultivo y variedad, crear una ventana como agrónomo y comprobar la sugerencia por finca, cultivo y variedad. [Prueba de calendario con PostgreSQL](../src/test/java/com/yourco/agro/AuthPostgresTest.java)
 
 Implementación de referencia en [Configuración](../frontend/src/pages/Settings.tsx), [API de autenticación](../src/main/java/com/yourco/agro/auth/AuthController.java), [API de miembros](../src/main/java/com/yourco/agro/auth/MembershipController.java) y [autorización por finca](../src/main/java/com/yourco/agro/auth/FarmAccess.java).
+
+![Captura de QA · Perfil y acceso de administración · 25 nov 2026](<qa-evidence/2026-11-25/configuracion/01.jpg>)

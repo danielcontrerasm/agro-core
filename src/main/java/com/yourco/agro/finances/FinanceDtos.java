@@ -40,7 +40,7 @@ public final class FinanceDtos {
 
   public record Entry(long id, long farmId, LocalDate entryDate, EntryType type, Category category,
                       BigDecimal amount, String description, Long fieldId, String fieldName, Long blockId,
-                      String blockCode, long version) {}
+                      String blockCode, long version, String sourceType, Long sourceId) {}
 
   public record Budget(BigDecimal amount, Instant updatedAt) {}
 

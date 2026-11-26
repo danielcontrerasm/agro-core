@@ -23,8 +23,11 @@ export interface TreatmentFollowup {
   executedByName?: string | null;
   executedAt?: string | null;
   productLot?: string | null;
+  appliedProduct?: string | null;
   quantity?: number | null;
   unit?: string | null;
+  inventoryLotId?: number | null;
+  inventoryMovementId?: number | null;
   verifiedByUserId?: number | null;
   verifiedByName?: string | null;
   verifiedAt?: string | null;
@@ -34,7 +37,7 @@ export interface TreatmentFollowup {
 }
 
 type Authorization = Pick<TreatmentFollowup, 'description' | 'product'> & { requestId: string };
-interface Execution { version: number; occurredAt: string; productLot: string | null; quantity: number | null; unit: string | null }
+interface Execution { version: number; occurredAt: string; inventoryLotId?: number; quantity?: number; operationId: string }
 interface Verification { version: number; verifiedAt: string; outcome: TreatmentOutcome; notes: string }
 
 const path = (inspectionId: number) => `/inspections/${inspectionId}/treatment-followups`;

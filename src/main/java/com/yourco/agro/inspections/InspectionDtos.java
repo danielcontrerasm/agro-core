@@ -1,8 +1,10 @@
 package com.yourco.agro.inspections;
 
 import jakarta.validation.constraints.*;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.UUID;
 
 public final class InspectionDtos {
   private InspectionDtos() {}
@@ -51,10 +53,12 @@ public final class InspectionDtos {
 
   public record TreatmentRequest(@NotNull @PastOrPresent Instant occurredAt,
     @NotBlank @Size(max = 4000) String description, @Size(max = 250) String product,
-    @Positive Double quantity, @Size(max = 40) String unit) {}
+    @Positive @Digits(integer = 13, fraction = 6) BigDecimal quantity, @Size(max = 40) String unit,
+    @Positive Long inventoryLotId, UUID operationId) {}
 
   public record Treatment(Long id, Long inspectionId, Instant occurredAt, String description,
-    String product, Double quantity, String unit, Long createdByUserId, String authorName) {}
+    String product, BigDecimal quantity, String unit, Long createdByUserId, String authorName,
+    Long inventoryLotId, String inventoryLotCode, Long inventoryMovementId) {}
 
   public enum EvidenceKind { IMAGE, DOCUMENT, VIDEO }
   public record EvidenceRequest(Long treatmentId, @NotNull EvidenceKind kind,
