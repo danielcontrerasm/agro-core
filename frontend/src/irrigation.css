@@ -1,0 +1,215 @@
+.crop-app-shell .irrigation-dashboard .module-tabs button {
+  min-height: 42px;
+  font-size: 14px;
+}
+
+.crop-app-shell .irrigation-dashboard .module-kpi small,
+.crop-app-shell .irrigation-dashboard .module-kpi div > span {
+  color: #4b6074;
+  font-size: 13px;
+}
+
+.crop-app-shell .irrigation-dashboard .module-kpi strong { font-size: 23px; }
+.crop-app-shell .irrigation-dashboard .irrigation-section-heading h3 { font-size: 18px; }
+.crop-app-shell .irrigation-dashboard .irrigation-section-heading p { font-size: 14px; line-height: 1.45; }
+.crop-app-shell .irrigation-dashboard :is(.irrigation-map-legend, .irrigation-map-legend-mobile, .irrigation-map-selection) {
+  font-size: 13px;
+}
+
+.crop-app-shell .irrigation-dashboard .irrigation-dashboard-alert strong { font-size: 15px; }
+.crop-app-shell .irrigation-dashboard .irrigation-dashboard-alert :is(small, em) { font-size: 13px; }
+.crop-app-shell .irrigation-dashboard .irrigation-alert-priority { font-size: 12px; }
+.crop-app-shell .irrigation-dashboard .irrigation-alerts-empty p { font-size: 14px; }
+.crop-app-shell .irrigation-dashboard .irrigation-status-pill { font-size: 12px; white-space: normal; }
+
+@media (min-width: 1250px) {
+  .crop-app-shell .irrigation-dashboard .irrigation-map-card { display: flex; flex-direction: column; }
+  .crop-app-shell .irrigation-dashboard .irrigation-map { flex: 1; min-height: 314px; }
+  .crop-app-shell .irrigation-map .farm-map:not(.real-map) .map-north { right: 185px; }
+}
+
+.crop-app-shell .irrigation-dashboard :is(.compact-select, .outline-action, .irrigation-map-tool),
+.crop-app-shell .irrigation-dashboard .irrigation-table-actions input,
+.crop-app-shell .irrigation-dashboard .irrigation-legacy-workspace .irrigation-sector-filter select {
+  min-height: 38px;
+  font-size: 14px;
+}
+
+.crop-app-shell .irrigation-dashboard :is(.text-button, .button, .irrigation-legacy-workspace .notice, .module-empty-note) {
+  font-size: 14px;
+}
+
+.crop-app-shell .irrigation-dashboard .irrigation-legacy-workspace .irrigation-sector-filter label { font-size: 14px; }
+.crop-app-shell .irrigation-dashboard .irrigation-sector-filter { margin-block: 12px; }
+.crop-app-shell .irrigation-dashboard .irrigation-tab-standard { display: grid; gap: 14px; }
+.crop-app-shell .irrigation-dashboard .irrigation-tab-standard > .irrigation-alert-center { margin: 0; }
+.crop-app-shell .irrigation-dashboard .irrigation-execution-body { grid-template-columns: minmax(0, 1fr); }
+.crop-app-shell .irrigation-dashboard .irrigation-execution-methods ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.crop-app-shell .irrigation-dashboard .irrigation-execution-methods :is(strong, small) { font-size: 14px; }
+.crop-app-shell .irrigation-dashboard .panel-heading h3 { font-size: 18px; }
+.crop-app-shell .irrigation-dashboard .water-management-grid { grid-template-columns: minmax(0, 1fr); }
+.crop-app-shell .irrigation-dashboard .water-management-summary span { font-size: 13px; }
+
+.crop-app-shell .irrigation-dashboard :is(.irrigation-legacy-workspace, .irrigation-sector-card) th {
+  padding: 11px 12px;
+  font-size: 13px;
+  line-height: 1.35;
+  text-transform: none;
+}
+
+.crop-app-shell .irrigation-dashboard :is(.irrigation-legacy-workspace, .irrigation-sector-card) td {
+  padding: 10px 12px;
+  color: #263e54;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.crop-app-shell .irrigation-dashboard td strong { font-size: inherit; }
+.crop-app-shell .irrigation-dashboard td small {
+  display: block;
+  margin-block-start: 3px;
+  color: #4d6475;
+  font-size: 13px;
+}
+
+.crop-app-shell .irrigation-dashboard td .badge { font-size: 12px; white-space: normal; }
+.crop-app-shell .irrigation-dashboard .irrigation-row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 12px; }
+.crop-app-shell .irrigation-dashboard .irrigation-row-actions > .text-button { min-height: 38px; }
+.crop-app-shell .irrigation-dashboard td.irrigation-history-note { white-space: normal; overflow-wrap: anywhere; }
+
+.modal.water-modal:is(.irrigation-detail, .irrigation-editor) > header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 2;
+}
+
+.modal.water-modal:is(.irrigation-detail, .irrigation-editor) > header h2 {
+  font-size: clamp(19px, 3vw, 23px);
+  overflow-wrap: anywhere;
+}
+
+.modal.water-modal:is(.irrigation-detail, .irrigation-editor) .farm-work-context > div { min-width: 0; }
+.modal.water-modal:is(.irrigation-detail, .irrigation-editor) .farm-work-context strong { font-size: 18px; overflow-wrap: anywhere; }
+.modal.water-modal:is(.irrigation-detail, .irrigation-editor) .farm-work-context small { font-size: 14px; }
+.modal.water-modal.irrigation-detail .farm-work-context p { margin: 4px 0 0; color: #253f53; font-size: 15px; line-height: 1.45; }
+.modal.water-modal.irrigation-detail .farm-work-context .badge { margin-inline-start: auto; font-size: 13px; }
+.modal.water-modal.irrigation-detail .form-error { margin: 16px 22px 0; }
+
+.modal.water-modal.irrigation-detail .irrigation-detail-section {
+  margin: 14px 22px;
+  padding: 16px;
+  border: 1px solid #dfeae5;
+  border-radius: 10px;
+}
+
+.irrigation-detail-section h3 { margin: 0 0 12px; color: #14263b; font-size: 17px; }
+.irrigation-detail-section dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #e3ece8;
+  border-radius: 8px;
+  background: #e3ece8;
+}
+.irrigation-detail-section dl > div { padding: 11px 12px; background: #f7faf9; }
+.irrigation-detail-section dt { margin-bottom: 4px; color: #526779; font-size: 13px; }
+.irrigation-detail-section dd { margin: 0; color: #172c42; font-size: 15px; font-weight: 650; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-line; }
+.irrigation-detail-section dd small { display: block; margin-top: 4px; color: #526779; font-size: 13px; font-weight: 500; }
+.irrigation-detail-section .irrigation-detail-wide { grid-column: 1 / -1; }
+.irrigation-detail-audit { margin-top: 14px; color: #536779; font-size: 13px; }
+
+.irrigation-form-fields,
+.irrigation-form-section {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px 16px;
+  min-width: 0;
+  margin: 0;
+}
+.irrigation-form-fields { padding: 0; border: 0; }
+.irrigation-form-section {
+  padding: 13px 16px 16px;
+  border: 1px solid #dfeae5;
+  border-radius: 10px;
+  background: #fcfefd;
+}
+.irrigation-form-section legend { padding-inline: 5px; color: #14263b; font-size: 16px; font-weight: 750; }
+.irrigation-form-fields > :not(label),
+.irrigation-form-fields > label:has(textarea),
+.irrigation-form-section > :is(.notice, .irrigation-field-wide) { grid-column: 1 / -1; }
+.irrigation-form-caption { margin: 0; color: #526779; }
+.modal.water-modal .irrigation-form label {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+  color: #304957;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+.modal.water-modal .irrigation-form :is(input, select, textarea) { min-width: 0; min-height: 44px; font-size: 16px; }
+.modal.water-modal .irrigation-form textarea { min-height: 86px; }
+.modal.water-modal .irrigation-form :is(p, .notice, .button) { font-size: 14px; }
+.modal.water-modal .irrigation-form .button { min-height: 42px; }
+
+@media (max-width: 700px) {
+  .crop-app-shell .irrigation-dashboard .irrigation-execution-methods ul { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  #main-content .irrigation-dashboard :is(.farm-record-table, .irrigation-history-table) { display: block; min-width: 0; }
+  .crop-app-shell .irrigation-dashboard :is(.farm-record-table, .irrigation-history-table) thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .crop-app-shell .irrigation-dashboard :is(.farm-record-table, .irrigation-history-table) tbody { display: grid; gap: 10px; }
+  .crop-app-shell .irrigation-dashboard :is(.farm-record-table, .irrigation-history-table) tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: hidden;
+    border: 1px solid #dfeae5;
+    border-radius: 8px;
+  }
+  .crop-app-shell .irrigation-dashboard :is(.farm-record-table, .irrigation-history-table) td {
+    display: block;
+    min-width: 0;
+    padding: 9px 10px;
+    border: 0;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+  .crop-app-shell .irrigation-dashboard :is(.farm-record-table, .irrigation-history-table) td:is(:first-child, :last-child) { grid-column: 1 / -1; }
+  .crop-app-shell .irrigation-dashboard :is(.farm-record-table, .irrigation-history-table) td:first-child { background: #f1f8f4; }
+  .crop-app-shell .irrigation-dashboard :is(.farm-record-table, .irrigation-history-table) td:last-child { border-top: 1px solid #edf3ef; }
+  .crop-app-shell .irrigation-dashboard :is(.farm-record-table, .irrigation-history-table) td[data-label]::before {
+    display: block;
+    margin-bottom: 4px;
+    color: #4d6475;
+    content: attr(data-label);
+    font-size: 13px;
+    font-weight: 650;
+  }
+  .modal.water-modal.irrigation-detail .irrigation-detail-section { margin-inline: 12px; padding: 12px; }
+  .modal.water-modal.irrigation-detail .farm-work-context .badge { margin-inline-start: 0; }
+}
+
+@media (max-width: 540px) {
+  .irrigation-form-fields,
+  .irrigation-form-section,
+  .irrigation-detail-section dl { grid-template-columns: minmax(0, 1fr); }
+  .irrigation-form-section { padding-inline: 12px; }
+  .crop-app-shell .irrigation-dashboard .module-tabs { flex-wrap: wrap; }
+  .crop-app-shell .irrigation-dashboard .irrigation-map-actions { display: flex; }
+  .crop-app-shell .irrigation-dashboard .irrigation-map-actions .compact-select { flex: 1 1 132px; }
+  .crop-app-shell .irrigation-dashboard .irrigation-dashboard-alert { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; }
+  .crop-app-shell .irrigation-dashboard .irrigation-dashboard-alert > .outline-action { grid-column: 2; justify-self: start; }
+}

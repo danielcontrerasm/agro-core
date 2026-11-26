@@ -1,9 +1,14 @@
 # Fertilización: diagnóstico → aprobación → aplicación → seguimiento
 
-Última revisión: **21 de noviembre de 2026**.
+Última revisión **25 de noviembre de 2026**.
 
-La sección **Fertilización** conserva el historial anterior y agrega tres vistas:
+La sección **Fertilización** conserva el historial anterior y reúne cuatro vistas:
 
+- **Resumen**: abre con indicadores, mapa nutricional, alertas por bloque,
+  avance del plan y aplicaciones recientes. El mapa toma la última muestra de
+  suelo registrada por bloque. Cambiar de nutriente actualiza el estado del mapa
+  y las alertas. Se puede abrir la muestra desde el mapa, las alertas o el panel
+  de revisión técnica.
 - **Análisis**: muestras de suelo o foliares con bloque, fecha, laboratorio,
   referencia, profundidad, coordenadas opcionales y resultados N, P, K, pH,
   materia orgánica, Ca, Mg, S, B y Zn. Cada resultado conserva su unidad y método.
@@ -32,6 +37,21 @@ La sección **Fertilización** conserva el historial anterior y agrega tres vist
   La cobertura describe cada pasada y no se suma: dos aplicaciones parciales
   pueden recorrer el mismo bloque. Una aplicación inicia la tarea, pero no la
   completa ni sustituye su revisión habitual.
+
+El filtro de bloque actualiza los registros y los indicadores en todo el módulo.
+En **Resumen**, el cumplimiento expresa la proporción de planes aprobados que
+alcanzaron la cantidad prevista. El área pendiente corresponde a los bloques
+con saldo, que se cuentan una sola vez. El gráfico de nutrientes muestra qué
+proporción de las muestras con rango compatible está dentro de ese rango. El
+indicador de costo aparece sin valor mientras la finca carezca de registros de
+costo vinculados a fertilización.
+
+**Análisis** resume cuántos resultados quedan dentro o fuera del rango de referencia.
+**Planes** muestra el avance de la cantidad aplicada frente a la prevista.
+**Aplicaciones** resume cantidades por unidad, bloques atendidos y el último registro.
+Desde esta vista se puede registrar otra aplicación cuando el plan tiene tarea,
+saldo pendiente y el usuario dispone de permisos. En pantallas pequeñas los
+registros se muestran en tarjetas con acceso al detalle y a la evidencia.
 
 ## Endpoints
 
@@ -78,7 +98,13 @@ Endpoints de apoyo:
 En modo real, estas pantallas consumen los endpoints anteriores; en modo demo,
 los datos de fertilización se conservan localmente en el navegador:
 
-- **Fertilización** (`#/fertilization`): módulo principal con las pestañas:
+- **Fertilización** (`#/fertilization`) abre en **Resumen**. **Historial anterior**
+  abre los eventos de fertilización registrados antes del flujo estructurado.
+  - **Resumen**: capas por nutriente, alertas y porcentaje de planes completados.
+    **Crear plan de fertilización** abre el formulario. Desde una alerta, el
+    mismo formulario se abre con el bloque y el análisis seleccionados.
+    **Registrar aplicación** abre el registro para un plan disponible o permite
+    seleccionar uno cuando hay varios.
   - **Análisis**: captura N, P, K, pH, materia orgánica, Ca, Mg, S, B y Zn;
     muestra unidades, métodos, laboratorio, muestra, informe e interpretación
     preliminar; permite abrir el detalle y descargar o adjuntar el PDF.
@@ -88,15 +114,19 @@ los datos de fertilización se conservan localmente en el navegador:
   - **Aplicaciones**: registra cantidad, fecha, cobertura, método, lote y notas;
     selecciona la ocurrencia de un plan recurrente, muestra el detalle y permite
     adjuntar fotos de evidencia.
-  - **Perfiles y catálogo**: ADMIN, SUPERVISOR y AGRONOMIST pueden crear perfiles
-    activos por finca, cultivo, variedad y muestra, y registrar una decisión técnica
-    confirmada, pendiente de seguimiento o rechazada desde el detalle del análisis;
-    también pueden registrar productos con composición y unidad estándar.
-- **Mapas → Nutrientes** (`#/maps`): selecciona el nutriente y muestra valores
-  por bloque, promedio, fecha de muestra, unidad, método, laboratorio, trazabilidad
-  e interpretación preliminar. También permite comparar nutrientes con humedad.
+  - **Perfiles y catálogo** son paneles de apoyo en el modo conectado.
+    ADMIN, SUPERVISOR y AGRONOMIST pueden crear perfiles activos por finca,
+    cultivo, variedad y muestra, y registrar una decisión técnica confirmada,
+    pendiente de seguimiento o rechazada desde el detalle del análisis.
+    También pueden registrar productos con composición y unidad estándar.
+- **Mapas → Nutrientes** (`#/maps`) muestra rangos observados entre muestras
+  comparables, área de los bloques con esas muestras y una comparativa por bloque.
+  La trazabilidad conserva fecha, referencia, unidad, método, laboratorio e
+  interpretación preliminar. En demo se pueden comparar humedad y nutrientes en
+  un mapa dividido. En modo conectado se muestran ambos resúmenes y leyendas
+  junto al plano de la capa activa.
 - **Dashboard → Nutrientes** (`#/dashboard`): capa resumida de nutrientes en el
-  mapa principal; al seleccionar el mapa se abre la vista completa de Mapas.
+  mapa principal. **Abrir mapa completo** lleva a la vista de Mapas.
 - **Mi trabajo de hoy** (`#/tasks`): muestra las tareas de fertilización generadas
   desde planes aprobados y permite avanzar, bloquear, enviar a revisión o completar
   la ejecución según el rol.
@@ -186,5 +216,18 @@ aplicaciones e informes se conservan localmente. Los PDF comparten el límite de
 almacenamiento del navegador; un error de cuota se comunica sin afirmar guardado.
 Las fotos usan IndexedDB. «Restablecer demostración» elimina estos cambios.
 
-Pruebas aisladas: `./gradlew test --tests '*FertilizationApiTest'`.
-Navegador: desde `frontend`, `npx playwright test tests/fertilization.spec.ts`.
+## Persistencia JPA y verificación
+
+El servicio de fertilización ejecuta consultas nativas mediante `EntityManager`.
+Los bloqueos y las transacciones protegen la aprobación, la generación de tareas y
+el registro de aplicaciones parciales. Cada aplicación conserva el vínculo entre
+plan, ocurrencia, evento y evidencia. [Persistencia JPA](../README.md#jpa-persistence)
+
+- API aislada en H2 con `./gradlew test --tests '*FertilizationApiTest'`.
+- Integración con el PostGIS configurado con
+  `./gradlew test --tests '*FertilizationPostgresTest'`.
+- Navegador desde `frontend` con `npx playwright test tests/fertilization.spec.ts`.
+
+El recorrido QA del 25 de noviembre de 2026 verificó análisis, plan, aprobación,
+tarea, aplicación y seguimiento contra la API conectada a PostGIS.
+[Informes y video](../frontend/tests/manual-agricultural-workflow.md#última-ejecución-completa-verificada)

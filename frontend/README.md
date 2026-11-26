@@ -32,11 +32,12 @@ AGRO_API_URL=http://localhost:8081 npm run dev
 | --- | --- |
 | Dashboard | Resumen de área, campos, bloques, plantas estimadas, actividades y acceso al mapa. Indicadores de salud, clima y producción solo en demo. |
 | Mi trabajo de hoy | Tareas persistentes por campo o bloque, fecha, miembro responsable, prioridad, instrucciones, notas, bloqueo, ejecución, revisión y aprobación. Vista de tarjetas/lista y filtros. |
-| Campos y bloques | Listas por jerarquía, formularios de creación con coordenadas JSON, filtro por campo y eliminación con confirmación. |
+| Campos y bloques | **Vista mapa** y **Vista lista**, estructura de la finca, detalle del campo y lista de sus bloques. Formularios con coordenadas JSON, filtros y eliminación con confirmación. En modo real se dibujan las geometrías registradas. |
 | Surcos y plantas | Inventario por bloque, longitud, espaciado, plantas estimadas, creación, eliminación y carga incremental de filas en pantalla. |
-| Mapas | Bloques seleccionables, acercamiento, centrado, pantalla ampliada, controles de capas y comparación. La capa **Nutrientes** permite consultar N, P, K, pH, materia orgánica, Ca, Mg, S, B y Zn por bloque, con trazabilidad e interpretación preliminar. En modo real, representa datos del API. |
-| Riego | Sectores, mediciones de humedad, programación y ejecución de riego, consumo de agua, alertas, fuentes, calidad, infraestructura, balances, mantenimiento y verificación de sensores. Las reglas recurrentes permiten vista previa, generación de ocurrencias idempotente, pausa, reanudación y cancelación; un job diario genera las próximas tareas. |
-| Fertilización | Pestañas **Análisis**, **Planes** y **Aplicaciones** para registrar resultados de suelo/foliares, interpretar provisionalmente, crear y consultar perfiles/productos, aprobar planes únicos o recurrentes, generar tareas por ocurrencia, registrar aplicaciones parciales, seguimientos y evidencia; sin prescripción automática ni edición/desactivación de perfiles y productos. |
+| Mapas | Bloques seleccionables, zoom, centrado, ampliación y controles de capas. Las vistas de humedad y nutrientes tienen resumen, leyenda, gráficos y tablas de trazabilidad. **Nutrientes** permite consultar N, P, K, pH, materia orgánica, Ca, Mg, S, B y Zn. |
+| Siembra y ciclos | Lista de ciclos por lote, información general y seguimiento por ciclo. **Resumen** muestra el bloque, fechas y avance por hitos registrados. **Ver calendario** abre el calendario regional. |
+| Riego | **Resumen** con indicadores, mapa y tabla de sectores vinculados por filtros, y alertas por prioridad. El mapa muestra una red ilustrativa en demo y activos con coordenadas en fincas conectadas. **Sectores**, **Programación**, **Ejecuciones**, **Sensores** e **Infraestructura** dan acceso a mediciones, riego recurrente y administración del agua. Un job diario genera las próximas ocurrencias y tareas sin duplicarlas. |
+| Fertilización | **Resumen** con mapa de la última muestra de suelo por bloque, alertas nutricionales, avance de planes y aplicaciones recientes. **Análisis**, **Planes** y **Aplicaciones** incluyen indicadores por bloque y acceso a perfiles, productos, aprobación, tareas por ocurrencia, aplicaciones parciales, seguimientos y evidencia. |
 | Plagas y enfermedades | Registro de observaciones con síntomas y severidad, historial de eventos y tratamientos. |
 | Cosecha | Historial estructurado por campo, bloque o fila y ciclo de cultivo; captura de fecha, área, rendimiento estimado, cantidad cosechada, unidad, calidad, rechazo y motivo; filtros por ciclo y unidad; acciones para ver el detalle y editar registros. |
 | Reportes y actividad | Filtros por tipo, bloque y fechas, detalle de evento, exportación CSV, referencias de archivos y eliminación autorizada. |
@@ -47,6 +48,13 @@ AGRO_API_URL=http://localhost:8081 npm run dev
 El inventario completo de endpoints y pantallas de nutrición está en
 [docs/fertilization.md](../docs/fertilization.md).
 
+En Fertilización, el técnico define las dosis del plan. Los catálogos de perfiles y
+productos admiten altas y consultas. La edición y la desactivación están pendientes.
+En Riego se pueden previsualizar y generar ocurrencias, y pausar, reanudar o
+cancelar reglas recurrentes.
+**Infraestructura** reúne fuentes, calidad, activos, balances, mantenimiento y
+verificaciones de sensores. [Guía de Riego](../docs/water-management.md#user-interface)
+
 En modo real, el detalle de Análisis usa el perfil activo configurado para la
 finca; la capa **Mapas → Nutrientes** todavía usa un perfil provisional incluido
 en el frontend y puede mostrar otra interpretación. La guía de fertilización
@@ -54,9 +62,10 @@ explica este límite.
 
 La búsqueda superior filtra el contenido de la vista que la admite: registros,
 tareas, comparaciones por bloque y miembros. No es un buscador global del servidor.
-Los controles de finca y fecha se muestran en el encabezado de escritorio y sobre
-el contenido en móvil. La fecha
-seleccionada se usa para la lista de tareas, con pendientes de días anteriores.
+Los controles de finca y fecha se muestran en el encabezado de escritorio. En
+móvil aparecen sobre el contenido en las vistas que incluyen ese selector. La fecha
+seleccionada se usa para la lista de tareas, con pendientes de días anteriores, y
+para los indicadores diarios del resumen de Riego.
 
 ## Demostración y datos reales
 
@@ -84,16 +93,24 @@ Completar una tarea no crea un evento agrícola, ni adjunta evidencias. No hay
 reprogramación, cancelación o edición de asignaciones en esta primera versión.
 
 Los mapas de demo utilizan una imagen aérea ficticia y polígonos ilustrativos.
-No son cartografía georreferenciada. La vista real usa Leaflet para colocar los
-polígonos SRID 4326 de campos y bloques y las líneas SRID 4326 de los surcos
-encima de un mapa base. La capa **Mapa** usa OpenStreetMap; **Satélite** usa
-World Imagery de Esri por defecto y **Híbrido** combina ambas capas. Para
-producción se puede configurar un proveedor autorizado con
-`VITE_MAP_SATELLITE_TILES_URL` y `VITE_MAP_SATELLITE_ATTRIBUTION`. Los campos,
-bloques y surcos se pueden activar o desactivar desde **Herramientas** y las
-geometrías son seleccionables aunque todavía no existan observaciones.
+La vista real usa Leaflet para colocar los polígonos SRID 4326 de campos y bloques
+y las líneas SRID 4326 de los surcos sobre un mapa base. En **Mapas**, **Satélite**
+es la vista inicial y usa World Imagery de Esri por defecto. **Plano** usa
+OpenStreetMap y **Híbrido** combina ambas fuentes. Para configurar las teselas
+satelitales se usan `VITE_MAP_SATELLITE_TILES_URL` y
+`VITE_MAP_SATELLITE_ATTRIBUTION`. **Capas del mapa** permite activar o desactivar
+campos, bloques y surcos. Las geometrías se pueden seleccionar aunque todavía
+no existan observaciones. En **Campos**, **Herramientas** abre los controles de
+capas y **Ver bloques del campo** abre la lista correspondiente.
 Las geometrías marcadas `[PRUEBA]` se identifican como ficticias en la vista de
 mapas. Ver [el plano de prueba de Guasita](../scripts/README.md).
+
+En **Humedad del suelo**, el promedio usa las últimas lecturas que comparten una
+unidad. El perfil por profundidad muestra las mediciones del bloque seleccionado.
+En **Nutrientes**, la escala agrupa valores observados de muestras comparables y
+la trazabilidad conserva el valor, la unidad y la referencia de laboratorio.
+**Comparar capas** divide el mapa ilustrativo en demo. En modo real presenta los
+dos resúmenes y las dos leyendas junto al plano de la capa activa.
 
 El endpoint de eventos no devuelve los detalles de observación: los síntomas y la
 severidad se envían al crear el registro, pero el frontend no inventa esos datos al
@@ -130,10 +147,11 @@ también las áreas de sus bloques. Las plantas son estimaciones agregadas por s
 
 ## Verificación
 
-Para ejecutar las pruebas de backend, frontend y el recorrido automatizado de
-una finca temporal en Chrome, usa `python3 scripts/run_qa_tests.py` desde la raíz.
-Consulta los requisitos y los informes en la
-[guía de pruebas automatizadas](tests/manual-agricultural-workflow.md#pruebas-automatizadas-en-chrome).
+Desde la raíz, `python3 scripts/run_qa_tests.py` ejecuta las pruebas de backend y
+frontend y el recorrido automatizado de una finca temporal en Chrome. Puedes añadir
+`--watch --record` para ver cada acción más despacio y guardar las grabaciones.
+[Guía de ejecución](tests/manual-agricultural-workflow.md#pruebas-automatizadas-en-chrome) ·
+[Últimos informes y video](tests/manual-agricultural-workflow.md#última-ejecución-completa-verificada)
 
 ```bash
 npm test
@@ -159,6 +177,10 @@ GeoJSON y evitar propiedades internas de proxies Hibernate, mapear el enum de
 eventos y los campos JSONB de PostgreSQL, y consultar eventos asociados solo a
 bloque o solo a surco con filtros opcionales. Las pruebas del backend cubren ese
 recorrido y el registro de observaciones/mapas/referencias de archivos.
+Los flujos conectados usan un API con persistencia JPA. Las pruebas de la API
+verifican los totales de cosecha del mapa y la consulta de alertas con y sin filtro
+de estado. El recorrido de Chrome comprueba la escritura de registros en PostGIS.
+[Persistencia JPA](../README.md#jpa-persistence)
 
 También se puede usar Chrome instalado en macOS:
 
@@ -176,6 +198,6 @@ src/
   lib/                   Cliente API, tipos, datos demo y reglas probadas
   pages/                 Pantallas de cada módulo
   styles.css             Estilos y adaptación responsive
-public/images/           Imagen aérea ilustrativa y su especificación
+public/images/           Imagen aérea y fotografía ilustrativa de fertilización con sus especificaciones
 tests/                   Pruebas de navegador
 ```

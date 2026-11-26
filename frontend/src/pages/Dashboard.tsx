@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, ArrowUpRight, CalendarCheck2, ChartNoAxesCombined, ChevronDown, ChevronRight, Droplets, FlaskConical, HeartPulse, Leaf, Maximize2, Plus, Sprout, TriangleAlert, Wheat, Bug } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, CalendarCheck2, ChartNoAxesCombined, ChevronDown, ChevronRight, Droplets, FlaskConical, HeartPulse, Leaf, Maximize2, Plus, Sprout, TriangleAlert, Wheat, Bug, CloudSun, MapPin, Wind } from 'lucide-react';
 import { useApp } from '../context';
 import { api } from '../lib/api';
 import { farmMetrics, number, eventLabels, statusLabels } from '../lib/domain';
@@ -27,6 +27,8 @@ type DashboardMapTab = MapLayer | 'disease' | 'production';
 export default function Dashboard() {
   const { mode, profile, data, tasks, date, navigate, role, farmId, notify } = useApp();
   const [eventOpen, setEventOpen] = useState(false);
+  const [view, setView] = useState<'general' | 'operations'>();
+  const general = (view ?? (role === 'ADMIN' ? 'operations' : 'general')) === 'general';
   const [disease, setDisease] = useState<DiseaseLayer>();
   const [analytics, setAnalytics] = useState<DashboardAnalytics>();
   const [analyticsMap, setAnalyticsMap] = useState<AnalyticsLayer>();
@@ -52,7 +54,13 @@ export default function Dashboard() {
   const today = new Date();
   const greeting = demo ? 'Buenos días' : today.getHours() < 12 ? 'Buenos días' : today.getHours() < 18 ? 'Buenas tardes' : 'Buenas noches';
   const firstName = profile.user.name.split(' ')[0];
-  const stats = [
+  const stats = general ? [
+    { icon: MapPin, color: 'green', label: 'Área total', value: `${number(metrics.area, 1)} ha`, note: `${data.fields.length} campos` },
+    { icon: Sprout, color: 'green', label: 'Plantas estimadas', value: number(metrics.plants), note: `${data.rows.length} surcos` },
+    { icon: HeartPulse, color: 'green', label: demo ? 'Salud del cultivo' : 'Observaciones sanitarias', value: demo ? '72%' : number(metrics.observations), note: demo ? 'Saludable' : 'Registros de la finca' },
+    { icon: ChartNoAxesCombined, color: 'blue', label: demo ? 'Producción estimada' : 'Registros de cosecha', value: demo ? '38,5 t/ha' : number(data.events.filter(event => event.eventType === 'HARVEST_EVENT').length), note: demo ? 'Promedio de la finca' : 'Actividades registradas' },
+    { icon: TriangleAlert, color: 'red', label: demo ? 'Zonas en alerta' : 'Alertas abiertas', value: demo ? '18 ha' : visibleAnalytics ? number(visibleAnalytics.openAlerts) : '—', note: 'Requieren atención' },
+  ] : [
     { icon: HeartPulse, color: 'green', label: 'Salud de la finca', value: demo ? '84%' : number(metrics.observations), note: demo ? '↑ 6% vs. semana anterior' : 'Observaciones registradas' },
     { icon: ChartNoAxesCombined, color: 'green', label: 'Producción (mes)', value: demo ? '126,4 t' : number(metrics.events), note: demo ? '↑ 12% vs. mes anterior' : 'Registros de producción' },
     { icon: Droplets, color: 'blue', label: 'Agua hoy', value: demo ? '186 m³' : '—', note: demo ? '↓ 18% vs. ayer' : 'Consulta el módulo de riego' },
@@ -61,15 +69,26 @@ export default function Dashboard() {
     { icon: Sprout, color: 'green', label: 'Área con problemas', value: demo ? '3,2 ha' : `${number(metrics.area, 1)} ha`, note: demo ? '↓ 40% del total (121 ha)' : `${data.fields.length} campos · ${data.blocks.length} bloques` },
   ];
 
-  return <div className="dashboard-screen">
-    <section className="dashboard-hero"><div className="dashboard-hero-copy"><h1>{greeting}, {firstName}<span className="greeting-dot">.</span></h1><p>Aquí tienes el estado actual de tu finca. Todo en tiempo real para tomar mejores decisiones.</p></div><div className="dashboard-hero-art"><strong>{demo ? '121' : number(metrics.area, 0)} <small>hectáreas</small></strong><span>cultivando un mejor mañana</span></div></section>
+  return <div className={`dashboard-screen ${general ? 'dashboard-general' : ''}`}>
+    <section className="dashboard-hero"><div className="dashboard-hero-copy"><h1>{greeting}, {firstName}<span className="greeting-dot">.</span></h1><p>Aquí está el estado de tu finca para la fecha seleccionada.</p></div><div className="dashboard-hero-art"><strong>{demo ? '121' : number(metrics.area, 0)} <small>hectáreas</small></strong><span>cultivando un mejor mañana</span></div></section>
+    <div className="dashboard-view-options" role="group" aria-label="Vista del tablero">
+      <button className="text-button" aria-pressed={general} onClick={() => setView('general')}>Vista general</button>
+      <button className="text-button" aria-pressed={!general} onClick={() => setView('operations')}>Vista operativa</button>
+    </div>
     <div className="dashboard-kpi-grid">{stats.map(stat => <article className="dashboard-kpi" key={stat.label}><span className={`dashboard-kpi-icon ${stat.color}`}><stat.icon size={21} strokeWidth={1.8} /></span><div><span>{stat.label}</span><strong>{stat.value}</strong><small className={stat.color === 'red' ? 'text-red' : ''}>{stat.note}</small></div></article>)}</div>
     <div className="dashboard-main-grid">
-      <Panel title="Situación de la finca hoy" className="dashboard-map-card" action={<div className="dashboard-map-header-actions"><button className="dashboard-map-view-button" onClick={() => navigate('maps')}>Vista satelital <ChevronDown size={14} /></button><button className="dashboard-map-expand-button" aria-label="Abrir mapa completo" onClick={() => navigate('maps')}><Maximize2 size={16} /></button></div>}><p className="dashboard-subtitle">Visualiza las principales variables y alertas en tu terreno.</p><div className="dashboard-map-tabs">{[{ value: 'health', label: 'Salud general', icon: HeartPulse }, { value: 'moisture', label: 'Humedad', icon: Droplets }, { value: 'nutrients', label: 'Nutrientes', icon: FlaskConical }, { value: 'disease', label: 'Enfermedades', icon: Bug }, { value: 'production', label: 'Producción', icon: ChartNoAxesCombined }].map(({ value, label, icon: Icon }) => <button key={value} className={mapTab === value ? 'active' : ''} onClick={() => setMapTab(value as DashboardMapTab)}><Icon size={14} strokeWidth={1.8} />{label}</button>)}</div><div className="dashboard-map-stage"><FarmMap farm={data.farms[0]} fields={data.fields} blocks={data.blocks} rows={data.rows} demo={demo} layer={mapLayer} disease={disease} analytics={visibleMapAnalytics} baseLayer="satellite" /></div><div className="dashboard-map-legend"><span><i className="map-legend-dot optimal" />Condiciones óptimas</span><span><i className="map-legend-dot attention" />Requiere seguimiento</span><span><i className="map-legend-dot critical" />Atención prioritaria</span><strong>{demo ? '121 ha' : `${number(metrics.area, 1)} ha`} en total</strong></div></Panel>
-      <DashboardAlerts demo={demo} openAlerts={visibleAnalytics?.openAlerts ?? 0} navigate={navigate} />
+      <Panel title={general ? 'Mapa de la finca' : 'Situación de la finca hoy'} className="dashboard-map-card" action={<div className="dashboard-map-header-actions"><button className="dashboard-map-view-button" onClick={() => navigate('maps')}>Vista satelital <ChevronDown size={14} /></button><button className="dashboard-map-expand-button" aria-label="Abrir mapa completo" onClick={() => navigate('maps')}><Maximize2 size={16} /></button></div>}><p className="dashboard-subtitle">Visualiza las principales variables y alertas en tu terreno.</p><div className="dashboard-map-tabs">{[{ value: 'health', label: 'Salud general', icon: HeartPulse }, { value: 'moisture', label: 'Humedad', icon: Droplets }, { value: 'nutrients', label: 'Nutrientes', icon: FlaskConical }, { value: 'disease', label: 'Enfermedades', icon: Bug }, { value: 'production', label: 'Producción', icon: ChartNoAxesCombined }].map(({ value, label, icon: Icon }) => <button key={value} className={mapTab === value ? 'active' : ''} onClick={() => setMapTab(value as DashboardMapTab)}><Icon size={14} strokeWidth={1.8} />{label}</button>)}</div><div className="dashboard-map-stage"><FarmMap farm={data.farms[0]} fields={data.fields} blocks={data.blocks} rows={data.rows} demo={demo} layer={mapLayer} disease={disease} analytics={visibleMapAnalytics} baseLayer="satellite" /></div><div className="dashboard-map-legend"><span><i className="map-legend-dot optimal" />Condiciones óptimas</span><span><i className="map-legend-dot attention" />Requiere seguimiento</span><span><i className="map-legend-dot critical" />Atención prioritaria</span><strong>{demo ? '121 ha' : `${number(metrics.area, 1)} ha`} en total</strong></div></Panel>
+      {general ? <div className="record-side-panels">
+        {demo && <Panel title="Estado del cultivo"><div className="record-ring-summary">
+          <Donut value="72%" label="Saludable" />
+          <ul className="record-summary-list">{[['#65b55a', 'Saludable', '72%'], ['#f5cb47', 'Estrés leve', '18%'], ['#fa9648', 'En riesgo', '8%'], ['#ef615b', 'Con enfermedad', '2%']].map(([color, label, value]) => <li key={label}><i style={{ backgroundColor: color }} /><span>{label}</span><strong>{value}</strong></li>)}</ul>
+        </div></Panel>}
+        {demo && <Panel title="Clima actual"><div className="dashboard-weather-current"><CloudSun size={37} /><div><strong>24 °C</strong><p>Parcialmente nublado</p></div></div><div className="dashboard-weather-details"><span><Droplets size={17} />78% humedad</span><span><Wind size={17} />12 km/h</span></div></Panel>}
+        <DashboardWork tasks={pending} data={data} demo={false} navigate={navigate} />
+      </div> : <DashboardAlerts demo={demo} openAlerts={visibleAnalytics?.openAlerts ?? 0} navigate={navigate} />}
     </div>
-    <div className="dashboard-lower-grid"><DashboardWork tasks={pending} data={data} demo={demo} navigate={navigate} /><ProductionCard data={data} demo={demo} /><CostsCard demo={demo} /><AiCard demo={demo} navigate={navigate} /></div>
-    <div className="dashboard-history-grid"><Panel title="Actividad reciente" action={<LinkButton onClick={() => navigate('reports')}>Ver todo</LinkButton>}><EventList limit={3} /></Panel><Panel title={demo ? 'Evolución de la salud del cultivo' : 'Historial de la finca'} action={demo && <Badge tone="neutral">Últimos 6 meses · Ejemplo</Badge>}>{demo ? <LineChart /> : <div className="dashboard-empty-summary"><strong>{number(data.events.length)}</strong><span>actividades registradas</span><p>Los próximos registros construirán la historia de tu cultivo.</p></div>}</Panel><Panel title="Centro agronómico" action={<LinkButton onClick={() => navigate('insights')}>Explorar</LinkButton>}><div className="dashboard-guidance"><span className="icon-tile green"><Leaf size={21} /></span><div><Badge tone="green">BUENAS PRÁCTICAS</Badge><h4>Observar es el primer paso.</h4><p>Un recorrido de inspección ayuda a identificar qué áreas necesitan revisión.</p><button className="text-button" onClick={() => navigate('disease')}>Registrar observación<ArrowUpRight size={14} /></button></div></div></Panel></div>
+    {!general && <div className="dashboard-lower-grid"><DashboardWork tasks={pending} data={data} demo={demo} navigate={navigate} /><ProductionCard data={data} demo={demo} /><CostsCard demo={demo} /><AiCard demo={demo} navigate={navigate} /></div>}
+    <div className="dashboard-history-grid"><Panel title="Actividad reciente" action={<LinkButton onClick={() => navigate('reports')}>Ver todo</LinkButton>}><EventList limit={3} /></Panel><Panel title={demo ? 'Evolución de la salud del cultivo' : 'Historial de la finca'} action={demo && <Badge tone="neutral">Últimos 6 meses · Ejemplo</Badge>}>{demo ? <LineChart /> : <div className="dashboard-empty-summary"><strong>{number(data.events.length)}</strong><span>actividades registradas</span><p>Los próximos registros construirán la historia de tu cultivo.</p></div>}</Panel>{general ? <AiCard demo={demo} navigate={navigate} /> : <Panel title="Centro agronómico" action={<LinkButton onClick={() => navigate('insights')}>Explorar</LinkButton>}><div className="dashboard-guidance"><span className="icon-tile green"><Leaf size={21} /></span><div><Badge tone="green">BUENAS PRÁCTICAS</Badge><h4>Observar es el primer paso.</h4><p>Un recorrido de inspección ayuda a identificar qué áreas necesitan revisión.</p><button className="text-button" onClick={() => navigate('disease')}>Registrar observación<ArrowUpRight size={14} /></button></div></div></Panel>}</div>
     {eventOpen && <EventForm onClose={() => setEventOpen(false)} />}
     <button className="dashboard-quick-action" onClick={() => setEventOpen(true)} disabled={!data.blocks.length}><Plus size={16} />Registrar actividad</button>
   </div>;

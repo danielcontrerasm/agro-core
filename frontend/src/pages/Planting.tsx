@@ -42,6 +42,7 @@ import { csvCell, localDate } from '../lib/domain';
 import type { Member } from '../lib/types';
 import FarmMap from '../components/FarmMap';
 import { Badge, Empty, Loading, Modal, Notice } from '../components/ui';
+import '../planting.css';
 
 const statusLabels: Record<string, string> = {
   DRAFT: 'Planeación',
@@ -150,7 +151,7 @@ export default function Planting() {
     selectedExecutions.length > 0,
     Boolean(completion),
   ];
-  const progress = Math.max(5, Math.round(progressFlags.filter(Boolean).length / progressFlags.length * 100));
+  const progress = Math.round(progressFlags.filter(Boolean).length / progressFlags.length * 100);
   const nextStep = !selectedCycle?.siteAssessment
     ? 'Evaluar el lote'
     : selectedCycle.siteAssessment.status !== 'APPROVED'
@@ -698,12 +699,12 @@ export default function Planting() {
   if (loading) return <div className="page-stack planting-screen"><Loading /></div>;
 
   return <div className="page-stack planting-screen planting-reference-screen">
-    <div className="planting-breadcrumb"><span><Home size={13} />Inicio</span><ChevronRight size={12} /><strong>Siembra y ciclos</strong></div>
+    <div className="planting-breadcrumb"><span><Home size={15} />Inicio</span><ChevronRight size={13} /><strong>Siembra y ciclos</strong></div>
     <div className="planting-reference-overview">
     <header className="planting-reference-heading">
       <div><h1>Siembra y ciclos</h1><p>Gestiona los ciclos productivos, materiales vegetales, planes de siembra y el estado de ejecución en cada campo y bloque.</p></div>
       <div className="heading-actions">
-        <button className="button secondary" onClick={() => app.navigate('settings')}><CalendarDays size={15} />Ver calendario</button>
+        <button className="button secondary" onClick={() => app.navigate('settings', 'calendar')}><CalendarDays size={15} />Ver calendario</button>
         <button className="button secondary" onClick={exportCycles}><Download size={15} />Exportar</button>
         <button className="button" onClick={openNewCycle}><Plus size={16} />Nuevo ciclo</button>
       </div>
@@ -711,7 +712,7 @@ export default function Planting() {
 
     <div className="planting-kpi-grid planting-reference-kpis">
       <KpiCard icon={Sprout} tone="green" label="Ciclos activos" value={planting.cycles.filter(cycle => !['CLOSED', 'CANCELED'].includes(cycle.status)).length} note="en desarrollo" />
-      <KpiCard icon={PackageCheck} tone="blue" label="Material vegetal" value={planting.materialLots.filter(material => material.status === 'ACCEPTED').length} note="variedades" />
+      <KpiCard icon={PackageCheck} tone="blue" label="Material vegetal" value={planting.materialLots.filter(material => material.status === 'ACCEPTED').length} note="lotes aceptados" />
       <KpiCard icon={ClipboardList} tone="gold" label="Planes" value={planting.plans.length} note="con planificación" />
       <KpiCard icon={CheckCircle2} tone="purple" label="Ejecuciones" value={planting.executions.length} note="en campo" />
       <KpiCard icon={Ruler} tone="teal" label="Área planificada" value={numberLabel(plannedArea, 1) + ' ha'} note={'de ' + numberLabel(totalArea, 0) + ' ha'} />
@@ -723,7 +724,7 @@ export default function Planting() {
         <div className="planting-reference-panel-heading">
           <div><h3>Ciclos por lote</h3><p>Selecciona un ciclo para ver y gestionar su información.</p></div>
           <select value={cycleFilter} onChange={event => setCycleFilter(event.target.value)} aria-label="Filtrar ciclos por lote">
-            <option value="all">Todos los campos</option>
+            <option value="all">Todos los lotes</option>
             {blocks.map(block => <option key={block.id} value={block.id}>{block.code}</option>)}
           </select>
         </div>
@@ -731,7 +732,7 @@ export default function Planting() {
           {visibleCycles.length ? visibleCycles.map(cycle => {
             const block = blocks.find(item => item.id === cycle.blockId);
             return <button type="button" key={cycle.id} className={'planting-reference-cycle-card ' + (cycle.id === selectedCycle?.id ? 'selected' : '')} onClick={() => { setSelectedCycleId(cycle.id); setDetailTab('summary'); }}>
-              <span className="planting-cycle-thumb"><img src="/images/farm-aerial.png" alt="" /></span>
+              <span className="planting-cycle-thumb">{mode === 'demo' ? <img src="/images/farm-aerial.png" alt="" /> : <Sprout size={25} aria-hidden="true" />}</span>
               <span className="planting-cycle-card-copy"><strong>{cycle.code}</strong><span>{cycle.crop} · {cycle.variety || 'Variedad por definir'}</span><small>{block?.code ?? 'Lote sin asignar'} · {dateLabel(cycle.plannedPlantingFrom)}</small></span>
               <Badge tone={statusTone(cycle.status)}>{statusLabels[cycle.status] ?? cycle.status}</Badge>
             </button>;
@@ -785,7 +786,7 @@ export default function Planting() {
                 ].map(([label, done], index) => <div key={String(label)} className={done ? 'done' : index === progressFlags.findIndex(value => !value) ? 'current' : ''}><span>{done ? <Check size={12} /> : index + 1}</span><small>{label}</small></div>)}
               </div>
               <div className="planting-progress-heading"><strong>Progreso</strong><strong>{progress}%</strong></div>
-              <div className="planting-progress-track"><i style={{ width: progress + '%' }} /></div>
+              <div className="planting-progress-track" role="progressbar" aria-label="Progreso del ciclo" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}><i style={{ width: progress + '%' }} /></div>
               <div className="planting-status-metrics">
                 <Metric label="Área planificada" value={numberLabel(selectedPlans.reduce((total, plan) => total + Number(plan.plannedAreaHa || 0), 0), 1) + ' ha'} />
                 <Metric label="Plantas objetivo" value={numberLabel(plannedPlants)} />
@@ -795,7 +796,15 @@ export default function Planting() {
             </section>
           </div>
           <div className="planting-summary-meta-grid">
-            <section className="panel planting-summary-meta-card planting-key-dates-card"><div className="planting-meta-card-heading"><h3>Fechas clave</h3></div><div className="planting-key-dates"><DateMeta label="Inicio planificado" value={dateLabel(selectedCycle.plannedPlantingFrom)} /><ArrowRight size={14} /><DateMeta label="Fin planificado" value={dateLabel(selectedCycle.plannedPlantingTo)} /><ArrowRight size={14} /><DateMeta label="Inicio real" value={dateLabel(selectedCycle.plantedOn)} /><ArrowRight size={14} /><DateMeta label="Fin real" value={dateLabel(selectedCycle.expectedHarvestOn)} /></div></section>
+            <section className="panel planting-summary-meta-card planting-key-dates-card">
+              <div className="planting-meta-card-heading"><h3>Fechas clave</h3></div>
+              <div className="planting-key-dates">
+                <DateMeta label="Inicio planificado" value={dateLabel(selectedCycle.plannedPlantingFrom)} />
+                <DateMeta label="Fin planificado" value={dateLabel(selectedCycle.plannedPlantingTo)} />
+                <DateMeta label="Inicio real" value={dateLabel(selectedCycle.plantedOn)} />
+                <DateMeta label="Cosecha estimada" value={dateLabel(selectedCycle.expectedHarvestOn)} />
+              </div>
+            </section>
             <section className="panel planting-summary-meta-card planting-responsible-card"><div className="planting-meta-card-heading"><h3>Responsables</h3></div><div className="planting-responsible-copy"><span className="planting-meta-icon"><Users size={17} /></span><div><strong>{members.find(member => member.userId === approvedPlan?.responsibleId)?.name ?? 'Sin asignar'}</strong><span>{selectedCycle.notes || 'Asigna un responsable para este ciclo.'}</span></div></div>{!approvedPlan && acceptedMaterials.length > 0 && <button className="button secondary small" onClick={() => setModal('plan')}>Asignar</button>}</section>
           </div>
           <div className="planting-next-step"><span className="planting-next-step-dot" /><div><small>SIGUIENTE PASO</small><strong>{nextStep}</strong></div><button className="text-button" onClick={() => setDetailTab(nextStep.includes('material') ? 'material' : nextStep.includes('plan') ? 'plan' : nextStep.includes('ejecutar') ? 'execution' : 'followup')}>Abrir detalle<ArrowRight size={13} /></button></div>

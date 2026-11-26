@@ -101,9 +101,23 @@ export function demoFertilization(): FertilizationData {
   ] }));
   return { analyses, plans: [], applications: [] };
 }
+export function latestSoilAnalyses(analyses: Analysis[]) {
+  const latest = new Map<number, Analysis>();
+  for (const analysis of analyses) {
+    if (analysis.sampleType !== 'SOIL') continue;
+    const previous = latest.get(analysis.blockId);
+    if (!previous || analysis.sampledOn > previous.sampledOn
+      || (analysis.sampledOn === previous.sampledOn && analysis.id > previous.id)) {
+      latest.set(analysis.blockId, analysis);
+    }
+  }
+  return latest;
+}
+
 export function withSoilAnalyses(layer: AnalyticsLayer, analyses: Analysis[]): AnalyticsLayer {
+  const latest = latestSoilAnalyses(analyses);
   return { ...layer, features: layer.features.map(feature => {
-    const sample = analyses.filter(analysis => analysis.sampleType === 'SOIL' && analysis.blockId === feature.properties.blockId).sort((first, second) => second.sampledOn.localeCompare(first.sampledOn) || second.id - first.id)[0];
+    const sample = latest.get(feature.properties.blockId);
     return { ...feature, properties: { ...feature.properties, soilAnalysis: sample, nitrogen: undefined, phosphorus: undefined, potassium: undefined, ph: undefined } };
   }) };
 }

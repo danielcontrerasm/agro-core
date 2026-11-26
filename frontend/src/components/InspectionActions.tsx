@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
+import { Download, FileText, Plus } from 'lucide-react';
 import { useApp } from '../context';
 import { api } from '../lib/api';
 import { csvCell, localDate, number } from '../lib/domain';
@@ -14,6 +15,10 @@ export default function InspectionActions({ inspection, related, onOpen, onUpdat
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [action, setAction] = useState<'treatment' | 'evidence' | 'cancel' | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (action) formRef.current?.querySelector<HTMLElement>('input, select, textarea')?.focus();
+  }, [action]);
   useEffect(() => {
     let active = true; setError(''); setLoading(true);
     if (mode === 'demo') { setTreatments(inspection.treatments ?? []); setEvidence(inspection.evidence ?? []); setLoading(false); return; }
@@ -65,26 +70,74 @@ export default function InspectionActions({ inspection, related, onOpen, onUpdat
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'No se pudo guardar.'); } finally { setBusy(false); onBusyChange(false); }
   }
 
-  return <section className="form-stack">
-    {inspection.parentInspectionId && <p>Seguimiento de inspección #{inspection.parentInspectionId}{related.some(item => item.id === inspection.parentInspectionId) && <button className="text-button" disabled={busy} onClick={() => onOpen(inspection.parentInspectionId!)}>Ver inspección de origen</button>}</p>}
-    {related.filter(item => item.parentInspectionId === inspection.id).map(item => <button className="text-button" disabled={busy} key={item.id} onClick={() => onOpen(item.id)}>Ver seguimiento #{item.id}{item.canceledAt ? ' · Anulado' : ''}</button>)}
-    {inspection.canceledAt && <p role="status">Anulada: {inspection.cancellationReason} · {new Date(inspection.canceledAt).toLocaleString('es-CO')} · Usuario #{inspection.canceledByUserId}</p>}
-    <h3>Tratamientos realizados</h3>
-    <button className="text-button" disabled={loading || !treatments.length} onClick={exportTreatments}>Exportar tratamientos CSV</button>
-    {loading ? <p role="status">Cargando tratamientos y evidencias…</p> : !treatments.length && <p>Sin tratamientos registrados.</p>}
-    {treatments.map(item => <article className="instructions" key={item.id}><h4>Tratamiento #{item.id}</h4><p>{item.description}</p><p>{item.product}{item.quantity != null ? ` · ${number(item.quantity, 2)} ${item.unit}` : ''}</p><small>{new Date(item.occurredAt).toLocaleString('es-CO')} · {item.authorName}</small></article>)}
-    <PhotoGallery target={{ inspectionId: inspection.id }} treatments={treatments} readOnly={!!inspection.canceledAt} onBusyChange={value => { setBusy(value); onBusyChange(value); }} />
-    <h3>Referencias de evidencia</h3><p className="muted">Aquí se conservan las referencias externas de archivos registradas previamente.</p>
-    {!loading && !evidence.length && <p>Sin evidencias registradas.</p>}
-    {evidence.map(item => <div className="media-record" key={item.id}><div><strong>{item.s3Key}</strong><small>{item.kind} · {item.contentType || 'Sin tipo'} · {item.treatmentId ? `Tratamiento #${item.treatmentId}` : 'Inspección'} · {item.authorName}</small></div></div>)}
-    {!inspection.canceledAt && !loading && <div className="heading-buttons"><button className="button secondary small" disabled={busy} onClick={() => { setError(''); setAction('treatment'); }}>Registrar tratamiento</button><button className="button secondary small" disabled={busy} onClick={() => { setError(''); setAction('evidence'); }}>Registrar evidencia</button><button className="button secondary small" disabled={busy} onClick={onFollowUp}>Registrar seguimiento</button></div>}
-    {action && !inspection.canceledAt && <form className="form-stack inline-form" onSubmit={submit}>
-      {action === 'treatment' && <><p>Registra lo ejecutado según el plan aprobado por el responsable técnico.</p><label>Fecha del tratamiento<input name="occurredAt" type="datetime-local" required defaultValue={localTime} max={localTime} /></label><label>Descripción del tratamiento<textarea name="description" required maxLength={4000} /></label><label>Producto utilizado (opcional)<input name="product" maxLength={250} /></label><div className="form-grid"><label>Cantidad aplicada (opcional)<input name="quantity" type="number" min="0.000001" step="any" /></label><label>Unidad de cantidad<input name="unit" maxLength={40} placeholder="kg, L…" /></label></div></>}
-      {action === 'evidence' && <><label>Asociar evidencia a<select name="treatmentId"><option value="">Inspección</option>{treatments.map(item => <option key={item.id} value={item.id}>Tratamiento #{item.id}: {item.description}</option>)}</select></label><label>Tipo de evidencia<select name="kind"><option value="IMAGE">Imagen</option><option value="DOCUMENT">Documento</option><option value="VIDEO">Video</option></select></label><label>Referencia S3<input name="s3Key" required maxLength={1024} /></label><label>Tipo de contenido<input name="contentType" maxLength={150} placeholder="image/jpeg" /></label></>}
-      {action === 'cancel' && <><p>La inspección y sus tratamientos se conservarán en el historial. Dejará de participar en la capa de salud.</p><label>Motivo de anulación<textarea name="reason" required maxLength={4000} /></label></>}
-      <div className="form-actions"><button type="button" className="button secondary" disabled={busy} onClick={() => setAction(null)}>Cancelar</button><button className="button" disabled={busy}>{busy ? 'Guardando…' : action === 'cancel' ? 'Confirmar anulación' : action === 'evidence' ? 'Guardar evidencia' : 'Guardar tratamiento'}</button></div>
-    </form>}
-    {error && <p className="form-error" role="alert">{error}</p>}
-    {!inspection.canceledAt && role !== 'WORKER' && <button className="text-button text-red" disabled={busy} onClick={() => { setError(''); setAction('cancel'); }}>Anular inspección</button>}
-  </section>;
+  const followUps = related.filter(item => item.parentInspectionId === inspection.id);
+  const writable = !inspection.canceledAt && !loading;
+  const chooseAction = (next: typeof action) => { setError(''); setAction(next); };
+  const actionFooter = (label: string) => <>
+    {error && <p className="form-error inspection-full-row" role="alert">{error}</p>}
+    <div className="form-actions inspection-full-row">
+      <button type="button" className="button secondary" disabled={busy} onClick={() => chooseAction(null)}>Cancelar</button>
+      <button className="button" disabled={busy}>{busy ? 'Guardando…' : label}</button>
+    </div>
+  </>;
+  return <>
+    {inspection.canceledAt && <p className="inspection-cancellation" role="status"><strong>Anulada: {inspection.cancellationReason}</strong><span>{new Date(inspection.canceledAt).toLocaleString('es-CO')} · Usuario #{inspection.canceledByUserId}</span></p>}
+    <section className="inspection-detail-section">
+      <div className="inspection-section-heading">
+        <h3>Tratamientos realizados</h3>
+        {writable && <button className="button secondary" disabled={busy} onClick={() => chooseAction('treatment')}><Plus size={16} />Registrar tratamiento</button>}
+      </div>
+      {action === 'treatment' && writable && <form ref={formRef} className="inspection-form-grid inspection-action-form" onSubmit={submit}>
+        <label>Fecha del tratamiento<input name="occurredAt" type="datetime-local" required defaultValue={localTime} max={localTime} /></label>
+        <label>Producto utilizado (opcional)<input name="product" maxLength={250} /></label>
+        <label>Cantidad aplicada (opcional)<input name="quantity" type="number" min="0.000001" step="any" /></label>
+        <label>Unidad de cantidad<input name="unit" maxLength={40} placeholder="kg, L…" /></label>
+        <label className="inspection-full-row">Descripción del tratamiento<textarea name="description" required maxLength={4000} /></label>
+        {actionFooter('Guardar tratamiento')}
+      </form>}
+      {loading ? <p role="status">Cargando tratamientos y evidencias…</p> : !treatments.length && <p className="inspection-empty-copy">Sin tratamientos registrados.</p>}
+      {treatments.map(item => <article className="inspection-treatment" key={item.id}>
+        <div><strong>{item.product || 'Tratamiento aplicado'}</strong>{item.quantity != null && <span>{number(item.quantity, 2)} {item.unit}</span>}</div>
+        <p>{item.description}</p>
+        <small>{new Date(item.occurredAt).toLocaleString('es-CO')} · {item.authorName}</small>
+      </article>)}
+      {treatments.length > 0 && <button className="text-button" onClick={exportTreatments}><Download size={15} />Exportar tratamientos CSV</button>}
+    </section>
+    <section className="inspection-detail-section">
+      <PhotoGallery target={{ inspectionId: inspection.id }} treatments={treatments} readOnly={!!inspection.canceledAt} onBusyChange={value => { setBusy(value); onBusyChange(value); }} />
+    </section>
+    <section className="inspection-detail-section">
+      <div className="inspection-section-heading">
+        <h3>Referencias de evidencia</h3>
+        {writable && <button className="button secondary" disabled={busy} onClick={() => chooseAction('evidence')}><Plus size={16} />Registrar evidencia</button>}
+      </div>
+      {action === 'evidence' && writable && <form ref={formRef} className="inspection-form-grid inspection-action-form" onSubmit={submit}>
+        <label>Asociar evidencia a<select name="treatmentId"><option value="">Inspección</option>{treatments.map(item => <option key={item.id} value={item.id}>Tratamiento #{item.id}: {item.description}</option>)}</select></label>
+        <label>Tipo de evidencia<select name="kind"><option value="IMAGE">Imagen</option><option value="DOCUMENT">Documento</option><option value="VIDEO">Video</option></select></label>
+        <label>Referencia S3<input name="s3Key" required maxLength={1024} /></label>
+        <label>Tipo de contenido<input name="contentType" maxLength={150} placeholder="image/jpeg" /></label>
+        {actionFooter('Guardar evidencia')}
+      </form>}
+      {!loading && !evidence.length && <p className="inspection-empty-copy">Sin evidencias registradas.</p>}
+      {evidence.map(item => <div className="inspection-evidence" key={item.id}><FileText size={20} /><div><strong>{item.s3Key}</strong><small>{item.contentType || item.kind} · {item.treatmentId ? `Tratamiento #${item.treatmentId}` : 'Inspección'} · {item.authorName}</small></div></div>)}
+    </section>
+    {(writable || inspection.parentInspectionId || followUps.length > 0) && <section className="inspection-detail-section">
+      <div className="inspection-section-heading">
+        <h3>Seguimiento</h3>
+        {writable && <button className="button secondary" disabled={busy} onClick={onFollowUp}><Plus size={16} />Registrar seguimiento</button>}
+      </div>
+      {inspection.parentInspectionId && <div className="inspection-follow-up"><p>Seguimiento de inspección #{inspection.parentInspectionId}</p>{related.some(item => item.id === inspection.parentInspectionId) && <button className="text-button" disabled={busy} onClick={() => onOpen(inspection.parentInspectionId!)}>Ver inspección de origen</button>}</div>}
+      {followUps.map(item => <button className="text-button" disabled={busy} key={item.id} onClick={() => onOpen(item.id)}>Ver seguimiento #{item.id}{item.canceledAt ? ' · Anulado' : ''}</button>)}
+      {!inspection.parentInspectionId && !followUps.length && <p className="inspection-empty-copy">Sin inspecciones de seguimiento registradas.</p>}
+    </section>}
+    {error && !action && <p className="form-error" role="alert">{error}</p>}
+    {!inspection.canceledAt && role !== 'WORKER' && <section className="inspection-detail-section">
+      <button className="text-button text-red" disabled={busy} onClick={() => chooseAction('cancel')}>Anular inspección</button>
+      {action === 'cancel' && <form ref={formRef} className="inspection-form-grid inspection-action-form" onSubmit={submit}>
+        <p className="inspection-full-row">La inspección y sus tratamientos se conservarán en el historial. Dejará de participar en la capa de salud.</p>
+        <label className="inspection-full-row">Motivo de anulación<textarea name="reason" required maxLength={4000} /></label>
+        {actionFooter('Confirmar anulación')}
+      </form>}
+    </section>}
+  </>;
 }

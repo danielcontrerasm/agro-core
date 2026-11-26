@@ -7,9 +7,9 @@ import com.yourco.agro.farm.entity.RowLine;
 import com.yourco.agro.farm.repo.BlockRepository;
 import com.yourco.agro.farm.repo.FieldRepository;
 import com.yourco.agro.farm.repo.RowRepository;
+import com.yourco.agro.persistence.JpaSql;
 import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -27,17 +27,17 @@ public class CropMonitoringRecordService {
   private final BlockRepository blocks;
   private final RowRepository rows;
   private final FarmAccess access;
-  private final JdbcTemplate jdbc;
+  private final JpaSql queries;
 
   public CropMonitoringRecordService(CropMonitoringRecordRepository records, FieldRepository fields,
                                      BlockRepository blocks, RowRepository rows, FarmAccess access,
-                                     JdbcTemplate jdbc) {
+                                     JpaSql queries) {
     this.records = records;
     this.fields = fields;
     this.blocks = blocks;
     this.rows = rows;
     this.access = access;
-    this.jdbc = jdbc;
+    this.queries = queries;
   }
 
   @Transactional
@@ -112,13 +112,13 @@ public class CropMonitoringRecordService {
 
   private Map<String, Object> resolveCycle(Long cycleId, Location location) {
     var matches = cycleId == null && location.block() != null
-      ? jdbc.queryForList("""
+      ? queries.rows("""
         SELECT c.*, b.field_id AS cycle_field_id
         FROM crop_cycle c JOIN block b ON b.id = c.block_id
         WHERE c.block_id = ? AND c.status NOT IN ('CANCELED', 'CLOSED')
         ORDER BY c.id DESC
         """, location.block().getId())
-      : jdbc.queryForList("""
+      : queries.rows("""
       SELECT c.*, b.field_id AS cycle_field_id
       FROM crop_cycle c JOIN block b ON b.id = c.block_id
       WHERE c.id = ?
@@ -163,7 +163,7 @@ public class CropMonitoringRecordService {
     record.setVariety(request.variety != null ? request.variety : cycle == null ? null : (String) cycle.get("variety"));
     record.setPlantingDate(request.plantingDate);
     record.setGrowthStage(request.growthStage); record.setExpectedHarvestDate(request.expectedHarvestDate == null && cycle != null && cycle.get("expected_harvest_on") != null
-      ? ((java.sql.Date) cycle.get("expected_harvest_on")).toLocalDate() : request.expectedHarvestDate);
+      ? JpaSql.convert(cycle.get("expected_harvest_on"), LocalDate.class) : request.expectedHarvestDate);
     record.setActualHarvestDate(request.actualHarvestDate == null && request.recordType == MonitoringRecordType.HARVEST
       ? request.recordedAt.atZone(ZoneOffset.UTC).toLocalDate() : request.actualHarvestDate);
     record.setSampleType(request.sampleType);

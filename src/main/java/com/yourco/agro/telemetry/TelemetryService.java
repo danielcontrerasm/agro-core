@@ -3,9 +3,9 @@ package com.yourco.agro.telemetry;
 import com.yourco.agro.auth.FarmAccess;
 import com.yourco.agro.farm.repo.BlockRepository;
 import com.yourco.agro.farm.repo.FarmRepository;
+import com.yourco.agro.persistence.JpaSql;
 import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -21,13 +21,13 @@ public class TelemetryService {
   private final FarmRepository farms;
   private final BlockRepository blocks;
   private final FarmAccess access;
-  private final JdbcTemplate jdbc;
+  private final JpaSql queries;
 
   public TelemetryService(SensorDeviceRepository devices, SensorReadingRepository readings,
                           AlertRuleRepository rules, FarmRepository farms, BlockRepository blocks,
-                          FarmAccess access, JdbcTemplate jdbc) {
+                          FarmAccess access, JpaSql queries) {
     this.devices = devices; this.readings = readings; this.rules = rules; this.farms = farms;
-    this.blocks = blocks; this.access = access; this.jdbc = jdbc;
+    this.blocks = blocks; this.access = access; this.queries = queries;
   }
 
   @Transactional
@@ -88,15 +88,22 @@ public class TelemetryService {
   public List<Map<String, Object>> alerts(Long farmId, String status) {
     if (farmId != null) access.require(farmId, false);
     var farmIds = farmId == null ? access.farmIds() : List.of(farmId);
-    String sql = "SELECT id, rule_id, block_id, metric, value, severity, message, status, created_at FROM sensor_alert WHERE farm_id = ? AND (? IS NULL OR status = ?) ORDER BY created_at DESC";
-    return farmIds.stream().flatMap(id -> jdbc.queryForList(sql, id, status, status).stream()).toList();
+    String sql = """
+      SELECT id, rule_id, block_id, metric, value, severity, message, status, created_at
+      FROM sensor_alert WHERE farm_id = ?
+      """;
+    String order = " ORDER BY created_at DESC";
+    if (status == null) {
+      return farmIds.stream().flatMap(id -> queries.rows(sql + order, id).stream()).toList();
+    }
+    return farmIds.stream().flatMap(id -> queries.rows(sql + " AND status = ?" + order, id, status).stream()).toList();
   }
 
   @Transactional
   public void acknowledge(Long alertId) {
-    Long farmId = jdbc.queryForObject("SELECT farm_id FROM sensor_alert WHERE id = ?", Long.class, alertId);
+    Long farmId = queries.value("SELECT farm_id FROM sensor_alert WHERE id = ?", Long.class, alertId);
     access.require(farmId, false);
-    jdbc.update("UPDATE sensor_alert SET status = 'ACKNOWLEDGED' WHERE id = ?", alertId);
+    queries.execute("UPDATE sensor_alert SET status = 'ACKNOWLEDGED' WHERE id = ?", alertId);
   }
 
   private void evaluateAlerts(SensorDevice device, SensorReading reading) {
@@ -105,7 +112,7 @@ public class TelemetryService {
       Double value = metricValue(rule.getMetric(), reading);
       if (value == null || !matches(rule.getOperator(), value, rule.getThreshold())) continue;
       Long blockId = device.getBlock() == null ? null : device.getBlock().getId();
-      jdbc.update("INSERT INTO sensor_alert(rule_id, reading_id, farm_id, block_id, metric, value, severity, message) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      queries.execute("INSERT INTO sensor_alert(rule_id, reading_id, farm_id, block_id, metric, value, severity, message) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         rule.getId(), reading.getId(), device.getFarm().getId(), blockId, rule.getMetric().name(), value, rule.getSeverity(), rule.getMessage());
     }
   }

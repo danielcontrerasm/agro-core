@@ -22,11 +22,24 @@ El script solo trabaja si hay exactamente una finca llamada Guasita y no tiene
 campos. Si ya existen los siete campos de prueba, no los duplica. Si hay otros
 campos, se detiene. No elimina ni reemplaza datos existentes.
 
-Después, recargar el frontend y abrir **Mapas**. El plano dibuja las geometrías
-de campos y bloques almacenadas en el API, aunque no tengan observaciones.
-Los campos se pueden seleccionar para ver su área. El script solo crea geometrías
-ficticias: no incluye imágenes aéreas ni cartografía propia. La vista real muestra
-OpenStreetMap como mapa base y ofrece capas satelital e híbrida de Esri; esas teselas
-son independientes de los datos de prueba. Las geometrías pueden sustituirse más
-adelante mediante un flujo de edición; el API actual solo permite crear, consultar
-y eliminar campos.
+Después, recarga el frontend y abre **Campos → Vista mapa** o **Mapas** con Guasita
+seleccionada. Ambos planos dibujan las geometrías de campos almacenadas en el API
+aunque todavía no existan observaciones. Selecciona un campo para ver su área.
+Las imágenes satelitales provienen del proveedor de teselas configurado. En **Mapas**
+se puede elegir **Plano** para usar OpenStreetMap. La edición de geometrías queda
+pendiente. El API de campos permite crear, consultar y eliminar registros.
+
+## Pruebas en una finca temporal
+
+Desde la raíz, ejecuta las pruebas de backend, frontend y Chrome con
+`python3 scripts/run_qa_tests.py`. El script crea una base PostGIS y una finca
+de QA para el recorrido, elimina la base al terminar y conserva los informes
+locales. Añade `--watch --record` para ralentizar las acciones y grabar las pruebas.
+[Requisitos, comandos e informes de QA](../frontend/tests/manual-agricultural-workflow.md#pruebas-automatizadas-en-chrome)
+
+## Grabar un módulo en Chrome
+
+Ejecuta `scripts/qa-modulos/riego.sh` para ver solo Riego. Cada módulo tiene
+su propio script, un recorrido con pausas y un WebM independiente. El ejecutor
+también admite `all` para grabar todos los módulos en una sola ejecución.
+[Scripts por módulo y ubicación de los videos](../frontend/tests/manual-agricultural-workflow.md#pruebas-independientes-por-módulo)

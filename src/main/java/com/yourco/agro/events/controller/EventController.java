@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 import com.yourco.agro.auth.FarmAccess;
-import org.springframework.jdbc.core.JdbcTemplate;
+import com.yourco.agro.persistence.JpaSql;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -19,13 +19,13 @@ public class EventController {
   private final EventService service;
   private final FieldEventRepository repo;
   private final FarmAccess access;
-  private final JdbcTemplate jdbc;
+  private final JpaSql queries;
 
-  public EventController(EventService service, FieldEventRepository repo, FarmAccess access, JdbcTemplate jdbc) {
+  public EventController(EventService service, FieldEventRepository repo, FarmAccess access, JpaSql queries) {
     this.service = service;
     this.repo = repo;
     this.access = access;
-    this.jdbc = jdbc;
+    this.queries = queries;
   }
 
   @PostMapping
@@ -59,10 +59,10 @@ public class EventController {
   @DeleteMapping("/{id}")
   public void delete(@PathVariable Long id) {
     access.require(access.eventFarm(id), true);
-    if (jdbc.queryForObject("SELECT COUNT(*) FROM irrigation_execution WHERE event_id=?",Integer.class,id)>0) {
+    if (queries.value("SELECT COUNT(*) FROM irrigation_execution WHERE event_id=?",Integer.class,id)>0) {
       throw new ResponseStatusException(HttpStatus.CONFLICT,"La ejecución pertenece a una programación de riego y conserva su trazabilidad; no se puede eliminar desde el historial.");
     }
-    if (jdbc.queryForObject("SELECT COUNT(*) FROM fertilization_application WHERE event_id=?",Integer.class,id)>0) {
+    if (queries.value("SELECT COUNT(*) FROM fertilization_application WHERE event_id=?",Integer.class,id)>0) {
       throw new ResponseStatusException(HttpStatus.CONFLICT,"La aplicación pertenece a un plan aprobado y conserva su trazabilidad; no se puede eliminar desde el historial.");
     }
     repo.deleteById(id);

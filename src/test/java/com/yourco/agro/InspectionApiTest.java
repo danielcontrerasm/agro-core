@@ -5,6 +5,7 @@ import com.yourco.agro.auth.AuthDtos;
 import com.yourco.agro.auth.FarmAccess;
 import com.yourco.agro.config.SecurityConfig;
 import com.yourco.agro.inspections.*;
+import com.yourco.agro.persistence.JpaSql;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,14 +13,12 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
-import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
+import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 
-import javax.sql.DataSource;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
@@ -34,20 +33,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({SecurityConfig.class, FarmAccess.class, InspectionService.class, InspectionApiTest.DatabaseConfig.class})
 class InspectionApiTest {
   @TestConfiguration
+  @Import(JpaTestConfig.class)
   static class DatabaseConfig {
-    @Bean DataSource dataSource() {
-      return new EmbeddedDatabaseBuilder().generateUniqueName(true).setType(EmbeddedDatabaseType.H2)
-        .addScript("auth-schema.sql").addScript("db/migration/V2__users_and_memberships.sql")
-        .addScript("db/migration/V6__phytosanitary_inspections.sql")
-        .addScript("db/migration/V7__inspection_treatments_and_evidence.sql")
-        .addScript("db/migration/V8__photos.sql")
-        .addScript("db/migration/V22__phytosanitary_catalog_and_inspection_area.sql").build();
+    @Bean
+    LocalContainerEntityManagerFactoryBean entityManagerFactory() throws IOException {
+      return JpaTestConfig.database(
+        "auth-schema.sql",
+        "db/migration/V2__users_and_memberships.sql",
+        "db/migration/V6__phytosanitary_inspections.sql",
+        "db/migration/V7__inspection_treatments_and_evidence.sql",
+        "db/migration/V8__photos.sql",
+        "db/migration/V22__phytosanitary_catalog_and_inspection_area.sql"
+      );
     }
-    @Bean JdbcTemplate jdbcTemplate(DataSource dataSource) { return new JdbcTemplate(dataSource); }
   }
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
-  @Autowired JdbcTemplate jdbc;
+  @Autowired JpaSql queries;
   @Autowired InspectionService service;
 
   private UsernamePasswordAuthenticationToken login(long id) {
@@ -56,16 +58,16 @@ class InspectionApiTest {
 
   @BeforeEach
   void seed() {
-    jdbc.update("DELETE FROM inspection_evidence"); jdbc.update("DELETE FROM inspection_treatment");
-    jdbc.update("DELETE FROM phytosanitary_inspection"); jdbc.update("DELETE FROM farm_membership");
-    jdbc.update("DELETE FROM app_user"); jdbc.update("DELETE FROM row_line"); jdbc.update("DELETE FROM block");
-    jdbc.update("DELETE FROM field"); jdbc.update("DELETE FROM farm");
-    jdbc.update("INSERT INTO farm VALUES (10, 'North'), (20, 'South')");
-    jdbc.update("INSERT INTO field VALUES (11, 10), (21, 20)");
-    jdbc.update("INSERT INTO block VALUES (12, 11), (15, 11), (22, 21)");
-    jdbc.update("INSERT INTO row_line VALUES (13, 12), (16, 15), (23, 22)");
-    jdbc.update("INSERT INTO app_user(id, name, email, password_hash) VALUES (1, 'Worker', 'worker@example.com', 'hash'), (2, 'Manager', 'manager@example.com', 'hash')");
-    jdbc.update("INSERT INTO farm_membership VALUES (10, 1, 'WORKER'), (10, 2, 'ADMIN')");
+    queries.execute("DELETE FROM inspection_evidence"); queries.execute("DELETE FROM inspection_treatment");
+    queries.execute("DELETE FROM phytosanitary_inspection"); queries.execute("DELETE FROM farm_membership");
+    queries.execute("DELETE FROM app_user"); queries.execute("DELETE FROM row_line"); queries.execute("DELETE FROM block");
+    queries.execute("DELETE FROM field"); queries.execute("DELETE FROM farm");
+    queries.execute("INSERT INTO farm VALUES (10, 'North'), (20, 'South')");
+    queries.execute("INSERT INTO field VALUES (11, 10), (21, 20)");
+    queries.execute("INSERT INTO block(id, field_id, area_ha) VALUES (12, 11, 28), (15, 11, 18), (22, 21, 10)");
+    queries.execute("INSERT INTO row_line VALUES (13, 12), (16, 15), (23, 22)");
+    queries.execute("INSERT INTO app_user(id, name, email, password_hash) VALUES (1, 'Worker', 'worker@example.com', 'hash'), (2, 'Manager', 'manager@example.com', 'hash')");
+    queries.execute("INSERT INTO farm_membership VALUES (10, 1, 'WORKER'), (10, 2, 'ADMIN')");
   }
 
   private Map<String, Object> payload() {
@@ -167,7 +169,7 @@ class InspectionApiTest {
       .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
     mvc.perform(get("/api/v1/inspections/" + id + "/evidence").with(authentication(login(1))))
       .andExpect(status().isOk()).andExpect(jsonPath("$[0].s3Key").value("inspections/evidence.jpg"));
-    jdbc.update("DELETE FROM farm_membership WHERE user_id = 1");
+    queries.execute("DELETE FROM farm_membership WHERE user_id = 1");
     mvc.perform(get("/api/v1/inspections/" + id + "/evidence").with(authentication(login(1)))).andExpect(status().isForbidden());
     mvc.perform(get("/api/v1/inspections/" + id + "/treatments").with(authentication(login(1)))).andExpect(status().isForbidden());
     mvc.perform(post("/api/v1/inspections/" + id + "/evidence").with(authentication(login(1))).with(csrf())

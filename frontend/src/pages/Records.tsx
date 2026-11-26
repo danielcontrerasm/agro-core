@@ -1,42 +1,173 @@
 import { useEffect, useState } from 'react';
-import { Plus, Leaf, Sprout, MapPin, ArrowUpRight, Trash2, Rows3, Grid2X2, LayoutList, ChevronRight, ChevronDown, MoreHorizontal, Download, Wrench, Map as MapIcon } from 'lucide-react';
+import { Plus, Leaf, Sprout, MapPin, ArrowUpRight, Trash2, Rows3, Grid2X2, LayoutList, ChevronRight, ChevronDown, Download, Wrench, Map as MapIcon, Warehouse, Layers, Eye, CalendarDays } from 'lucide-react';
 import { useApp } from '../context';
-import { csvCell, number, farmMetrics } from '../lib/domain';
+import { csvCell, number, farmMetrics, eventLabels } from '../lib/domain';
 import { Badge, Donut, Empty, Modal, Panel } from '../components/ui';
 import { ResourceForm } from '../components/Forms';
-import FieldOverviewMap from '../components/FieldOverviewMap';
+import FieldOverviewMap, { fieldMapColors } from '../components/FieldOverviewMap';
+import FarmMap from '../components/FarmMap';
+import { EventIcon } from './Dashboard';
+import type { FieldEvent, Row } from '../lib/types';
 
 export default function Records({ page }: { page: 'fields' | 'plants' }) {
-  const { data, search, role, mode, remove, notify, navigate } = useApp();
-  const [tab, setTab] = useState('fields');
-  const [filter, setFilter] = useState('all');
+  return page === 'fields' ? <FieldsOverview /> : <PlantsOverview />;
+}
+
+function PlantsOverview() {
+  const { data, search, role, mode, remove, notify, farmId } = useApp();
+  const [blockId, setBlockId] = useState(0);
+  const [rowId, setRowId] = useState(0);
+  const [detail, setDetail] = useState(false);
   const [limit, setLimit] = useState(25);
-  const [form, setForm] = useState<'fields' | 'blocks' | 'rows' | null>(null);
-  const [deleting, setDeleting] = useState<{ resource: string; id: number; label: string } | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const metrics = farmMetrics(data);
   const manager = role !== 'WORKER';
-  const fields = data.fields.filter(field => field.name.toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es')));
-  const blocks = data.blocks.filter(block => (filter === 'all' || block.field.id === Number(filter)) && `${block.code} ${block.field.name} ${block.crop}`.toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es')));
-  const rows = data.rows.filter(row => (filter === 'all' || row.block.id === Number(filter)) && `${row.rowCode} ${row.block.code}`.toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es')));
-  const currentPage = page as string;
-  if (currentPage === 'fields') return <FieldsOverview />;
+  useEffect(() => {
+    setBlockId(0);
+    setRowId(0);
+    setDetail(false);
+    setCreating(false);
+    setDeleting(false);
+    setLimit(25);
+  }, [farmId, mode]);
+  const rows = data.rows.filter(row => (!blockId || row.block.id === blockId) &&
+    `${row.rowCode} ${row.block.code} ${row.block.field.name}`.toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es')));
+  const activeRow = rows.find(row => row.id === rowId);
+  const selected = activeRow ?? rows[0];
+  const history = selected ? data.events.filter(event => event.row?.id === selected.id)
+    .sort((first, second) => second.occurredAt.localeCompare(first.occurredAt)) : [];
+  const metrics = farmMetrics(data);
+  const chooseBlock = (id: number) => {
+    setBlockId(id);
+    setRowId(0);
+    setLimit(25);
+  };
+
   async function confirmDelete() {
-    if (!deleting) return; setBusy(true); setError('');
-    try { await remove(deleting.resource, deleting.id); setDeleting(null); notify(mode === 'demo' ? 'Registro eliminado de la demostración.' : 'Registro eliminado.'); }
-    catch (failure) { setError(failure instanceof Error ? failure.message : 'No se pudo eliminar.'); } finally { setBusy(false); }
+    if (!activeRow) return;
+    setBusy(true);
+    setError('');
+    try {
+      await remove('rows', activeRow.id);
+      setDeleting(false);
+      setDetail(false);
+      setRowId(0);
+      notify('Surco eliminado.');
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'No se pudo eliminar.');
+    } finally {
+      setBusy(false);
+    }
   }
+
   return <>
-    <div className="page-heading"><div><span className="eyebrow">CADA RINCÓN DE TU FINCA</span><h1>{page === 'plants' ? 'Surcos y plantas' : 'Campos y bloques'}</h1><p>{page === 'plants' ? 'Conoce la estructura de tus cultivos, surco a surco.' : 'Una finca bien organizada, un cultivo con más posibilidades.'}</p></div>{manager && <div className="heading-buttons">{page === 'fields' && <button className="button secondary" onClick={() => setForm('fields')}><Plus size={16} />Nuevo campo</button>}<button className="button" disabled={page === 'plants' ? !data.blocks.length : !data.fields.length} onClick={() => setForm(page === 'plants' ? 'rows' : 'blocks')}><Plus size={17} />{page === 'plants' ? 'Nuevo surco' : 'Nuevo bloque'}</button></div>}</div>
-    <div className="mini-stat-grid"><Panel><span className="icon-tile green"><MapPin size={23} /></span><div><small>Área registrada</small><strong>{number(metrics.area, 1)} <em>ha</em></strong></div></Panel><Panel><span className="icon-tile gold"><Grid2X2 size={23} /></span><div><small>Campos / Bloques</small><strong>{data.fields.length} <em>/ {data.blocks.length}</em></strong></div></Panel><Panel><span className="icon-tile blue"><Rows3 size={23} /></span><div><small>Surcos registrados</small><strong>{number(data.rows.length)}</strong></div></Panel><Panel><span className="icon-tile green"><Sprout size={23} /></span><div><small>Plantas estimadas</small><strong>{number(metrics.plants)}</strong></div></Panel></div>
-    {page === 'fields' ? <><div className="toolbar"><div className="tabs"><button className={tab === 'fields' ? 'active' : ''} onClick={() => { setTab('fields'); setFilter('all'); }}>Campos<span>{data.fields.length}</span></button><button className={tab === 'blocks' ? 'active' : ''} onClick={() => setTab('blocks')}>Bloques<span>{data.blocks.length}</span></button></div>{tab === 'blocks' && <select className="standalone-select" aria-label="Filtrar bloques por campo" value={filter} onChange={event => setFilter(event.target.value)}><option value="all">Todos los campos</option>{data.fields.map(field => <option key={field.id} value={field.id}>{field.name}</option>)}</select>}</div>
-      {tab === 'fields' ? fields.length ? <div className="field-grid">{fields.map((field, index) => <article className="field-card panel" key={field.id}><div className={`field-image field-image-${index % 3}`}><Badge tone="light">{data.blocks.filter(block => block.field.id === field.id).length} bloques</Badge><span><Leaf size={19} />{field.name}</span></div><div className="field-card-content"><span className="eyebrow">{field.farm.name}</span><h3>{field.name}</h3><div className="field-meta"><span><MapPin size={16} />{number(field.areaHa ?? 0, 1)} ha</span><span><Sprout size={16} />{[...new Set(data.blocks.filter(block => block.field.id === field.id).map(block => block.variety || block.crop))].join(', ') || 'Sin cultivo'}</span></div><div className="field-card-bottom"><button className="text-button" onClick={() => { setTab('blocks'); setFilter(String(field.id)); }}>Explorar bloques<ArrowUpRight size={15} /></button>{manager && <button className="icon-button danger-icon" aria-label={`Eliminar ${field.name}`} onClick={() => setDeleting({ resource: 'fields', id: field.id, label: field.name })}><Trash2 size={16} /></button>}</div></div></article>)}</div> : <Panel><Empty title="Tus campos empiezan aquí" description="Registra los campos para organizar los bloques de tu finca." /></Panel> : <Panel><div className="table-wrap"><table><thead><tr><th>Bloque</th><th>Campo</th><th>Cultivo</th><th>Variedad</th><th>Área</th><th>Surcos</th><th>Acciones</th></tr></thead><tbody>{blocks.map(block => <tr key={block.id}><td><span className="table-title"><span className="icon-tile green small-tile"><Leaf size={15} /></span>{block.code}</span></td><td>{block.field.name}</td><td className="capitalize">{block.crop}</td><td>{block.variety || 'Sin registrar'}</td><td>{block.areaHa ?? '—'} ha</td><td>{data.rows.filter(row => row.block.id === block.id).length}</td><td>{manager && <button className="icon-button danger-icon" aria-label={`Eliminar ${block.code}`} onClick={() => setDeleting({ resource: 'blocks', id: block.id, label: block.code })}><Trash2 size={16} /></button>}</td></tr>)}</tbody></table>{!blocks.length && <Empty title="Sin bloques para mostrar" description="Crea un bloque o ajusta los filtros." />}</div></Panel>}
-    </> : <><div className="toolbar"><h3>Inventario de surcos <Badge tone="neutral">{rows.length}</Badge></h3><select className="standalone-select" aria-label="Filtrar surcos por bloque" value={filter} onChange={event => { setFilter(event.target.value); setLimit(25); }}><option value="all">Todos los bloques</option>{data.blocks.map(block => <option key={block.id} value={block.id}>{block.code}</option>)}</select></div><Panel><div className="table-wrap"><table><thead><tr><th>Surco</th><th>Bloque / Campo</th><th>Longitud</th><th>Espaciado</th><th>Plantas estimadas</th><th>Acciones</th></tr></thead><tbody>{rows.slice(0, limit).map(row => <tr key={row.id}><td><span className="table-title"><Rows3 size={17} />{row.rowCode}</span></td><td>{row.block.code}<small className="table-subtitle">{row.block.field.name}</small></td><td>{row.lengthM ?? '—'} m</td><td>{row.plantSpacingM ?? '—'} m</td><td>{number(row.plantsEstimated ?? 0)}</td><td>{manager && <button className="icon-button danger-icon" aria-label={`Eliminar ${row.rowCode}`} onClick={() => setDeleting({ resource: 'rows', id: row.id, label: row.rowCode })}><Trash2 size={16} /></button>}</td></tr>)}</tbody></table>{!rows.length && <Empty title="Aún no hay surcos" description="Registra surcos dentro de un bloque para estimar las plantas de tu finca." />}</div>{rows.length > limit && <div className="table-pagination"><span>Mostrando {Math.min(limit, rows.length)} de {rows.length} surcos</span><button className="button secondary small" onClick={() => setLimit(value => value + 25)}>Cargar 25 más<ChevronRight size={14} /></button></div>}</Panel></>}
-    {page === 'plants' && <p className="page-note">Las plantas se representan mediante conteos estimados y rangos dentro de cada surco. No hay registros individuales por planta.</p>}
-    {form && <ResourceForm resource={form} onClose={() => setForm(null)} />}
-    {deleting && <Modal title="Eliminar registro" onClose={() => !busy && setDeleting(null)}><div className="form-stack"><p>¿Eliminar <strong>{deleting.label}</strong>? Esta acción es permanente. Si tiene registros dependientes, también pueden verse afectados o impedir la eliminación.</p>{error && <p className="form-error" role="alert">{error}</p>}<div className="form-actions"><button className="button secondary" disabled={busy} onClick={() => setDeleting(null)}>Cancelar</button><button className="button danger" disabled={busy} onClick={() => void confirmDelete()}><Trash2 size={16} />{busy ? 'Eliminando…' : 'Eliminar registro'}</button></div></div></Modal>}
+    <div className="page-heading">
+      <div><h1>Surcos y plantas</h1><p>Consulta la ubicación, el conteo estimado de plantas y el historial de cada surco.</p></div>
+      {manager && <button className="button" disabled={!data.blocks.length} onClick={() => setCreating(true)}><Plus size={17} />Nuevo surco</button>}
+    </div>
+    <div className="mini-stat-grid">
+      <Panel><span className="icon-tile green"><Sprout size={23} /></span><div><small>Plantas estimadas</small><strong>{number(metrics.plants)}</strong></div></Panel>
+      <Panel><span className="icon-tile blue"><Rows3 size={23} /></span><div><small>Surcos registrados</small><strong>{number(data.rows.length)}</strong></div></Panel>
+      <Panel><span className="icon-tile gold"><Grid2X2 size={23} /></span><div><small>Bloques</small><strong>{data.blocks.length}</strong></div></Panel>
+      <Panel><span className="icon-tile green"><MapPin size={23} /></span><div><small>Área registrada</small><strong>{number(metrics.area, 1)} <em>ha</em></strong></div></Panel>
+    </div>
+    <div className="record-overview-grid">
+      <Panel title="Ubicación de los surcos" className="record-overview-map">
+        <FarmMap blocks={data.blocks} fields={data.fields} farm={data.farms[0]} rows={data.rows} demo={mode === 'demo'} selected={blockId || selected?.block.id} onSelect={chooseBlock} />
+      </Panel>
+      <Panel title="Detalle del surco">
+        {selected ? <>
+          <div className="activity-detail-intro"><span className="icon-tile green"><Rows3 size={23} /></span><div><h3>{selected.rowCode}</h3><p>{selected.block.field.name} · {selected.block.code}</p></div></div>
+          <dl className="record-facts">
+            <div><dt>Plantas estimadas</dt><dd>{selected.plantsEstimated == null ? 'Sin registrar' : number(selected.plantsEstimated)}</dd></div>
+            <div><dt>Variedad</dt><dd>{selected.block.variety || 'Sin registrar'}</dd></div>
+            <div><dt>Longitud</dt><dd>{selected.lengthM == null ? 'Sin registrar' : `${number(selected.lengthM, 1)} m`}</dd></div>
+            <div><dt>Espaciado</dt><dd>{selected.plantSpacingM == null ? 'Sin registrar' : `${number(selected.plantSpacingM, 1)} m`}</dd></div>
+          </dl>
+          <button className="button secondary" onClick={() => { setRowId(selected.id); setDetail(true); }}><CalendarDays size={16} />Ver historial del surco</button>
+        </> : <Empty title="Sin surcos en esta selección" description="Selecciona otro bloque o ajusta la búsqueda." />}
+      </Panel>
+    </div>
+    <Panel title={<>Inventario de surcos <Badge tone="neutral">{rows.length}</Badge></>}>
+      <div className="toolbar">
+        <select className="standalone-select" aria-label="Filtrar surcos por bloque" value={blockId} onChange={event => chooseBlock(Number(event.target.value))}>
+          <option value={0}>Todos los bloques</option>
+          {data.blocks.map(block => <option key={block.id} value={block.id}>{block.code}</option>)}
+        </select>
+      </div>
+      {rows.length ? <div className="table-wrap"><table className="responsive-record-table">
+        <thead><tr><th>Surco</th><th>Bloque / Campo</th><th>Longitud</th><th>Espaciado</th><th>Plantas estimadas</th><th>Acciones</th></tr></thead>
+        <tbody>{rows.slice(0, limit).map(row => <tr key={row.id} className={selected?.id === row.id ? 'selected-record-row' : ''}>
+          <td data-label="Surco"><span className="table-title"><Rows3 size={17} />{row.rowCode}</span></td>
+          <td data-label="Bloque / Campo">{row.block.code}<small className="table-subtitle">{row.block.field.name}</small></td>
+          <td data-label="Longitud">{row.lengthM == null ? '—' : `${number(row.lengthM, 1)} m`}</td>
+          <td data-label="Espaciado">{row.plantSpacingM == null ? '—' : `${number(row.plantSpacingM, 1)} m`}</td>
+          <td data-label="Plantas estimadas">{row.plantsEstimated == null ? '—' : number(row.plantsEstimated)}</td>
+          <td data-label="Acciones"><div className="inline-record-actions">
+            <button className="icon-button" aria-label={`Ver surco ${row.rowCode}`} onClick={() => { setRowId(row.id); setDetail(true); }}><Eye size={18} /></button>
+            {manager && <button className="icon-button danger-icon" aria-label={`Eliminar ${row.rowCode}`} onClick={() => { setRowId(row.id); setError(''); setDeleting(true); }}><Trash2 size={17} /></button>}
+          </div></td>
+        </tr>)}</tbody>
+      </table></div> : <Empty title="Sin surcos para mostrar" description="Cambia el filtro o registra un surco en este bloque." />}
+      {rows.length > limit && <div className="table-pagination"><span>Mostrando {Math.min(limit, rows.length)} de {rows.length} surcos</span><button className="button secondary small" onClick={() => setLimit(value => value + 25)}>Cargar 25 más<ChevronRight size={14} /></button></div>}
+    </Panel>
+    {creating && <ResourceForm resource="rows" onClose={() => setCreating(false)} />}
+    {detail && activeRow && <RowHistory row={activeRow} events={history} onClose={() => setDetail(false)} />}
+    {deleting && activeRow && <Modal title="Eliminar registro" onClose={() => !busy && setDeleting(false)}>
+      <div className="form-stack"><p>¿Eliminar <strong>{selected.rowCode}</strong>? Esta acción es permanente.</p>
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <div className="form-actions"><button className="button secondary" disabled={busy} onClick={() => setDeleting(false)}>Cancelar</button><button className="button danger" disabled={busy} onClick={() => void confirmDelete()}><Trash2 size={16} />{busy ? 'Eliminando…' : 'Eliminar registro'}</button></div>
+      </div>
+    </Modal>}
   </>;
+}
+
+function RowHistory({ row, events, onClose }: { row: Row; events: FieldEvent[]; onClose: () => void }) {
+  const [position, setPosition] = useState<number>();
+  const plantCount = row.plantsEstimated ?? 0;
+  const visibleEvents = position == null ? events : events.filter(event =>
+    event.plantIndexStart != null && position >= event.plantIndexStart && position <= (event.plantIndexEnd ?? event.plantIndexStart));
+  return <Modal title={`Historial de ${row.rowCode}`} onClose={onClose} wide>
+    <div>
+      <div className="activity-detail-intro">
+        <span className="icon-tile green"><Sprout size={23} /></span>
+        <div><h3>{row.block.field.name} · {row.block.code}</h3><p>{row.plantsEstimated == null ? 'Conteo sin registrar' : `${number(plantCount)} plantas estimadas`}</p></div>
+      </div>
+      {plantCount > 0 && <section className="activity-detail-section">
+        <div className="panel-heading"><h3>Ficha por posición</h3></div>
+        <form className="row-position-form" onSubmit={event => {
+          event.preventDefault();
+          const value = Number(new FormData(event.currentTarget).get('plantPosition'));
+          if (Number.isInteger(value) && value >= 1 && value <= plantCount) setPosition(value);
+        }}>
+          <label className="form-label">Número de planta<input name="plantPosition" type="number" min={1} max={plantCount} step={1} placeholder={`1 a ${number(plantCount)}`} required /></label>
+          <button className="button" type="submit"><Eye size={16} />Consultar</button>
+          {position != null && <button className="button secondary" type="button" onClick={() => setPosition(undefined)}>Ver todo el surco</button>}
+        </form>
+        {position == null
+          ? <p className="muted">Consulta las actividades registradas para una posición dentro del surco.</p>
+          : <dl className="record-facts">
+            <div><dt>Posición estimada</dt><dd>Planta {number(position)} de {number(plantCount)}</dd></div>
+            <div><dt>Variedad del bloque</dt><dd>{row.block.variety || 'Sin registrar'}</dd></div>
+          </dl>}
+      </section>}
+      <section className="activity-detail-section">
+        <div className="panel-heading"><h3>{position == null ? 'Actividades del surco' : `Actividades de la planta ${number(position)}`}</h3></div>
+        {visibleEvents.length ? <div className="table-wrap"><table><thead><tr><th>Actividad</th><th>Fecha</th><th>Plantas</th><th>Notas</th></tr></thead>
+          <tbody>{visibleEvents.map(event => <tr key={event.id}>
+            <td><span className="table-title"><EventIcon event={event} />{eventLabels[event.eventType]}</span></td>
+            <td>{new Date(event.occurredAt).toLocaleDateString('es-CO')}</td>
+            <td>{event.plantIndexStart == null ? 'Todo el surco' : `${event.plantIndexStart}–${event.plantIndexEnd ?? event.plantIndexStart}`}</td>
+            <td className="activity-detail-note">{event.notes || '—'}</td>
+          </tr>)}</tbody>
+        </table></div> : <Empty title="Sin actividades para esta selección" description={position == null
+          ? 'Aquí aparecerán las labores registradas con este surco como ubicación.'
+          : 'Aquí aparecerán las labores cuyo rango registrado incluya esta posición.'} />}
+      </section>
+    </div>
+  </Modal>;
 }
 
 function FieldsOverview() {
@@ -44,7 +175,8 @@ function FieldsOverview() {
   const [view, setView] = useState<'map' | 'list'>('map');
   const [selectedFieldId, setSelectedFieldId] = useState(data.fields[0]?.id ?? 0);
   const [expandedFields, setExpandedFields] = useState<Set<number>>(() => new Set(data.fields.slice(0, 1).map(field => field.id)));
-  const [layersOpen, setLayersOpen] = useState(true);
+  const [layersOpen, setLayersOpen] = useState(() => window.matchMedia('(min-width: 651px)').matches);
+  const [blockListFieldId, setBlockListFieldId] = useState<number>();
   const [form, setForm] = useState<'fields' | 'blocks' | null>(null);
   const [deleting, setDeleting] = useState<{ id: number; label: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -52,11 +184,17 @@ function FieldsOverview() {
   const metrics = farmMetrics(data);
   const manager = role !== 'WORKER';
   const normalizedSearch = search.toLocaleLowerCase('es');
-  const visibleFields = data.fields.filter(field => (!fieldContextId || field.id === fieldContextId) && field.name.toLocaleLowerCase('es').includes(normalizedSearch));
+  const visibleFields = data.fields.filter(field => {
+    if (fieldContextId && field.id !== fieldContextId) return false;
+    return field.name.toLocaleLowerCase('es').includes(normalizedSearch)
+      || data.blocks.some(block => block.field.id === field.id && block.code.toLocaleLowerCase('es').includes(normalizedSearch))
+      || data.rows.some(row => row.block.field.id === field.id && row.rowCode.toLocaleLowerCase('es').includes(normalizedSearch));
+  });
+  const visibleBlocks = data.blocks.filter(block => visibleFields.some(field => field.id === block.field.id));
+  const blockListField = visibleFields.find(field => field.id === blockListFieldId);
   const activeField = visibleFields.find(field => field.id === selectedFieldId) ?? visibleFields[0];
   const activeBlocks = activeField ? data.blocks.filter(block => block.field.id === activeField.id) : [];
-  const activeRows = activeBlocks.flatMap(block => data.rows.filter(row => row.block.id === block.id));
-  const varieties = data.blocks.map(block => block.variety || block.crop).filter(Boolean);
+  const varieties = visibleBlocks.map(block => block.variety || block.crop).filter(Boolean);
   const mainVariety = varieties.length ? Object.entries(varieties.reduce<Record<string, number>>((counts, variety) => { counts[variety] = (counts[variety] ?? 0) + 1; return counts; }, {})).sort(([, first], [, second]) => second - first)[0][0] : 'Sin registrar';
   const fieldStats = (field: typeof data.fields[number], index: number) => {
     const fieldBlocks = data.blocks.filter(block => block.field.id === field.id);
@@ -66,15 +204,16 @@ function FieldsOverview() {
     const production = mode === 'demo' ? [210, 160, 85, 130][index] ?? 0 : undefined;
     return { fieldBlocks, fieldRows, plants, health, production };
   };
-  const stats = visibleFields.map(fieldStats);
-  const selectedStats = activeField ? fieldStats(activeField, Math.max(0, data.fields.findIndex(field => field.id === activeField.id))) : undefined;
-  const areaTotal = visibleFields.reduce((total, field) => total + (field.areaHa ?? 0), 0) || metrics.area;
+  const fieldIndex = (id: number) => Math.max(0, data.fields.findIndex(field => field.id === id));
+  const stats = visibleFields.map(field => fieldStats(field, fieldIndex(field.id)));
+  const selectedStats = activeField ? fieldStats(activeField, fieldIndex(activeField.id)) : undefined;
+  const areaTotal = visibleFields.reduce((total, field) => total + (field.areaHa ?? 0), 0) || visibleBlocks.reduce((total, block) => total + (block.areaHa ?? 0), 0);
   const latestEvent = (type: string) => data.events.filter(event => event.eventType === type && (event.block?.field.id === activeField?.id || event.row?.block.field.id === activeField?.id)).sort((first, second) => second.occurredAt.localeCompare(first.occurredAt))[0];
   const eventDate = (type: string) => { const event = latestEvent(type); return event ? new Date(event.occurredAt).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Sin registrar'; };
 
   useEffect(() => {
     if (!visibleFields.some(field => field.id === selectedFieldId)) setSelectedFieldId(visibleFields[0]?.id ?? 0);
-  }, [fieldContextId, search, data.fields, selectedFieldId]);
+  }, [fieldContextId, search, data.fields, data.blocks, data.rows, selectedFieldId]);
 
   function selectField(id: number) {
     setSelectedFieldId(id);
@@ -100,12 +239,134 @@ function FieldsOverview() {
     finally { setBusy(false); }
   }
 
+  const colorFor = (id: number) => fieldMapColors[fieldIndex(id) % fieldMapColors.length];
+  const selectedFieldName = activeField?.name;
+  const blockList = visibleBlocks.filter(block => block.field.id === blockListField?.id);
+  const viewBlocks = (id: number) => { selectField(id); setBlockListFieldId(id); setView('list'); };
+
   return <div className="fields-screen">
-    <div className="page-heading fields-heading"><div><h1>Campos de la Finca</h1><p>Organiza y visualiza la estructura de tu finca. Explora campos, bloques, filas y plantas con información detallada.</p></div><div className="fields-heading-actions"><button className={`fields-view-button ${view === 'map' ? 'active' : ''}`} onClick={() => setView('map')}><MapIcon size={16} />Vista mapa</button><button className={`fields-view-button ${view === 'list' ? 'active' : ''}`} onClick={() => setView('list')}><LayoutList size={16} />Vista lista</button><button className="fields-tool-button" onClick={() => setLayersOpen(value => !value)}><Wrench size={16} />Herramientas<ChevronDown size={14} /></button><button className="fields-export-button" onClick={exportFields}><Download size={16} />Exportar</button>{manager && <button className="button fields-new-button" onClick={() => setForm('fields')}><Plus size={16} />Nuevo campo</button>}</div></div>
-    <div className="fields-stat-grid"><Panel className="fields-stat-card"><span className="fields-stat-icon green"><MapPin size={22} /></span><div><small>Área total</small><strong>{number(areaTotal, 0)} <em>ha</em></strong></div></Panel><Panel className="fields-stat-card"><span className="fields-stat-icon green"><Grid2X2 size={22} /></span><div><small>Campos</small><strong>{visibleFields.length}</strong></div></Panel><Panel className="fields-stat-card"><span className="fields-stat-icon green"><Rows3 size={22} /></span><div><small>Bloques</small><strong>{visibleFields.reduce((total, field) => total + fieldStats(field, 0).fieldBlocks.length, 0)}</strong></div></Panel><Panel className="fields-stat-card"><span className="fields-stat-icon green"><Rows3 size={22} /></span><div><small>Filas</small><strong>{visibleFields.reduce((total, field) => total + fieldStats(field, 0).fieldRows.length, 0)}</strong></div></Panel><Panel className="fields-stat-card"><span className="fields-stat-icon green"><Sprout size={22} /></span><div><small>Plantas</small><strong>{number(visibleFields.reduce((total, field) => total + fieldStats(field, 0).plants, 0))}</strong></div></Panel><Panel className="fields-stat-card fields-variety-card"><span className="fields-variety-icon">🍌</span><div><small>Variedad principal</small><strong>{mainVariety}</strong><span>{varieties.length ? 'Distribuida en la finca' : 'Sin registrar'}</span></div></Panel></div>
+    <header className="fields-overview-header">
+      <div className="page-heading fields-heading">
+        <div><h1>Campos de la Finca</h1><p>Explora campos, bloques, filas y plantas de la finca.</p></div>
+        <div className="fields-heading-actions">
+          <button className={'fields-view-button ' + (view === 'map' ? 'active' : '')} aria-pressed={view === 'map'} onClick={() => setView('map')}><MapIcon size={16} />Vista mapa</button>
+          <button className={'fields-view-button ' + (view === 'list' ? 'active' : '')} aria-pressed={view === 'list'} onClick={() => { setBlockListFieldId(undefined); setView('list'); }}><LayoutList size={16} />Vista lista</button>
+          <button className="fields-tool-button" aria-expanded={view === 'map' && layersOpen} onClick={() => { setView('map'); setLayersOpen(view === 'list' || !layersOpen); }}><Wrench size={16} />Herramientas<ChevronDown size={14} /></button>
+          <button className="fields-export-button" onClick={exportFields}><Download size={16} />Exportar</button>
+          {manager && <button className="button fields-new-button" onClick={() => setForm('fields')}><Plus size={16} />Nuevo campo</button>}
+        </div>
+      </div>
+      <div className="fields-stat-grid">
+        {[
+          { label: 'Área total', icon: Warehouse, value: number(areaTotal, 1) + ' ha' },
+          { label: 'Campos', icon: Grid2X2, value: visibleFields.length },
+          { label: 'Bloques', icon: Layers, value: visibleBlocks.length },
+          { label: 'Filas', icon: Rows3, value: stats.reduce((sum, field) => sum + field.fieldRows.length, 0) },
+          { label: 'Plantas', icon: Sprout, value: number(stats.reduce((sum, field) => sum + field.plants, 0)) },
+        ].map(stat => <Panel className="fields-stat-card" key={stat.label}>
+          <span className="fields-stat-icon green"><stat.icon size={23} /></span><div><small>{stat.label}</small><strong>{stat.value}</strong></div>
+        </Panel>)}
+        <Panel className="fields-stat-card fields-variety-card">
+          <span className="fields-variety-icon" aria-hidden="true">🍌</span><div><small>Variedad principal</small><strong>{mainVariety}</strong></div>
+        </Panel>
+      </div>
+    </header>
+
     <div className="fields-content-grid">
-      <div className="fields-main-column">{view === 'map' ? <><section className="fields-map-card"><FieldOverviewMap fields={visibleFields} blocks={data.blocks} selectedFieldId={activeField?.id ?? 0} onSelectField={selectField} layersOpen={layersOpen} onLayersChange={setLayersOpen} /></section><div className="fields-bottom-grid"><Panel title="Distribución de área por campo"><div className="fields-area-summary"><Donut value={`${number(areaTotal, 0)} ha`} label="Total" segments={visibleFields.map(field => field.areaHa ?? 0)} colors={['#4ead5c', '#f5be2b', '#347fd8', '#ed5147']} /><div className="fields-legend-list">{visibleFields.map((field, index) => <div key={field.id}><i style={{ background: ['#4ead5c', '#f5be2b', '#347fd8', '#ed5147'][index % 4] }} /><span>{field.name}</span><strong>{number(field.areaHa ?? 0, 0)} ha</strong></div>)}</div></div></Panel><Panel title="Salud del cultivo por campo"><div className="fields-health-list">{visibleFields.map((field, index) => { const detail = fieldStats(field, index); return <div key={field.id}><span>{field.name}</span><div><i style={{ width: `${detail.health ?? 0}%`, background: detail.health != null && detail.health < 60 ? '#ef8b2d' : detail.health != null && detail.health < 70 ? '#f5be2b' : '#55ad5a' }} /></div><strong>{detail.health == null ? '—' : `${detail.health}%`}</strong></div>; })}</div></Panel><Panel title="Producción estimada"><div className="fields-production-chart">{visibleFields.map((field, index) => { const detail = fieldStats(field, index); return <div className="fields-production-bar" key={field.id}><strong>{detail.production == null ? '—' : detail.production}</strong><div><i style={{ height: `${detail.production == null ? 0 : detail.production / Math.max(...stats.map(item => item.production ?? 0), 1) * 100}%`, background: ['#55ad5a', '#f5be2b', '#347fd8', '#ed5147'][index % 4] }} /></div><span>{field.name}</span></div>; })}</div></Panel></div></> : <Panel className="fields-list-panel"><div className="fields-list-heading"><div><h3>Todos los campos</h3><p>{visibleFields.length} campos encontrados en la vista actual.</p></div>{manager && <button className="button small" onClick={() => setForm('blocks')} disabled={!data.fields.length}><Plus size={15} />Nuevo bloque</button>}</div><div className="table-wrap"><table><thead><tr><th>Campo</th><th>Área</th><th>Bloques</th><th>Filas</th><th>Plantas estimadas</th><th>Variedad</th><th>Acciones</th></tr></thead><tbody>{visibleFields.map((field, index) => { const detail = fieldStats(field, index); return <tr key={field.id}><td><button className="fields-table-name" onClick={() => { selectField(field.id); setView('map'); }}><span className={`fields-table-dot color-${index % 4}`} />{field.name}</button></td><td>{number(field.areaHa ?? 0, 1)} ha</td><td>{detail.fieldBlocks.length}</td><td>{detail.fieldRows.length}</td><td>{number(detail.plants)}</td><td>{[...new Set(detail.fieldBlocks.map(block => block.variety || block.crop))].join(', ') || 'Sin registrar'}</td><td>{manager && <button className="icon-button danger-icon" aria-label={`Eliminar ${field.name}`} onClick={() => setDeleting({ id: field.id, label: field.name })}><Trash2 size={16} /></button>}</td></tr>; })}</tbody></table>{!visibleFields.length && <Empty title="Tus campos empiezan aquí" description="Registra un campo para organizar los bloques de tu finca." />}</div></Panel>}</div>
-      <aside className="fields-side-column"><Panel title="Estructura de la finca" action={manager ? <button className="icon-button" aria-label="Nuevo bloque" onClick={() => setForm('blocks')} disabled={!data.fields.length}><Plus size={17} /></button> : undefined}><div className="fields-tree"><button className="fields-tree-row fields-tree-farm" type="button" onClick={() => activeField && selectField(activeField.id)}><ChevronDown size={14} /><span className="fields-tree-icon farm"><Leaf size={15} /></span><span>Finca {data.farms[0]?.name ?? 'Sin finca'}</span><strong>({number(metrics.area, 0)} ha)</strong><MoreHorizontal size={15} /></button>{visibleFields.map((field, index) => { const detail = fieldStats(field, index); const expanded = expandedFields.has(field.id); return <div key={field.id} className="fields-tree-group"><button className={`fields-tree-row fields-tree-field ${activeField?.id === field.id ? 'active' : ''}`} type="button" onClick={() => toggleField(field.id)}><span className="fields-tree-chevron">{expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}</span><span className={`fields-tree-icon color-${index % 4}`}><Leaf size={15} /></span><span>{field.name}</span><strong>({number(field.areaHa ?? 0, 0)} ha)</strong><MoreHorizontal size={15} /></button>{expanded && <div className="fields-tree-children">{detail.fieldBlocks.map(block => <button className="fields-tree-row fields-tree-block" type="button" key={block.id} onClick={() => selectField(field.id)}><ChevronRight size={12} /><span className="fields-tree-icon block"><Grid2X2 size={14} /></span><span>{block.code}</span><strong>({number(block.areaHa ?? 0, 0)} ha)</strong><MoreHorizontal size={14} /></button>)}</div>}</div>; })}</div></Panel><Panel title="Detalle del campo">{activeField && selectedStats ? <><div className="fields-detail-heading"><span className="fields-detail-icon"><Leaf size={26} /></span><div><h3>{activeField.name}</h3><span>{number(activeField.areaHa ?? 0, 0)} ha</span></div><Badge>{mode === 'demo' ? 'Ejemplo' : 'Registrado'}</Badge></div><dl className="fields-detail-list"><div><dt>Variedad</dt><dd>{[...new Set(activeBlocks.map(block => block.variety || block.crop))].join(', ') || 'Sin registrar'}</dd></div><div><dt>Fecha de siembra</dt><dd>{mode === 'demo' ? 'Ene 2024' : 'Sin registrar'}</dd></div><div><dt>Bloques</dt><dd>{selectedStats.fieldBlocks.length}</dd></div><div><dt>Filas</dt><dd>{selectedStats.fieldRows.length}</dd></div><div><dt>Plantas</dt><dd>{number(selectedStats.plants)}</dd></div><div><dt>Estado general</dt><dd><span className="fields-status-dot" />{mode === 'demo' ? 'Saludable' : 'Sin evaluación'}</dd></div><div><dt>Última fertilización</dt><dd>{eventDate('FERTILIZER_APPLICATION')}</dd></div><div><dt>Último riego</dt><dd>{eventDate('IRRIGATION_EVENT')}</dd></div></dl><button className="fields-details-button" onClick={() => setView('list')}>Ver bloques del campo<ArrowUpRight size={15} /></button></> : <Empty title="Selecciona un campo" description="Elige un campo en el mapa o en la estructura de la finca." />}</Panel></aside>
+      <div className="fields-main-column">
+        {view === 'map' ? <>
+          <section className="fields-map-card">
+            {mode === 'demo' ? <FieldOverviewMap fields={visibleFields} fieldOrder={data.fields.map(field => field.id)} blocks={visibleBlocks} selectedFieldId={activeField?.id ?? 0}
+              onSelectField={selectField} layersOpen={layersOpen} onLayersChange={setLayersOpen} /> :
+              <FarmMap large demo={false} farm={data.farms[0]} fields={visibleFields} blocks={visibleBlocks} rows={data.rows} baseLayer="satellite"
+                onSelectField={selectField} toolsOpen={layersOpen} onToolsChange={setLayersOpen} />}
+          </section>
+          <div className="fields-bottom-grid">
+            <Panel title="Distribución de área por campo">
+              {areaTotal > 0 && visibleFields.some(field => field.areaHa) ? <div className="fields-area-summary">
+                <Donut value={number(areaTotal, 1) + ' ha'} label="Total" segments={visibleFields.map(field => field.areaHa ?? 0)} colors={visibleFields.map(field => colorFor(field.id))} />
+                <div className="fields-legend-list">{visibleFields.map(field => <div key={field.id}>
+                  <i style={{ background: colorFor(field.id) }} /><span>{field.name}</span><strong>{number(field.areaHa ?? 0, 1)} ha</strong>
+                </div>)}</div>
+              </div> : <p className="fields-data-note">Sin áreas registradas para los campos visibles.</p>}
+            </Panel>
+            <Panel title="Salud del cultivo por campo" action={mode === 'demo' ? <Badge tone="neutral">Ejemplo</Badge> : undefined}>
+              {mode === 'demo' && visibleFields.length > 0 ? <div className="fields-health-list">{visibleFields.map((field, index) => {
+                const health = stats[index].health ?? 0;
+                const color = health < 60 ? '#ef8b2d' : health < 70 ? '#f5be2b' : '#55ad5a';
+                return <div key={field.id}><span>{field.name}</span><div><i style={{ width: health + '%', background: color }} /></div><strong>{health}%</strong></div>;
+              })}</div> : <p className="fields-data-note">Consulta las evaluaciones sanitarias por bloque en Mapas.</p>}
+            </Panel>
+            <Panel title="Producción estimada" action={mode === 'demo' ? <Badge tone="neutral">Ejemplo</Badge> : undefined}>
+              {mode === 'demo' && visibleFields.length > 0 ? <div className="fields-production-chart">{visibleFields.map((field, index) => {
+                const production = stats[index].production ?? 0;
+                return <div className="fields-production-bar" key={field.id}>
+                  <strong>{production} t</strong><div><i style={{ height: (production / Math.max(...stats.map(item => item.production ?? 0), 1) * 100) + '%', background: colorFor(field.id) }} /></div>
+                  <span>{field.name}</span>
+                </div>;
+              })}</div> : <p className="fields-data-note">Sin estimaciones de producción por campo.</p>}
+            </Panel>
+          </div>
+        </> : <Panel className="fields-list-panel">
+          <div className="fields-list-heading">
+            <div><h3>{blockListField ? 'Bloques de ' + blockListField.name : 'Todos los campos'}</h3><p>{blockListField ? blockList.length + ' bloques registrados' : visibleFields.length + ' campos en la vista actual'}</p></div>
+            {manager && <button className="button small" onClick={() => setForm('blocks')} disabled={!data.fields.length}><Plus size={15} />Nuevo bloque</button>}
+          </div>
+          <div className="table-wrap">
+            {blockListField ? <table>
+              <thead><tr><th>Bloque</th><th>Área</th><th>Cultivo</th><th>Variedad</th><th>Filas</th></tr></thead>
+              <tbody>{blockList.map(block => <tr key={block.id}><td>{block.code}</td><td>{number(block.areaHa ?? 0, 1)} ha</td><td>{block.crop}</td><td>{block.variety ?? 'Sin registrar'}</td>
+                <td>{data.rows.filter(row => row.block.id === block.id).length}</td></tr>)}</tbody>
+            </table> : <table>
+              <thead><tr><th>Campo</th><th>Área</th><th>Bloques</th><th>Filas</th><th>Plantas estimadas</th><th>Variedad</th><th>Acciones</th></tr></thead>
+              <tbody>{visibleFields.map((field, index) => {
+                const detail = stats[index];
+                return <tr key={field.id}>
+                  <td><button className="fields-table-name" onClick={() => { selectField(field.id); setView('map'); }}><span className="fields-table-dot" style={{ background: colorFor(field.id) }} />{field.name}</button></td>
+                  <td>{number(field.areaHa ?? 0, 1)} ha</td><td>{detail.fieldBlocks.length}</td><td>{detail.fieldRows.length}</td><td>{number(detail.plants)}</td>
+                  <td>{[...new Set(detail.fieldBlocks.map(block => block.variety || block.crop))].join(', ') || 'Sin registrar'}</td>
+                  <td>{manager && <button className="icon-button danger-icon" aria-label={'Eliminar ' + field.name} onClick={() => setDeleting({ id: field.id, label: field.name })}><Trash2 size={16} /></button>}</td>
+                </tr>;
+              })}</tbody>
+            </table>}
+            {!visibleFields.length && <Empty title="No hay campos en la selección" description="Ajusta la búsqueda o registra un campo para organizar tu finca." />}
+          </div>
+        </Panel>}
+      </div>
+      <aside className="fields-side-column">
+        <Panel title="Estructura de la finca" action={manager ? <button className="icon-button" aria-label="Nuevo bloque" onClick={() => setForm('blocks')} disabled={!data.fields.length}><Plus size={17} /></button> : undefined}>
+          <div className="fields-tree">
+            <div className="fields-tree-row fields-tree-farm"><ChevronDown size={14} /><span className="fields-tree-icon farm"><Grid2X2 size={15} /></span><span>{data.farms[0]?.name ?? 'Sin finca'}</span><strong>({number(metrics.area, 1)} ha)</strong></div>
+            {visibleFields.map((field, index) => {
+              const detail = stats[index];
+              const expanded = expandedFields.has(field.id);
+              return <div key={field.id} className="fields-tree-group">
+                <button className={'fields-tree-row fields-tree-field ' + (activeField?.id === field.id ? 'active' : '')} type="button" aria-expanded={expanded} onClick={() => toggleField(field.id)}>
+                  <span className="fields-tree-chevron">{expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}</span>
+                  <span className="fields-tree-icon" style={{ color: colorFor(field.id) }}><Warehouse size={15} /></span><span>{field.name}</span><strong>({number(field.areaHa ?? 0, 1)} ha)</strong>
+                </button>
+                {expanded && <div className="fields-tree-children">{detail.fieldBlocks.map(block => <button className="fields-tree-row fields-tree-block" type="button" key={block.id} onClick={() => viewBlocks(field.id)}>
+                  <ChevronRight size={12} /><span className="fields-tree-icon block"><Layers size={14} /></span><span>{block.code}</span><strong>({number(block.areaHa ?? 0, 1)} ha)</strong>
+                </button>)}</div>}
+              </div>;
+            })}
+          </div>
+        </Panel>
+        <Panel title="Detalle del campo">
+          {activeField && selectedStats ? <>
+            <div className="fields-detail-heading"><span className="fields-detail-icon"><Warehouse size={24} /></span><div><h3>{selectedFieldName}</h3><span>{number(activeField.areaHa ?? 0, 1)} ha</span></div></div>
+            <dl className="fields-detail-list">
+              <div><dt>Variedad</dt><dd>{[...new Set(activeBlocks.map(block => block.variety || block.crop))].join(', ') || 'Sin registrar'}</dd></div>
+              <div><dt>Bloques</dt><dd>{selectedStats.fieldBlocks.length}</dd></div>
+              <div><dt>Filas</dt><dd>{selectedStats.fieldRows.length}</dd></div>
+              <div><dt>Plantas estimadas</dt><dd>{number(selectedStats.plants)}</dd></div>
+              <div><dt>Última fertilización</dt><dd>{eventDate('FERTILIZER_APPLICATION')}</dd></div>
+              <div><dt>Último riego</dt><dd>{eventDate('IRRIGATION_EVENT')}</dd></div>
+            </dl>
+            <button className="fields-details-button" onClick={() => viewBlocks(activeField.id)}>Ver bloques del campo<ArrowUpRight size={15} /></button>
+          </> : <Empty title="Selecciona un campo" description="Elige un campo en el mapa o en la estructura de la finca." />}
+        </Panel>
+      </aside>
     </div>
     {form && <ResourceForm resource={form} onClose={() => setForm(null)} />}
     {deleting && <Modal title="Eliminar campo" onClose={() => !busy && setDeleting(null)}><div className="form-stack"><p>¿Eliminar <strong>{deleting.label}</strong>? Esta acción es permanente y puede afectar sus bloques y registros dependientes.</p>{error && <p className="form-error" role="alert">{error}</p>}<div className="form-actions"><button className="button secondary" disabled={busy} onClick={() => setDeleting(null)}>Cancelar</button><button className="button danger" disabled={busy} onClick={() => void confirmDelete()}><Trash2 size={16} />{busy ? 'Eliminando…' : 'Eliminar campo'}</button></div></div></Modal>}

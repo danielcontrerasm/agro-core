@@ -5,8 +5,9 @@ import type { FarmData, Mode, Page, Profile, Role, Task } from './lib/types';
 export interface AppState {
   mode: Mode; profile: Profile; data: FarmData; allData: FarmData; farmId: number; role: Role;
   tasks: Task[]; date: string; search: string; loading: boolean; fieldContextId: number;
+  mapFieldId: number; mapBlockId: number; setMapBlockId: (id: number) => void;
   setDate: (date: string) => void; setFarmId: (id: number) => void; setFieldContextId: (id: number) => void;
-  navigate: (page: Page) => void; notify: (message: string, error?: boolean) => void;
+  navigate: (page: Page, settingsTab?: 'calendar') => void; notify: (message: string, error?: boolean) => void;
   setTasks: Dispatch<SetStateAction<Task[]>>;
   createTask: (payload: Record<string, unknown>) => Promise<void>;
   updateTask: (task: Task, status: Task['status'], notes: string) => Promise<Task>;

@@ -18,9 +18,9 @@ const initialMembers: Member[] = [
   { userId: 3, name: 'Carlos Mendoza', email: 'carlos@agrovision.demo', role: 'WORKER' },
 ];
 
-export default function SettingsPage() {
+export default function SettingsPage({ initialTab = 'profile' }: { initialTab?: 'profile' | 'calendar' }) {
   const { mode, profile, role, data, farmId, setDemoRole, resetDemo, notify, connect, search } = useApp();
-  const [tab, setTab] = useState('profile');
+  const [tab, setTab] = useState<string>(initialTab);
   const [members, setMembers] = useState<Member[]>([]);
   const [error, setError] = useState('');
   const [assign, setAssign] = useState(false);

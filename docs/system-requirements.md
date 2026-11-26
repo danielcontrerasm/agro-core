@@ -1,6 +1,6 @@
 # Agro Core System Requirements
 
-Last reviewed: **2026-11-21**.
+Last reviewed **2026-11-25**.
 
 This document tracks the cross-product functional and non-functional
 requirements for the Agro Core API and AgroVision. It describes the current
@@ -26,9 +26,9 @@ validity. Detailed module inventories are kept in the [crop-management audit](cr
 
 | ID | Requirement | Current state |
 | --- | --- | --- |
-| FR-01 | Register with a name, unique normalized email, and valid password. A new account must not inherit access to existing farms. | **Implemented.** Registration creates a user; farm membership is separate. |
+| FR-01 | Register with a name, unique normalized email, and valid password. A new account must not inherit access to existing farms. | **Implemented.** `AppUserRepository` persists the account and looks it up by normalized email. Farm access comes from a separate membership. |
 | FR-02 | Sign in, read the current profile and farm memberships, and sign out. Reject invalid credentials and invalidate the session on logout. | **Implemented.** Uses an HTTP session and CSRF-protected writes. |
-| FR-03 | Let an authenticated user create a farm and grant the creator administrator access to it. | **Implemented.** Farm and creator membership are created together. |
+| FR-03 | Let an authenticated user create a farm and grant the creator administrator access to it. | **Implemented.** The farm and creator membership are created in a single JPA transaction. |
 | FR-04 | Let a farm administrator add an existing user and assign or change that user's per-farm role. | **Implemented.** Roles are `ADMIN`, `SUPERVISOR`, `AGRONOMIST`, and `WORKER`; self-demotion is rejected. Membership removal is not available. |
 | FR-05 | Restrict farm data and actions by membership and role. | **Partial.** Farm scoping is enforced across current domain APIs, but administrative permissions are not yet a complete, uniform policy across every module. See the module-specific permission gaps. |
 | FR-06 | Support password recovery, email verification, and administrator removal of a farm membership. | **Planned.** None of these account-lifecycle flows is available. |
@@ -38,7 +38,7 @@ validity. Detailed module inventories are kept in the [crop-management audit](cr
 | ID | Requirement | Current state |
 | --- | --- | --- |
 | FR-07 | Create, list, retrieve, and delete farms, fields, blocks, and rows with parent filters and farm authorization. | **Implemented.** Update operations are not exposed for these resources. |
-| FR-08 | Store field/block polygons, row lines, and supplied measurements using longitude/latitude coordinates. | **Implemented.** Geometry uses SRID 4326; polygon input currently supports one outer ring. Area, length, spacing, and plant counts are supplied or estimated values, not survey-derived measurements. |
+| FR-08 | Store field/block polygons, row lines, and supplied measurements using longitude/latitude coordinates. | **Implemented.** Geometry uses SRID 4326 and polygon input supports one outer ring. Connected **Campos** and **Mapas** render the stored geometry. Area, length, spacing, and plant counts are supplied or estimated values, not survey-derived measurements. |
 | FR-09 | Record agricultural events against a block and/or row with type, occurrence time, notes, optional GPS, and optional plant range. The authenticated user determines authorship. | **Implemented.** The seven event types are scouting, treatment, fertilizer, irrigation, handling, soil sample, and harvest. |
 | FR-10 | Search and retrieve authorized events by farm, block, row, type, and time range; let authorized managers delete events. | **Implemented.** Some events tied to approved irrigation or fertilization workflows cannot be deleted independently because their history must remain linked. |
 | FR-11 | Record and review pest/disease observations, affected plants/area, symptoms, severity, follow-up, and managed problem selection. | **Partial.** The dedicated inspection workflow supports catalog selection, review, follow-ups, treatments, and cancellation. Legacy event observations are not independently editable, and there is no laboratory confirmation or risk-triggered intervention workflow. |
@@ -92,7 +92,7 @@ deployment budget, expected farms/users, data volumes, and operating conditions.
 | --- | --- | --- | --- |
 | NFR-01 | Protect credentials and authenticated sessions. | BCrypt password hashes, HTTP-only same-site cookies, CSRF protection, login session/token rotation, and an eight-hour idle timeout exist. Production needs HTTPS/secure cookies; abuse protection, recovery, and verification are missing. | **Partial** |
 | NFR-02 | Enforce farm-level data and role isolation on every operation. | Membership and role checks are used across the current APIs and cross-farm cases have automated coverage. Some domain-specific management permission policies remain incomplete. | **Partial** |
-| NFR-03 | Preserve data integrity and atomic writes. | Database constraints, transactions, validation, and version checks protect selected workflows. Broader geometry, measurement, plant-range, and cross-module integrity rules need definition and coverage. | **Partial** |
+| NFR-03 | Preserve data integrity and atomic writes. | Database constraints, validation, and version checks protect selected workflows. JPA transactions include native SQL writes and row locks for operations such as irrigation and fertilization. Broader geometry, measurement, plant-range, and cross-module integrity rules need definition and coverage. | **Partial** |
 | NFR-04 | Keep common worker operations responsive under expected load. | No load benchmark exists. Proposed target: p95 ≤ 2 seconds for login, daily-task listing, and task submission with 50 concurrent active users on a documented deployment, excluding file transfer. | **Proposed target** |
 | NFR-05 | Bound resource use as agricultural history grows. | Spatial and relation/time indexes exist. Collection endpoints are not consistently paginated, and representative growth/load benchmarks are absent. | **Partial** |
 | NFR-06 | Provide predictable service availability. | `/actuator/health` exists; uptime is not measured and no highly available deployment is configured. Proposed target: 99.5% monthly availability after measurement and operating rules are agreed. | **Proposed target** |
@@ -101,7 +101,7 @@ deployment budget, expected farms/users, data volumes, and operating conditions.
 | NFR-09 | Avoid duplicate work and stale concurrent updates. | Version checks reject stale task and domain edits; recurring fertilizer and irrigation generation are idempotent. General request idempotency and offline conflict resolution are missing. | **Partial** |
 | NFR-10 | Record accountable operational history. | Events and workflow records retain authors and timestamps; selected decisions are versioned. A unified immutable audit log for sign-in, membership, edits, deletion, and all workflow transitions is missing. | **Partial** |
 | NFR-11 | Make failures diagnosable and API errors predictable. | Health reporting, application logging, and authentication/access status codes exist. Standard error bodies, correlation IDs, service metrics, and alerting are incomplete. | **Partial** |
-| NFR-12 | Keep changes maintainable and verifiable. | Domain packages, Flyway migrations, Gradle wrapper, OpenAPI, backend tests, frontend unit tests, and Playwright workflows exist. CI enforcement and consistent coverage of each new workflow remain to be established. | **Partial** |
+| NFR-12 | Keep changes maintainable and verifiable. | Domain packages, JPA persistence, Flyway migrations, Gradle, and OpenAPI support maintenance. The QA runner exercises the backend in PostGIS and H2, builds and tests the frontend, and runs Chrome flows against a temporary farm. CI enforcement and consistent coverage of each new workflow remain to be established. | **Partial** |
 | NFR-13 | Support understandable, accessible field workflows. | The Spanish UI is responsive and includes labeled controls and keyboard-accessible dialogs; desktop/mobile browser flows are tested. Worker usability research and a full accessibility audit remain outstanding. | **Partial** |
 | NFR-14 | Handle dates, time zones, and units consistently. | Events use instants, task/planting workflows use dates and times, and many domain measurements carry explicit units. Farm time zones and broader unit-pair validation are missing. | **Partial** |
 | NFR-15 | Deploy reproducibly with environment-specific configuration. | Docker Compose, Flyway, and Spring environment overrides support local setup. Production packaging, secret management, deployment automation, and shared session storage are not supplied. | **Partial** |
@@ -130,7 +130,9 @@ tracked in FR-05 and the module audits.
 ## Related documentation
 
 - [Repository overview and local setup](../README.md)
+- [JPA persistence](../README.md#jpa-persistence)
 - [Crop-management requirements and endpoint inventory](crop-management-requirements.md)
 - [Fertilization workflow and limits](fertilization.md)
 - [Water-management workflow and API](water-management.md)
 - [Applied agronomic guidance](guias-agronomicas-aplicadas.md)
+- [QA reports and recorded walkthrough](../frontend/tests/manual-agricultural-workflow.md#última-ejecución-completa-verificada)

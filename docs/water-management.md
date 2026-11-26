@@ -1,5 +1,7 @@
 # Water Management
 
+Last reviewed **2026-11-25**.
+
 This document describes the implemented water-management workflow in Agro Core.
 It covers irrigation sectors, soil-moisture monitoring, irrigation scheduling and
 execution, water usage, water sources, hydraulic infrastructure, water quality,
@@ -109,16 +111,34 @@ notes.
 
 ## User interface
 
-The **Riego** screen is organized into four tabs:
+The **Riego** screen opens on **Resumen**. It shows recorded consumption,
+scheduled sectors, pending volume, scheduled area, maintenance pressure readings
+for the selected date, and the next scheduled irrigation. The pressure card shows
+an empty value when the date has no pressure reading. The map colors blocks by
+the status of their visible sectors. Search and field/status filters update both
+the map and the sector table. The layers button shows or hides the illustrative
+network in demo mode. On a connected farm it shows assets that have recorded
+coordinates. Select a colored block to open the details for its visible sectors.
+**Programar riego** opens the scheduling form for authorized users.
 
-- **Mediciones:** sector configuration, moisture history, and operational alerts.
-- **Programación:** one-time and recurring schedules, task/occurrence generation,
-  upcoming-occurrence preview, pause/resume/edit/cancel controls, and preserved
-  sector context.
-- **Ejecuciones:** actual duration, volume origin, interruptions, variance, and
-  attached evidence; executions can be exported to CSV.
-- **Administración de agua:** sources, quality, hydraulic infrastructure, balances,
+- **Sectores** shows configuration, moisture history, and operational alerts.
+- **Programación** provides one-time and recurring schedules, task and occurrence
+  generation, upcoming-occurrence preview, pause/resume/edit/cancel controls,
+  and sector context.
+- **Ejecuciones** summarizes recorded volume, effective time and irrigated
+  sectors for the selected filter. It counts meter readings and flow estimates
+  separately. Open a record to review interruptions, variance, moisture readings
+  before and after execution, and attached evidence. **Exportar CSV** exports
+  execution records.
+- **Sensores** shows the readings recorded with sensor origin.
+- **Infraestructura** contains sources, quality, hydraulic assets, balances,
   maintenance, and sensor calibration checks.
+- **Historial anterior** opens the legacy irrigation events.
+
+**Mapas → Humedad del suelo** shows the latest sector readings, their conditions,
+and the depth profile for the selected block. The summary average uses readings
+that share a unit. A block with several sectors shows their count and the
+traceability table retains the separate measurements.
 
 The **Reportes** screen also includes a water-use report with period and sector/block
 filters, KPI cards, a sector comparison table, and CSV export. It reads the same
@@ -174,6 +194,13 @@ are consumed by irrigation sectors when associated.
 
 ## Persistence and implementation evidence
 
+The water workflows run native SQL through JPA's `EntityManager` in `JpaSql`.
+Irrigation uses PostgreSQL row locks for concurrent changes and retains version
+checks on management records. Transactions keep recurring schedules, generated
+plans and tasks, execution totals, and linked field events consistent. The
+water-use report reads the same stored plans and executions through native JPA
+queries. [JPA persistence](../README.md#jpa-persistence)
+
 - `src/main/java/com/yourco/agro/irrigation/IrrigationController.java`
 - `src/main/java/com/yourco/agro/irrigation/IrrigationService.java`
 - `src/main/java/com/yourco/agro/irrigation/IrrigationDtos.java`
@@ -185,6 +212,7 @@ are consumed by irrigation sectors when associated.
 - `src/main/java/com/yourco/agro/analytics/AnalyticsController.java`
 - `src/main/java/com/yourco/agro/analytics/AnalyticsService.java`
 - `frontend/src/pages/Irrigation.tsx`
+- `frontend/src/components/IrrigationOverview.tsx`
 - `frontend/src/pages/Operations.tsx`
 - `frontend/src/lib/analytics.ts`
 - `frontend/tests/irrigation.spec.ts`
@@ -199,7 +227,8 @@ are consumed by irrigation sectors when associated.
 
 ## Verification
 
-The focused backend tests are:
+The focused backend tests cover H2 API fixtures and the PostgreSQL execution
+and reporting paths. Run the PostgreSQL test with a configured PostGIS database.
 
 ```text
 ./gradlew test --tests com.yourco.agro.IrrigationApiTest
@@ -214,3 +243,7 @@ npm run test:e2e -- tests/irrigation.spec.ts -g "water management records"
 npm run test:e2e -- tests/irrigation.spec.ts -g "recurring irrigation schedules"
 npm run test:e2e -- tests/irrigation.spec.ts -g "water usage report"
 ```
+
+The November 25, 2026 QA walkthrough verified sector creation, a manual
+reading, scheduling, task generation, and a metered execution against PostGIS.
+[QA reports and recording](../frontend/tests/manual-agricultural-workflow.md#última-ejecución-completa-verificada)

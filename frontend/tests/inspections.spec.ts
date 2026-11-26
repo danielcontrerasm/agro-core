@@ -24,6 +24,7 @@ test('inspection persists, computes incidence and updates the health map after r
   await expect(record).toContainText('Sospechosa');
   await page.goto('/#maps');
   await page.getByRole('button', { name: 'Salud del cultivo', exact: true }).click();
+  await page.getByRole('button', { name: 'Cerrar capas', exact: true }).click();
   await page.getByRole('button', { name: 'Seleccionar Bloque E', exact: true }).click();
   await expect(page.locator('.map-popup')).toContainText('Hallazgos activos');
   await page.goto('/#disease');
@@ -35,8 +36,10 @@ test('inspection persists, computes incidence and updates the health map after r
   await expect(dialog).not.toBeVisible();
   await page.goto('/#maps');
   await page.getByRole('button', { name: 'Salud del cultivo', exact: true }).click();
+  await page.getByRole('button', { name: 'Cerrar capas', exact: true }).click();
   await page.getByRole('button', { name: 'Seleccionar Bloque E', exact: true }).click();
   await expect(page.locator('.map-popup')).toContainText('Sin hallazgos activos recientes');
+  await page.getByRole('button', { name: 'Cerrar bloque', exact: true }).click();
   await page.getByRole('button', { name: 'Seleccionar Bloque C', exact: true }).click();
   await expect(page.locator('.map-popup')).toContainText('Sin evaluación reciente');
 });

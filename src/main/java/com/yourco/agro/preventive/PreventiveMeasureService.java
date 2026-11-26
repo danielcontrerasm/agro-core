@@ -1,16 +1,12 @@
 package com.yourco.agro.preventive;
 
 import com.yourco.agro.auth.FarmAccess;
+import com.yourco.agro.persistence.JpaSql;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
@@ -45,28 +41,28 @@ public class PreventiveMeasureService {
     WHERE f.farm_id = ?
     """;
 
-  private final JdbcTemplate jdbc;
+  private final JpaSql queries;
   private final FarmAccess access;
 
-  public PreventiveMeasureService(JdbcTemplate jdbc, FarmAccess access) {
-    this.jdbc = jdbc;
+  public PreventiveMeasureService(JpaSql queries, FarmAccess access) {
+    this.queries = queries;
     this.access = access;
   }
 
   public List<Template> templates(long farmId) {
     access.require(farmId, false);
-    return jdbc.query(TEMPLATE_SELECT, (result, rowNumber) -> mapTemplate(result), farmId);
+    return queries.select(TEMPLATE_SELECT, result -> mapTemplate(result), farmId);
   }
 
   @Transactional
   public Template createTemplate(CreateTemplate request) {
     access.requireAgronomic(request.farmId());
     String code = normalize(request.code());
-    if (jdbc.queryForObject("SELECT COUNT(*) FROM preventive_measure_template WHERE farm_id = ? AND lower(code) = ?",
+    if (queries.value("SELECT COUNT(*) FROM preventive_measure_template WHERE farm_id = ? AND lower(code) = ?",
       Integer.class, request.farmId(), code) > 0) {
       throw conflict("Ya existe una medida preventiva con ese código en la finca");
     }
-    long id = insert("""
+    long id = queries.insert("""
       INSERT INTO preventive_measure_template(farm_id,code,name,category,instructions,created_by_user_id)
       VALUES (?,?,?,?,?,?)
       """, request.farmId(), code, request.name().trim(), request.category().name(), request.instructions().trim(), access.userId());
@@ -77,7 +73,7 @@ public class PreventiveMeasureService {
   public void deactivateTemplate(long id) {
     var template = templateRow(id);
     access.requireAgronomic(((Number) template.get("farm_id")).longValue());
-    jdbc.update("UPDATE preventive_measure_template SET active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id = ?", id);
+    queries.execute("UPDATE preventive_measure_template SET active = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id = ?", id);
   }
 
   public List<Assignment> assignments(long farmId, AssignmentStatus status) {
@@ -86,8 +82,8 @@ public class PreventiveMeasureService {
     if (status != null) query += " AND a.status = ?";
     query += " ORDER BY CASE WHEN a.status = 'COMPLETED' THEN 1 ELSE 0 END, a.scheduled_for, a.id";
     return status == null
-      ? jdbc.query(query, (result, rowNumber) -> mapAssignment(result), farmId)
-      : jdbc.query(query, (result, rowNumber) -> mapAssignment(result), farmId, status.name());
+      ? queries.select(query, result -> mapAssignment(result), farmId)
+      : queries.select(query, result -> mapAssignment(result), farmId, status.name());
   }
 
   @Transactional
@@ -99,10 +95,10 @@ public class PreventiveMeasureService {
     if (templateFarmId != farmId) throw badRequest("La medida preventiva no pertenece a la finca del bloque");
     if (!Boolean.TRUE.equals(template.get("active"))) throw badRequest("La medida preventiva está inactiva");
     validateAssignee(farmId, request.assignedToUserId());
-    long id = insert("""
+    long id = queries.insert("""
       INSERT INTO preventive_measure_assignment(template_id,block_id,scheduled_for,assigned_to_user_id,created_by_user_id)
       VALUES (?,?,?,?,?)
-      """, request.templateId(), request.blockId(), java.sql.Date.valueOf(request.scheduledFor()),
+      """, request.templateId(), request.blockId(), request.scheduledFor(),
       request.assignedToUserId(), access.userId());
     return getAssignment(id);
   }
@@ -121,12 +117,12 @@ public class PreventiveMeasureService {
       ? (assignment.completedAt() == null ? Instant.now() : assignment.completedAt()) : null;
     Long completedBy = request.status() == AssignmentStatus.COMPLETED
       ? (assignment.completedByUserId() == null ? access.userId() : assignment.completedByUserId()) : null;
-    int changed = jdbc.update("""
+    int changed = queries.execute("""
       UPDATE preventive_measure_assignment
       SET status = ?, completion_notes = ?, completed_at = ?, completed_by_user_id = ?,
         version = version + 1, updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND version = ?
-      """, request.status().name(), notes, completedAt == null ? null : Timestamp.from(completedAt),
+      """, request.status().name(), notes, completedAt,
       completedBy, id, request.version());
     if (changed == 0) throw conflict("La asignación cambió; actualiza antes de guardarla");
     return getAssignment(id);
@@ -134,18 +130,18 @@ public class PreventiveMeasureService {
 
   public List<Evidence> evidence(long assignmentId) {
     getAssignment(assignmentId);
-    return jdbc.query("""
+    return queries.select("""
       SELECT e.id, e.assignment_id, e.kind, e.s3_key, e.content_type,
         e.created_by_user_id, u.name AS author_name, e.created_at
       FROM preventive_measure_evidence e JOIN app_user u ON u.id = e.created_by_user_id
       WHERE e.assignment_id = ? ORDER BY e.created_at DESC, e.id DESC
-      """, (result, rowNumber) -> mapEvidence(result), assignmentId);
+      """, result -> mapEvidence(result), assignmentId);
   }
 
   @Transactional
   public Evidence addEvidence(long assignmentId, EvidenceRequest request) {
     getAssignment(assignmentId);
-    long id = insert("""
+    long id = queries.insert("""
       INSERT INTO preventive_measure_evidence(assignment_id,kind,s3_key,content_type,created_by_user_id)
       VALUES (?,?,?,?,?)
       """, assignmentId, request.kind().name(), request.s3Key().trim(), request.contentType(), access.userId());
@@ -153,60 +149,51 @@ public class PreventiveMeasureService {
   }
 
   private Assignment getAssignment(long id) {
-    return jdbc.query(ASSIGNMENT_SELECT.replace("WHERE f.farm_id = ?", "WHERE a.id = ?"),
-      (result, rowNumber) -> mapAssignment(result), id).stream().findFirst().map(assignment -> {
+    return queries.select(ASSIGNMENT_SELECT.replace("WHERE f.farm_id = ?", "WHERE a.id = ?"),
+      result -> mapAssignment(result), id).stream().findFirst().map(assignment -> {
         access.require(assignment.farmId(), false);
         return assignment;
       }).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Asignación preventiva no encontrada"));
   }
 
   private java.util.Map<String, Object> templateRow(long id) {
-    var rows = jdbc.queryForList("SELECT * FROM preventive_measure_template WHERE id = ?", id);
+    var rows = queries.rows("SELECT * FROM preventive_measure_template WHERE id = ?", id);
     if (rows.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Medida preventiva no encontrada");
     return rows.get(0);
   }
 
   private void validateAssignee(long farmId, Long userId) {
     if (userId == null) return;
-    if (jdbc.queryForObject("SELECT COUNT(*) FROM farm_membership WHERE farm_id = ? AND user_id = ?",
+    if (queries.value("SELECT COUNT(*) FROM farm_membership WHERE farm_id = ? AND user_id = ?",
       Integer.class, farmId, userId) == 0) throw badRequest("El responsable no pertenece a la finca");
   }
 
-  private Template mapTemplate(ResultSet result) throws SQLException {
-    return new Template(result.getLong("id"), result.getLong("farm_id"), result.getString("code"),
-      result.getString("name"), Category.valueOf(result.getString("category")), result.getString("instructions"),
-      result.getBoolean("active"), result.getLong("created_by_user_id"), result.getString("creator_name"),
-      result.getTimestamp("created_at").toInstant());
+  private Template mapTemplate(JpaSql.Row result) {
+    return new Template(result.longValue("id"), result.longValue("farm_id"), result.text("code"),
+      result.text("name"), Category.valueOf(result.text("category")), result.text("instructions"),
+      result.booleanValue("active"), result.longValue("created_by_user_id"), result.text("creator_name"),
+      result.instant("created_at"));
   }
 
-  private Assignment mapAssignment(ResultSet result) throws SQLException {
-    var completedAt = result.getTimestamp("completed_at");
-    return new Assignment(result.getLong("id"), result.getLong("farm_id"), result.getLong("template_id"),
-      result.getString("template_code"), result.getString("template_name"), Category.valueOf(result.getString("category")),
-      result.getString("instructions"), result.getLong("block_id"), result.getString("block_code"),
-      result.getDate("scheduled_for").toLocalDate(), result.getObject("assigned_to_user_id", Long.class),
-      result.getString("assigned_to_name"), AssignmentStatus.valueOf(result.getString("status")),
-      result.getString("completion_notes"), completedAt == null ? null : completedAt.toInstant(),
-      result.getObject("completed_by_user_id", Long.class), result.getString("completed_by_name"),
-      result.getLong("created_by_user_id"), result.getString("creator_name"), result.getTimestamp("created_at").toInstant(),
-      result.getTimestamp("updated_at").toInstant(), result.getLong("version"));
+  private Assignment mapAssignment(JpaSql.Row result) {
+    var completedAt = result.instant("completed_at");
+    return new Assignment(result.longValue("id"), result.longValue("farm_id"), result.longValue("template_id"),
+      result.text("template_code"), result.text("template_name"), Category.valueOf(result.text("category")),
+      result.text("instructions"), result.longValue("block_id"), result.text("block_code"),
+      result.date("scheduled_for"), result.value("assigned_to_user_id", Long.class),
+      result.text("assigned_to_name"), AssignmentStatus.valueOf(result.text("status")),
+      result.text("completion_notes"), completedAt,
+      result.value("completed_by_user_id", Long.class), result.text("completed_by_name"),
+      result.longValue("created_by_user_id"), result.text("creator_name"), result.instant("created_at"),
+      result.instant("updated_at"), result.longValue("version"));
   }
 
-  private Evidence mapEvidence(ResultSet result) throws SQLException {
-    return new Evidence(result.getLong("id"), result.getLong("assignment_id"),
-      EvidenceKind.valueOf(result.getString("kind")), result.getString("s3_key"), result.getString("content_type"),
-      result.getLong("created_by_user_id"), result.getString("author_name"), result.getTimestamp("created_at").toInstant());
+  private Evidence mapEvidence(JpaSql.Row result) {
+    return new Evidence(result.longValue("id"), result.longValue("assignment_id"),
+      EvidenceKind.valueOf(result.text("kind")), result.text("s3_key"), result.text("content_type"),
+      result.longValue("created_by_user_id"), result.text("author_name"), result.instant("created_at"));
   }
 
-  private long insert(String sql, Object... values) {
-    var key = new GeneratedKeyHolder();
-    jdbc.update(connection -> {
-      var statement = connection.prepareStatement(sql, new String[]{"id"});
-      for (int index = 0; index < values.length; index++) statement.setObject(index + 1, values[index]);
-      return statement;
-    }, key);
-    return Objects.requireNonNull(key.getKey()).longValue();
-  }
 
   private String normalize(String value) { return value.trim().toLowerCase(Locale.ROOT); }
   private ResponseStatusException badRequest(String message) { return new ResponseStatusException(HttpStatus.BAD_REQUEST, message); }

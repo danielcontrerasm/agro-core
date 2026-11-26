@@ -1,0 +1,393 @@
+.crop-app-shell .fertilization-workspace { gap: 12px; }
+.fertilization-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 5px 0;
+}
+.fertilization-title h1 { margin: 0; color: #152239; font-size: 30px; line-height: 1.12; letter-spacing: -.04em; }
+.fertilization-title p { margin: 6px 0 0; color: #4d5e71; font-size: 15px; line-height: 1.5; }
+.fertilization-heading-actions, .fertilization-controls-actions, .fertilization-controls-actions label {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.fertilization-heading-actions { flex: 0 0 auto; justify-content: flex-end; max-width: 100%; }
+.crop-app-shell .fertilization-heading-actions .button { min-height: 42px; padding-inline: 14px; font-size: 14px; white-space: nowrap; }
+.crop-app-shell .fertilization-controls-actions .outline-action { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; font-size: 14px; background: #fff; }
+.fertilization-controls-actions label { color: #40596b; font-size: 14px; white-space: nowrap; }
+.crop-app-shell .fertilization-workspace .fertilization-controls { padding: 0; }
+.crop-app-shell .fertilization-controls-actions .compact-select { min-height: 38px; font-size: 14px; }
+.crop-app-shell .fertilization-workspace .fertilization-controls .module-tabs button { min-height: 38px; padding-block: 6px; font-size: 14px; }
+.crop-app-shell .fertilization-workspace .farm-record-empty {
+  background: linear-gradient(90deg, #f1faf3 45%, #eff9f1b0 71%, #e9f6ef55), url('/images/fertilization-fieldwork.jpg') right 62% / 47% auto no-repeat, #eff9f1;
+}
+.crop-app-shell .fertilization-workspace .farm-record-empty > div { max-width: 65%; }
+
+.fertilization-overview { display: grid; gap: 12px; min-width: 0; }
+.fertilization-overview-metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.crop-app-shell .fertilization-overview-metrics .module-kpi { min-height: 94px; padding: 12px 13px; gap: 11px; }
+.crop-app-shell .fertilization-workspace .module-kpi :is(small, div > span) { font-size: 13px; line-height: 1.35; }
+.crop-app-shell .fertilization-overview-metrics .module-kpi strong { color: #121e32; font-size: clamp(18px, 1.45vw, 25px); line-height: 1.2; margin: 2px 0; }
+.crop-app-shell .fertilization-overview-metrics .module-kpi-icon.strong-green { background: #087d43; color: #fff; }
+.crop-app-shell .fertilization-overview-metrics .module-kpi-icon.mint { background: #e3f6e7; color: #0b8042; }
+.crop-app-shell .fertilization-overview-metrics .module-kpi-icon.blue { background: #e1f1ff; color: #0875d5; }
+.crop-app-shell .fertilization-overview-metrics .module-kpi-icon.gold { background: #fff3ce; color: #ac740c; }
+
+.fertilization-map-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr); gap: 11px; }
+.crop-app-shell .fertilization-overview .panel { min-width: 0; padding: 13px; border-radius: 11px; }
+.crop-app-shell .fertilization-overview .panel-heading { gap: 8px; margin-bottom: 9px; }
+.crop-app-shell .fertilization-overview .panel-heading h3, .fertilization-map-heading h2 {
+  margin: 0;
+  color: #142239;
+  font-size: 18px;
+  line-height: 1.2;
+  font-weight: 800;
+}
+.crop-app-shell .fertilization-overview .panel-heading .text-button { flex: none; gap: 4px; font-size: 13px; white-space: nowrap; }
+.fertilization-map-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 9px; }
+.fertilization-map-heading p { margin: 4px 0 0; color: #526477; font-size: 14px; }
+.fertilization-map-actions { display: flex; align-items: center; gap: 7px; }
+.crop-app-shell .fertilization-map-actions .compact-select { min-height: 38px; font-size: 14px; }
+.crop-app-shell .fertilization-map-actions .icon-button {
+  width: 35px;
+  height: 35px;
+  border: 1px solid #dfe9e2;
+  border-radius: 7px;
+  background: #fff;
+  color: #2b3b53;
+}
+.crop-app-shell .fertilization-map-actions .icon-button:hover { background: #eaf6ef; }
+.fertilization-map-nutrients { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 9px; }
+.fertilization-map-nutrients button {
+  min-height: 36px;
+  padding: 6px 9px;
+  border: 1px solid #e6eeeb;
+  border-radius: 7px;
+  background: #f6f9f8;
+  color: #23334b;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.fertilization-map-nutrients button:hover { border-color: #add5bd; background: #ecf8ef; }
+.fertilization-map-nutrients button[aria-pressed=true] { border-color: #097f47; background: #097f47; color: #fff; }
+.fertilization-overview-map { height: clamp(285px, 24vw, 385px); }
+.fertilization-overview-map > .farm-map { min-height: 0; isolation: isolate; }
+.fertilization-overview-map .map-controls { inset: 10px auto auto 10px; }
+.fertilization-overview-map .map-controls button { color: #1e324a; }
+.fertilization-overview-map .map-caption { display: none; }
+.fertilization-overview-map .map-north { inset: 10px 13px auto auto; }
+.fertilization-overview-map .map-canvas polygon { filter: saturate(1.25); }
+.fertilization-overview-map .farm-map-block-label {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 5px;
+  max-width: 160px;
+  padding: 7px 8px;
+  border-left: 1px solid #fff9;
+  background: color-mix(in srgb, white 83%, var(--block-color));
+}
+.fertilization-overview-map .farm-map-block-label > div { grid-column: -2 / -1; min-width: 0; }
+.fertilization-overview-map .farm-map-block-label > svg { color: var(--block-color); }
+.fertilization-map-legend {
+  position: absolute;
+  z-index: 450;
+  top: 45px;
+  right: 10px;
+  display: grid;
+  gap: 7px;
+  padding: 10px 11px;
+  border: 1px solid #fff;
+  border-radius: 8px;
+  background: #fffffff5;
+  color: #2f455d;
+  box-shadow: 0 4px 12px #22384a29;
+  font-size: 13px;
+}
+.fertilization-overview-map .real-map .fertilization-map-legend { top: auto; bottom: 33px; }
+.fertilization-map-legend strong { color: #152339; font-size: 14px; }
+.fertilization-map-legend span, .fertilization-mobile-legend span { display: flex; align-items: center; gap: 5px; }
+.fertilization-map-legend i, .fertilization-mobile-legend i {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+}
+.fertilization-mobile-legend { display: none; }
+.fertilization-map-selection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+  color: #345063;
+  font-size: 14px;
+}
+.fertilization-map-selection .icon-button { margin-left: auto; }
+
+.fertilization-alert-list, .fertilization-overview-progress ul, .fertilization-recent-applications, .fertilization-nutrient-chart ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fertilization-alert-list li {
+  display: grid;
+  grid-template-columns: 39px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 9px;
+  padding: 11px 0;
+  border-top: 1px solid #eaf0ee;
+}
+.fertilization-alert-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 8px; color: #fff; }
+.fertilization-alert-icon.low { background: #e94a38; }
+.fertilization-alert-icon.high { background: #ec9814; }
+.fertilization-alert-copy { min-width: 0; }
+.fertilization-alert-copy > strong { display: block; color: #152339; font-size: 16px; }
+.fertilization-alert-copy > span { display: block; margin: 2px 0; color: #314a60; font-size: 14px; }
+.fertilization-alert-copy > p { margin: 0 0 7px; color: #546677; font-size: 13px; line-height: 1.4; }
+.fertilization-alert-status {
+  padding: 4px 7px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.fertilization-alert-status.low { background: #fee9e5; color: #ad3023; }
+.fertilization-alert-status.high { background: #fff2dc; color: #8b5308; }
+.fertilization-alert-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+.crop-app-shell .fertilization-alert-actions .outline-action { min-height: 34px; padding: 5px 9px; font-size: 13px; }
+.fertilization-alert-dialog .outline-action {
+  border: 1px solid #c1e1ce;
+  border-radius: 7px;
+  background: #fff;
+  color: #116c43;
+  min-height: 36px;
+  font-size: 14px;
+}
+.fertilization-alert-dialog .outline-action:hover { background: #eef8f1; }
+.fertilization-overview-empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 94px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #eff8f1;
+  color: #23513a;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.fertilization-overview-empty svg { flex: none; color: #0e8148; }
+.fertilization-overview-empty p { margin: 0; }
+
+.fertilization-overview-lower {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr) minmax(0, 1fr) minmax(0, 1.04fr);
+  gap: 10px;
+}
+.crop-app-shell .fertilization-overview-lower .panel-heading { flex-wrap: wrap; }
+.crop-app-shell .fertilization-overview-lower .panel-heading h3 { font-size: 16px; }
+.fertilization-overview-progress { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fertilization-overview-progress .donut { flex: none; width: clamp(80px, 8vw, 120px); height: clamp(80px, 8vw, 120px); }
+.fertilization-overview-progress .donut strong { font-size: clamp(18px, 1.8vw, 25px); }
+.fertilization-overview-progress .donut small { font-size: 12px; }
+.fertilization-overview-progress li { display: flex; align-items: center; gap: 5px; padding: 5px 0; color: #3c5367; font-size: 13px; }
+.fertilization-overview-progress li i { width: 9px; height: 9px; border-radius: 50%; }
+.fertilization-overview-progress li i.complete { background: #09874a; }
+.fertilization-overview-progress li i.progressing { background: #f7c32b; }
+.fertilization-overview-progress li i.pending { background: #dfe7e3; }
+.fertilization-card-note { margin: 8px 0; color: #526477; font-size: 13px; }
+.fertilization-nutrient-chart { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 5px; padding: 7px 1px 16px 0; }
+.fertilization-chart-axis { display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; height: 105px; color: #516277; font-size: 11px; }
+.fertilization-nutrient-chart ul {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  align-items: end;
+  gap: 6px;
+  height: 100px;
+  margin-top: 4px;
+  border-bottom: 1px solid #dbe6e1;
+  background: repeating-linear-gradient(to top, #eaf0ee 0 1px, transparent 1px 25%);
+}
+.fertilization-nutrient-chart li { position: relative; display: flex; align-items: end; justify-content: center; height: 100%; }
+.fertilization-nutrient-chart li > span { position: absolute; top: 100%; margin-top: 3px; color: #3d5267; font-size: 12px; }
+.fertilization-nutrient-bar { position: relative; width: min(82%, 36px); border-radius: 4px 4px 0 0; background: #eabc25; }
+.fertilization-nutrient-chart .in-range .fertilization-nutrient-bar { background: #53ac53; }
+.fertilization-nutrient-bar strong { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); color: #26394e; font-size: 12px; }
+.fertilization-recent-applications li + li { border-top: 1px solid #edf1ef; }
+.fertilization-recent-applications button {
+  display: grid;
+  grid-template-columns: 33px minmax(0, 1fr);
+  align-items: center;
+  gap: 3px 8px;
+  width: 100%;
+  padding: 6px 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #26394e;
+  text-align: left;
+}
+.fertilization-recent-applications button:hover { background: #f2faf5; }
+.fertilization-recent-applications button:focus-visible { outline: 2px solid #0c8148; outline-offset: 0; }
+.fertilization-recent-icon { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 7px; background: #e9f7eb; color: #147b43; }
+.fertilization-recent-applications button strong, .fertilization-recent-applications button small { display: block; overflow: hidden; text-overflow: ellipsis; }
+.fertilization-recent-applications button strong { font-size: 15px; }
+.fertilization-recent-applications button small, .fertilization-recent-applications time { color: #516277; font-size: 13px; }
+.fertilization-recent-applications time { grid-column: 2; }
+.fertilization-review-card { display: grid; align-content: start; gap: 8px; }
+.fertilization-review-heading { display: flex; align-items: center; gap: 9px; }
+.fertilization-review-heading > span { display: grid; place-items: center; flex: none; width: 39px; height: 39px; border-radius: 50%; background: #e0f5e7; color: #0e8148; }
+.fertilization-review-heading h3 { margin: 0; color: #172639; font-size: 17px; }
+.fertilization-review-heading p, .fertilization-review-card > p { margin: 0; color: #526477; font-size: 13px; line-height: 1.45; }
+.fertilization-review-highlight { display: flex; align-items: center; gap: 8px; padding: 9px; border-radius: 7px; background: #edf8ef; color: #235441; font-size: 13px; }
+.fertilization-review-highlight svg { flex: none; color: #0c8148; }
+.crop-app-shell .fertilization-review-card .button { justify-content: center; min-height: 39px; font-size: 14px; }
+
+.fertilization-plan-picker { display: grid; gap: 8px; }
+.fertilization-plan-picker p { margin: 0 0 8px; color: #435c62; font-size: 15px; }
+.modal .fertilization-plan-picker .button { justify-content: flex-start; gap: 9px; text-align: left; }
+.fertilization-plan-picker .button small { display: block; margin-top: 3px; color: #526477; }
+.fertilization-plan-picker .button > svg:last-child { margin-left: auto; }
+
+.crop-app-shell .fertilization-workspace :is(.fertilization-records, .fertilization-insight) { padding: 16px; }
+.crop-app-shell .fertilization-workspace :is(.fertilization-records, .fertilization-insight) .panel-heading h3 { font-size: 18px; }
+.crop-app-shell .fertilization-workspace .fertilization-records table { min-width: 680px; }
+.crop-app-shell .fertilization-workspace .fertilization-records th {
+  padding: 11px 12px;
+  color: #40566b;
+  font-size: 13px;
+  line-height: 1.4;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.crop-app-shell .fertilization-workspace .fertilization-records td { padding: 12px; font-size: 15px; }
+.crop-app-shell .fertilization-workspace .fertilization-records td small { font-size: 13px; }
+.crop-app-shell .fertilization-workspace .fertilization-records td time { font-variant-numeric: tabular-nums; }
+.crop-app-shell .fertilization-workspace :is(.fertilization-result-chips span, .fertilization-records .badge) { font-size: 13px; }
+.crop-app-shell .fertilization-workspace .fertilization-result-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.crop-app-shell .fertilization-workspace .farm-record-actions { gap: 6px 10px; }
+.crop-app-shell .fertilization-workspace :is(.fertilization-records, .fertilization-insight) :is(.outline-action, .text-button) {
+  min-height: 36px;
+  font-size: 14px;
+}
+.crop-app-shell .fertilization-workspace .fertilization-records .outline-action { white-space: nowrap; }
+.crop-app-shell .fertilization-workspace .farm-record-empty h4 { font-size: 17px; }
+.crop-app-shell .fertilization-workspace .farm-record-empty p,
+.crop-app-shell .fertilization-workspace .fertilization-insight :is(p, li, small),
+.fertilization-latest-detail > div { font-size: 14px; line-height: 1.45; }
+
+.modal.fertilization-modal > header {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+}
+.modal.fertilization-modal > header h2 { font-size: 22px; overflow-wrap: anywhere; }
+.modal.fertilization-modal .fertilization-editor {
+  display: grid;
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.modal.fertilization-modal .fertilization-form-section {
+  margin: 0;
+  padding: 14px 16px 16px;
+  border: 1px solid #dce8e1;
+  border-radius: 10px;
+  background: #fcfefd;
+}
+.modal.fertilization-modal .fertilization-form-section > legend {
+  padding: 0 7px;
+  color: #172c3d;
+  font-size: 16px;
+  font-weight: 750;
+}
+.fertilization-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: end; }
+.modal.fertilization-modal:not(.modal-wide) .fertilization-form-grid { grid-template-columns: minmax(0, 1fr); }
+.fertilization-form-grid > :is(p, .notice, .soil-result-grid, .full-span) { grid-column: 1 / -1; }
+.fertilization-form-grid > p { margin: 0; }
+.modal.fertilization-modal :is(.fertilization-form label, .form-label) { margin: 0; color: #263b4e; font-size: 14px; }
+.modal.fertilization-modal :is(input, select, textarea) { min-height: 44px; background: #fff; color: #162c40; font-size: 16px; }
+.modal.fertilization-modal .fertilization-form textarea { min-height: 94px; }
+.modal.fertilization-modal :is(.button, .button.small, .notice, .form-error) { font-size: 14px; line-height: 1.45; }
+.modal.fertilization-modal :is(.button, .button.small) { min-height: 40px; }
+.modal.fertilization-modal .soil-result-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.modal.fertilization-modal .soil-result-grid > fieldset { display: grid; gap: 10px; margin: 0; }
+.modal.fertilization-modal .soil-result-grid legend { color: #214234; font-size: 14px; }
+.modal.fertilization-modal .farm-work-context { gap: 12px; padding: 15px; }
+.modal.fertilization-modal .farm-work-context small { color: #40566b; font-size: 14px; }
+.fertilization-context-copy { flex: 1 1 155px; min-width: 0; overflow-wrap: anywhere; }
+.fertilization-context-copy strong { display: block; color: #17354a; font-size: 19px; line-height: 1.35; }
+.modal.fertilization-modal .farm-work-context-amount strong { color: #087645; font-size: 22px; }
+.fertilization-record-detail { display: grid; gap: 14px; min-width: 0; }
+.modal.fertilization-modal .fertilization-record-detail > .panel { min-width: 0; padding: 16px; }
+.modal.fertilization-modal .fertilization-record-detail .panel-heading { flex-wrap: wrap; gap: 8px; margin: 0 0 11px; }
+.modal.fertilization-modal .fertilization-record-detail :is(h3, h4) { color: #14243a; font-size: 17px; }
+.modal.fertilization-modal .fertilization-record-detail p { color: #42576c; font-size: 15px; line-height: 1.55; }
+.modal.fertilization-modal .fertilization-record-detail .panel > p { margin: 8px 0; }
+.modal.fertilization-modal .farm-work-details { margin: 0; gap: 10px; }
+.modal.fertilization-modal .farm-work-details > div { min-width: 0; background: #f6faf8; }
+.modal.fertilization-modal .farm-work-details dt { color: #43586c; font-size: 13px; }
+.modal.fertilization-modal .farm-work-details dd { color: #182f43; font-size: 15px; }
+.modal.fertilization-modal .fertilization-record-detail .panel > :is(label, .button) { margin-top: 14px; }
+.fertilization-record-notes { margin-top: 12px; padding-top: 10px; border-top: 1px solid #e3ede7; }
+.fertilization-record-notes h4 { margin: 0 0 5px; }
+.fertilization-record-notes p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.fertilization-record-notes small { display: block; margin-top: 5px; }
+.modal.fertilization-modal .fertilization-record-detail table { min-width: 400px; }
+.modal.fertilization-modal .fertilization-record-detail th { padding: 9px 10px; font-size: 13px; letter-spacing: 0; text-transform: none; }
+.modal.fertilization-modal .fertilization-record-detail td { padding: 10px; font-size: 14px; line-height: 1.45; }
+.modal.fertilization-modal .fertilization-record-detail td small { display: block; margin-top: 3px; font-size: 13px; }
+.modal.fertilization-modal .fertilization-record-detail :is(.badge, .photo-grid figcaption) { font-size: 13px; }
+.modal.fertilization-modal .photo-gallery { margin-top: 0; padding: 15px; border: 1px solid #dce8e1; border-radius: 10px; }
+
+@media (max-width: 1280px) {
+  .fertilization-overview-lower { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 1060px) {
+  .fertilization-heading-actions { flex-basis: auto; max-width: 48%; }
+  .fertilization-overview-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .fertilization-map-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 780px) {
+  .crop-app-shell .fertilization-workspace .fertilization-records .farm-record-table { display: block; min-width: 0; }
+  .fertilization-records .farm-record-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .fertilization-records .farm-record-table tbody { display: grid; gap: 10px; }
+  .fertilization-records .farm-record-table tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; border: 1px solid #dce8e1; border-radius: 9px; }
+  .crop-app-shell .fertilization-workspace .fertilization-records .farm-record-table td { display: block; min-width: 0; padding: 9px 11px; border: 0; overflow-wrap: anywhere; }
+  .crop-app-shell .fertilization-records .farm-record-table td:is(:first-child, :last-child, .farm-record-full) { grid-column: 1 / -1; }
+  .crop-app-shell .fertilization-records .farm-record-table td:first-child { border-bottom: 1px solid #e6efea; background: #f1f8f4; }
+  .crop-app-shell .fertilization-records .farm-record-table td:last-child { border-top: 1px solid #edf3ef; }
+  .crop-app-shell .fertilization-records .farm-record-table td[data-label]::before { display: block; margin-bottom: 4px; color: #526477; content: attr(data-label); font-size: 13px; font-weight: 650; }
+  .modal.fertilization-modal .soil-result-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 650px) {
+  .fertilization-title { align-items: flex-start; flex-direction: column; gap: 10px; padding-inline: 0; }
+  .fertilization-heading-actions { justify-content: flex-start; max-width: 100%; gap: 6px; }
+  .crop-app-shell .fertilization-heading-actions .button { padding-inline: 11px; }
+  .fertilization-controls-actions { width: 100%; justify-content: space-between; }
+  .fertilization-controls-actions label { gap: 5px; }
+  .crop-app-shell .fertilization-workspace .farm-record-empty { background: #eff9f1; }
+  .crop-app-shell .fertilization-workspace .farm-record-empty > div { max-width: 100%; }
+  .fertilization-overview-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .crop-app-shell .fertilization-overview-metrics .module-kpi { min-height: 90px; padding: 8px; gap: 6px; }
+  .fertilization-overview-lower { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .fertilization-map-heading { align-items: flex-start; flex-direction: column; gap: 7px; }
+  .fertilization-map-nutrients { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+  .fertilization-overview-map { height: clamp(192px, 61vw, 270px); }
+  .fertilization-overview-map .farm-map:not(.map-expanded) .fertilization-map-legend { display: none; }
+  .fertilization-overview-map .farm-map-block-label { gap: 4px; max-width: 87px; padding: 4px 5px; }
+  .fertilization-overview-map .farm-map-block-label > svg { width: 11px; height: 11px; }
+  .fertilization-mobile-legend { display: flex; flex-wrap: wrap; gap: 5px 8px; margin-top: 7px; color: #40566b; font-size: 13px; }
+  .fertilization-overview-progress .donut { width: 105px; height: 105px; }
+  .fertilization-overview-progress { justify-content: flex-start; gap: 20px; }
+  .fertilization-alert-list li { grid-template-columns: 38px minmax(0, 1fr); }
+  .fertilization-alert-status { grid-column: 2; grid-row: 2; justify-self: start; }
+  .modal.fertilization-modal > header h2 { font-size: 20px; }
+  .modal.fertilization-modal :is(.fertilization-form-grid, .soil-result-grid, .farm-work-details) { grid-template-columns: minmax(0, 1fr); }
+  .modal.fertilization-modal .fertilization-form-section { padding: 10px 12px 13px; }
+}

@@ -1,6 +1,6 @@
 export type Role = 'ADMIN' | 'SUPERVISOR' | 'AGRONOMIST' | 'WORKER';
 export type Mode = 'demo' | 'live';
-export type Page = 'dashboard' | 'tasks' | 'fields' | 'maps' | 'plants' | 'planting' | 'irrigation' | 'fertilization' | 'disease' | 'harvest' | 'reports' | 'insights' | 'settings';
+export type Page = 'dashboard' | 'tasks' | 'fields' | 'maps' | 'plants' | 'planting' | 'irrigation' | 'fertilization' | 'disease' | 'harvest' | 'workers' | 'inventory' | 'costs' | 'reports' | 'insights' | 'settings';
 export interface User { id: number; name: string; email: string }
 export interface Membership { farmId: number; farmName: string; role: Role }
 export interface Profile { user: User; memberships: Membership[] }

@@ -1,9 +1,8 @@
 package com.yourco.agro.media;
 
 import com.yourco.agro.auth.FarmAccess;
+import com.yourco.agro.persistence.JpaSql;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,6 +14,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
+import java.util.function.Function;
 import java.util.UUID;
 
 @Service
@@ -22,19 +22,19 @@ public class PhotoService {
   public static final int MAX_BYTES = 10 * 1024 * 1024;
   private static final long MAX_PIXELS = 24_000_000;
   private static final String COLUMNS = "id, event_id, inspection_id, treatment_id, original_name, content_type, size_bytes, created_by_user_id, created_at";
-  private final JdbcTemplate jdbc;
+  private final JpaSql queries;
   private final FarmAccess access;
 
   public record Photo(String id, Long eventId, Long inspectionId, Long treatmentId, String originalName,
     String contentType, int sizeBytes, Long createdByUserId, Instant createdAt) {}
   public record Content(Photo photo, byte[] bytes) {}
   private record Image(byte[] bytes, String contentType) {}
-  private static final RowMapper<Photo> MAPPER = (result, rowNumber) -> new Photo(result.getString("id"),
-    result.getObject("event_id", Long.class), result.getObject("inspection_id", Long.class), result.getObject("treatment_id", Long.class),
-    result.getString("original_name"), result.getString("content_type"), result.getInt("size_bytes"),
-    result.getLong("created_by_user_id"), result.getTimestamp("created_at").toInstant());
+  private static final Function<JpaSql.Row, Photo> MAPPER = result -> new Photo(result.text("id"),
+    result.value("event_id", Long.class), result.value("inspection_id", Long.class), result.value("treatment_id", Long.class),
+    result.text("original_name"), result.text("content_type"), result.intValue("size_bytes"),
+    result.longValue("created_by_user_id"), result.instant("created_at"));
 
-  public PhotoService(JdbcTemplate jdbc, FarmAccess access) { this.jdbc = jdbc; this.access = access; }
+  public PhotoService(JpaSql queries, FarmAccess access) { this.queries = queries; this.access = access; }
 
   private void authorize(Long eventId, Long inspectionId, Long treatmentId, boolean write) {
     if ((eventId == null) == (inspectionId == null) || (eventId != null && treatmentId != null)) {
@@ -42,20 +42,20 @@ public class PhotoService {
     }
     if (eventId != null) {
       access.require(access.eventFarm(eventId), false);
-      if (write) jdbc.queryForObject("SELECT id FROM field_event WHERE id = ? FOR UPDATE", Long.class, eventId);
+      if (write) queries.value("SELECT id FROM field_event WHERE id = ? FOR UPDATE", Long.class, eventId);
     } else {
-      Long farmId = jdbc.queryForList("""
+      Long farmId = queries.values("""
         SELECT f.farm_id FROM phytosanitary_inspection i JOIN block b ON b.id = i.block_id
         JOIN field f ON f.id = b.field_id WHERE i.id = ?
         """, Long.class, inspectionId).stream().findFirst()
         .orElseThrow(() -> error(HttpStatus.NOT_FOUND, "Inspección no encontrada"));
       access.require(farmId, false);
       if (write) {
-        var canceled = jdbc.queryForObject("SELECT canceled_at FROM phytosanitary_inspection WHERE id = ? FOR UPDATE",
-          (result, rowNumber) -> result.getTimestamp("canceled_at"), inspectionId);
+        var canceled = queries.value("SELECT canceled_at FROM phytosanitary_inspection WHERE id = ? FOR UPDATE",
+          Instant.class, inspectionId);
         if (canceled != null) throw error(HttpStatus.CONFLICT, "La inspección está anulada");
       }
-      if (treatmentId != null && jdbc.queryForObject("SELECT COUNT(*) FROM inspection_treatment WHERE id = ? AND inspection_id = ?",
+      if (treatmentId != null && queries.value("SELECT COUNT(*) FROM inspection_treatment WHERE id = ? AND inspection_id = ?",
         Integer.class, treatmentId, inspectionId) == 0) throw error(HttpStatus.BAD_REQUEST, "El tratamiento no pertenece a esta inspección");
     }
   }
@@ -69,7 +69,7 @@ public class PhotoService {
     if (original.isBlank()) original = "foto";
     if (original.length() > 250) original = original.substring(original.length() - 250);
     String id = UUID.randomUUID().toString();
-    jdbc.update("""
+    queries.execute("""
       INSERT INTO photo_asset(id, event_id, inspection_id, treatment_id, original_name, content_type,
         size_bytes, image_data, created_by_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       """, id, eventId, inspectionId, treatmentId, original, image.contentType(), image.bytes().length, image.bytes(), access.userId());
@@ -78,13 +78,13 @@ public class PhotoService {
 
   public List<Photo> list(Long eventId, Long inspectionId, Long treatmentId) {
     authorize(eventId, inspectionId, treatmentId, false);
-    if (eventId != null) return jdbc.query("SELECT " + COLUMNS + " FROM photo_asset WHERE event_id = ? ORDER BY created_at, id", MAPPER, eventId);
-    if (treatmentId != null) return jdbc.query("SELECT " + COLUMNS + " FROM photo_asset WHERE inspection_id = ? AND treatment_id = ? ORDER BY created_at, id", MAPPER, inspectionId, treatmentId);
-    return jdbc.query("SELECT " + COLUMNS + " FROM photo_asset WHERE inspection_id = ? ORDER BY created_at, id", MAPPER, inspectionId);
+    if (eventId != null) return queries.select("SELECT " + COLUMNS + " FROM photo_asset WHERE event_id = ? ORDER BY created_at, id", MAPPER, eventId);
+    if (treatmentId != null) return queries.select("SELECT " + COLUMNS + " FROM photo_asset WHERE inspection_id = ? AND treatment_id = ? ORDER BY created_at, id", MAPPER, inspectionId, treatmentId);
+    return queries.select("SELECT " + COLUMNS + " FROM photo_asset WHERE inspection_id = ? ORDER BY created_at, id", MAPPER, inspectionId);
   }
 
   public Photo get(String id) {
-    var photo = jdbc.query("SELECT " + COLUMNS + " FROM photo_asset WHERE id = ?", MAPPER, id).stream().findFirst()
+    var photo = queries.select("SELECT " + COLUMNS + " FROM photo_asset WHERE id = ?", MAPPER, id).stream().findFirst()
       .orElseThrow(() -> error(HttpStatus.NOT_FOUND, "Foto no encontrada"));
     authorize(photo.eventId(), photo.inspectionId(), photo.treatmentId(), false);
     return photo;
@@ -93,7 +93,7 @@ public class PhotoService {
   @Transactional(readOnly = true)
   public Content content(String id) {
     var photo = get(id);
-    return new Content(photo, jdbc.queryForObject("SELECT image_data FROM photo_asset WHERE id = ?", byte[].class, id));
+    return new Content(photo, queries.value("SELECT image_data FROM photo_asset WHERE id = ?", byte[].class, id));
   }
 
   private Image decode(MultipartFile file) {

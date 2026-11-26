@@ -1,9 +1,8 @@
 package com.yourco.agro.catalog;
 
 import com.yourco.agro.auth.FarmAccess;
+import com.yourco.agro.persistence.JpaSql;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -14,27 +13,27 @@ import static com.yourco.agro.catalog.CropCatalogDtos.*;
 
 @Service
 public class CropCatalogService {
-  private final JdbcTemplate jdbc;
+  private final JpaSql queries;
   private final FarmAccess access;
 
-  public CropCatalogService(JdbcTemplate jdbc, FarmAccess access) {
-    this.jdbc = jdbc;
+  public CropCatalogService(JpaSql queries, FarmAccess access) {
+    this.queries = queries;
     this.access = access;
   }
 
   public List<Crop> list(long farmId) {
     access.require(farmId, false);
-    var crops = jdbc.query("""
+    var crops = queries.select("""
       SELECT id, farm_id, code, name, active
       FROM crop_catalog WHERE farm_id = ? ORDER BY name, id
-      """, (result, rowNumber) -> new Crop(result.getLong("id"), result.getLong("farm_id"),
-      result.getString("code"), result.getString("name"), result.getBoolean("active"), List.of()), farmId);
-    var varieties = jdbc.query("""
+      """, result -> new Crop(result.longValue("id"), result.longValue("farm_id"),
+      result.text("code"), result.text("name"), result.booleanValue("active"), List.of()), farmId);
+    var varieties = queries.select("""
       SELECT id, crop_id, code, name, active
       FROM crop_variety WHERE crop_id IN (SELECT id FROM crop_catalog WHERE farm_id = ?)
       ORDER BY name, id
-      """, (result, rowNumber) -> new Variety(result.getLong("id"), result.getLong("crop_id"),
-      result.getString("code"), result.getString("name"), result.getBoolean("active")), farmId);
+      """, result -> new Variety(result.longValue("id"), result.longValue("crop_id"),
+      result.text("code"), result.text("name"), result.booleanValue("active")), farmId);
     var byCrop = new HashMap<Long, List<Variety>>();
     for (var variety : varieties) byCrop.computeIfAbsent(variety.cropId(), ignored -> new ArrayList<>()).add(variety);
     return crops.stream().map(crop -> new Crop(crop.id(), crop.farmId(), crop.code(), crop.name(), crop.active(),
@@ -48,7 +47,7 @@ public class CropCatalogService {
     if (exists("SELECT COUNT(*) FROM crop_catalog WHERE farm_id = ? AND code = ?", request.farmId(), code)) {
       throw conflict("Ya existe un cultivo con ese código en la finca");
     }
-    long id = insert("INSERT INTO crop_catalog(farm_id,code,name,created_by) VALUES (?,?,?,?)",
+    long id = queries.insert("INSERT INTO crop_catalog(farm_id,code,name,created_by) VALUES (?,?,?,?)",
       request.farmId(), code, request.name().trim(), access.userId());
     return list(request.farmId()).stream().filter(crop -> crop.id().equals(id)).findFirst().orElseThrow();
   }
@@ -61,10 +60,10 @@ public class CropCatalogService {
     if (exists("SELECT COUNT(*) FROM crop_variety WHERE crop_id = ? AND code = ?", selectedCropId, code)) {
       throw conflict("Ya existe una variedad con ese código en el cultivo");
     }
-    long id = insert("INSERT INTO crop_variety(crop_id,code,name,created_by) VALUES (?,?,?,?)",
+    long id = queries.insert("INSERT INTO crop_variety(crop_id,code,name,created_by) VALUES (?,?,?,?)",
       selectedCropId, code, request.name().trim(), access.userId());
-    return jdbc.queryForObject("SELECT id,crop_id,code,name,active FROM crop_variety WHERE id=?",
-      (result, rowNumber) -> new Variety(result.getLong("id"), result.getLong("crop_id"), result.getString("code"), result.getString("name"), result.getBoolean("active")), id);
+    return queries.selectOne("SELECT id,crop_id,code,name,active FROM crop_variety WHERE id=?",
+      result -> new Variety(result.longValue("id"), result.longValue("crop_id"), result.text("code"), result.text("name"), result.booleanValue("active")), id);
   }
 
   public Selection resolve(long farmId, Long cropId, Long varietyId) {
@@ -73,19 +72,19 @@ public class CropCatalogService {
       if (varietyId != null) throw bad("Selecciona el cultivo antes de la variedad");
       return null;
     }
-    var selectedCrop = jdbc.query("SELECT id,name FROM crop_catalog WHERE id=? AND farm_id=? AND active=TRUE",
-      (result, rowNumber) -> new AbstractMap.SimpleEntry<>(result.getLong("id"), result.getString("name")), cropId, farmId)
+    var selectedCrop = queries.select("SELECT id,name FROM crop_catalog WHERE id=? AND farm_id=? AND active=TRUE",
+      result -> new AbstractMap.SimpleEntry<>(result.longValue("id"), result.text("name")), cropId, farmId)
       .stream().findFirst().orElseThrow(() -> bad("El cultivo no pertenece a la finca o está inactivo"));
     if (varietyId == null) return new Selection(selectedCrop.getKey(), null, selectedCrop.getValue(), null);
-    var selectedVariety = jdbc.query("""
+    var selectedVariety = queries.select("""
       SELECT id,name FROM crop_variety WHERE id=? AND crop_id=? AND active=TRUE
-      """, (result, rowNumber) -> new AbstractMap.SimpleEntry<>(result.getLong("id"), result.getString("name")), varietyId, cropId)
+      """, result -> new AbstractMap.SimpleEntry<>(result.longValue("id"), result.text("name")), varietyId, cropId)
       .stream().findFirst().orElseThrow(() -> bad("La variedad no pertenece al cultivo o está inactiva"));
     return new Selection(selectedCrop.getKey(), selectedVariety.getKey(), selectedCrop.getValue(), selectedVariety.getValue());
   }
 
   private Map<String, Object> crop(long id, boolean manage) {
-    var rows = jdbc.queryForList("SELECT * FROM crop_catalog WHERE id=?", id);
+    var rows = queries.rows("SELECT * FROM crop_catalog WHERE id=?", id);
     if (rows.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Cultivo no encontrado");
     var row = rows.get(0);
     if (manage) access.requireAgronomic(((Number) row.get("farm_id")).longValue());
@@ -95,18 +94,9 @@ public class CropCatalogService {
   }
 
   private boolean exists(String query, Object... values) {
-    return jdbc.queryForObject(query, Integer.class, values) > 0;
+    return queries.value(query, Integer.class, values) > 0;
   }
 
-  private long insert(String query, Object... values) {
-    var key = new GeneratedKeyHolder();
-    jdbc.update(connection -> {
-      var statement = connection.prepareStatement(query, new String[]{"id"});
-      for (int index = 0; index < values.length; index++) statement.setObject(index + 1, values[index]);
-      return statement;
-    }, key);
-    return Objects.requireNonNull(key.getKey()).longValue();
-  }
 
   private String normalize(String value) { return value.trim().toLowerCase(Locale.ROOT); }
   private ResponseStatusException bad(String message) { return new ResponseStatusException(HttpStatus.BAD_REQUEST, message); }

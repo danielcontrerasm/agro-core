@@ -2,15 +2,12 @@ package com.yourco.agro.planting;
 
 import com.yourco.agro.auth.FarmAccess;
 import com.yourco.agro.catalog.CropCatalogService;
+import com.yourco.agro.persistence.JpaSql;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Arrays;
@@ -33,12 +30,12 @@ public class PlantingCalendarService {
     WHERE p.id = ?
     """;
 
-  private final JdbcTemplate jdbc;
+  private final JpaSql queries;
   private final FarmAccess access;
   private final CropCatalogService catalog;
 
-  public PlantingCalendarService(JdbcTemplate jdbc, FarmAccess access, CropCatalogService catalog) {
-    this.jdbc = jdbc;
+  public PlantingCalendarService(JpaSql queries, FarmAccess access, CropCatalogService catalog) {
+    this.queries = queries;
     this.access = access;
     this.catalog = catalog;
   }
@@ -46,13 +43,13 @@ public class PlantingCalendarService {
   public List<CalendarRule> list(long farmId) {
     access.require(farmId, false);
     String query = SELECT.replace("WHERE p.id = ?", "WHERE p.farm_id = ? ORDER BY lower(p.region), p.season_name, p.id");
-    return jdbc.query(query, (result, rowNumber) -> map(result), farmId);
+    return queries.select(query, this::map, farmId);
   }
 
   public List<Suggestion> suggestions(long farmId, long cropId, Long varietyId, Integer year) {
     access.require(farmId, false);
     var selection = catalog.resolve(farmId, cropId, varietyId);
-    String region = jdbc.queryForObject("SELECT region FROM farm WHERE id = ?", String.class, farmId);
+    String region = queries.value("SELECT region FROM farm WHERE id = ?", String.class, farmId);
     if (region == null || region.isBlank()) return List.of();
     int selectedYear = year == null ? LocalDate.now().getYear() : year;
     if (selectedYear < 1900 || selectedYear > 2200) throw bad("El año de consulta no es válido");
@@ -68,7 +65,7 @@ public class PlantingCalendarService {
     validateWindow(request);
     var selection = catalog.resolve(request.farmId(), request.cropId(), request.varietyId());
     ensureUnique(request, null);
-    long id = insert("""
+    long id = queries.insert("""
       INSERT INTO planting_calendar(farm_id,region,crop_catalog_id,variety_id,season_name,
         window_from_month,window_from_day,window_to_month,window_to_day,perennial,
         preparation_lead_days,notes,created_by)
@@ -88,7 +85,7 @@ public class PlantingCalendarService {
     validateWindow(request);
     var selection = catalog.resolve(farmId, request.cropId(), request.varietyId());
     ensureUnique(request, id);
-    jdbc.update("""
+    queries.execute("""
       UPDATE planting_calendar SET region=?,crop_catalog_id=?,variety_id=?,season_name=?,
         window_from_month=?,window_from_day=?,window_to_month=?,window_to_day=?,perennial=?,
         preparation_lead_days=?,notes=?,updated_at=CURRENT_TIMESTAMP WHERE id=?
@@ -102,14 +99,14 @@ public class PlantingCalendarService {
   public void deactivate(long id) {
     var current = getRow(id);
     access.requireAgronomic(((Number) current.get("farm_id")).longValue());
-    jdbc.update("UPDATE planting_calendar SET active=FALSE,updated_at=CURRENT_TIMESTAMP WHERE id=?", id);
+    queries.execute("UPDATE planting_calendar SET active=FALSE,updated_at=CURRENT_TIMESTAMP WHERE id=?", id);
   }
 
   public void validateCycleWindow(long farmId, Long cropId, Long varietyId, LocalDate from, LocalDate to) {
     if (cropId == null) return;
     if (to.isBefore(from)) throw bad("La ventana de siembra es inválida");
     var selection = catalog.resolve(farmId, cropId, varietyId);
-    String region = jdbc.queryForObject("SELECT region FROM farm WHERE id = ?", String.class, farmId);
+    String region = queries.value("SELECT region FROM farm WHERE id = ?", String.class, farmId);
     if (region == null || region.isBlank()) return;
     var rules = matchingRules(farmId, region, selection.cropId(), selection.varietyId()).stream()
       .filter(CalendarRule::active).toList();
@@ -163,10 +160,10 @@ public class PlantingCalendarService {
       """;
     if (varietyId == null) {
       query += " AND p.variety_id IS NULL ORDER BY p.id";
-      return jdbc.query(query, (result, rowNumber) -> map(result), farmId, region, cropId);
+      return queries.select(query, this::map, farmId, region, cropId);
     }
     query += " AND (p.variety_id = ? OR p.variety_id IS NULL) ORDER BY CASE WHEN p.variety_id = ? THEN 0 ELSE 1 END, p.id";
-    return jdbc.query(query, (result, rowNumber) -> map(result), farmId, region, cropId, varietyId, varietyId);
+    return queries.select(query, this::map, farmId, region, cropId, varietyId, varietyId);
   }
 
   private void ensureUnique(CalendarRequest request, Long ignoredId) {
@@ -185,7 +182,7 @@ public class PlantingCalendarService {
       expanded[values.length] = ignoredId;
       values = expanded;
     }
-    if (jdbc.queryForObject(query, Integer.class, values) > 0) throw conflict("Ya existe una regla con ese nombre para la región y cultivo");
+    if (queries.value(query, Integer.class, values) > 0) throw conflict("Ya existe una regla con ese nombre para la región y cultivo");
   }
 
   private void validateWindow(CalendarRequest request) {
@@ -201,38 +198,29 @@ public class PlantingCalendarService {
   }
 
   private CalendarRule get(long id) {
-    return jdbc.query(SELECT, (result, rowNumber) -> map(result), id).stream().findFirst()
+    return queries.select(SELECT, this::map, id).stream().findFirst()
       .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Regla de calendario no encontrada"));
   }
 
   private Map<String, Object> getRow(long id) {
-    var rows = jdbc.queryForList("SELECT * FROM planting_calendar WHERE id=?", id);
+    var rows = queries.rows("SELECT * FROM planting_calendar WHERE id=?", id);
     if (rows.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Regla de calendario no encontrada");
     return rows.get(0);
   }
 
-  private CalendarRule map(ResultSet result) throws SQLException {
-    return new CalendarRule(result.getLong("id"), result.getLong("farm_id"), result.getString("region"),
-      result.getLong("crop_catalog_id"), result.getObject("variety_id", Long.class), result.getString("crop_name"),
-      result.getString("variety_name"), result.getString("season_name"), integer(result, "window_from_month"),
+  private CalendarRule map(JpaSql.Row result) {
+    return new CalendarRule(result.longValue("id"), result.longValue("farm_id"), result.text("region"),
+      result.longValue("crop_catalog_id"), result.value("variety_id", Long.class), result.text("crop_name"),
+      result.text("variety_name"), result.text("season_name"), integer(result, "window_from_month"),
       integer(result, "window_from_day"), integer(result, "window_to_month"), integer(result, "window_to_day"),
-      result.getBoolean("perennial"), integer(result, "preparation_lead_days"), result.getString("notes"), result.getBoolean("active"));
+      result.booleanValue("perennial"), integer(result, "preparation_lead_days"), result.text("notes"), result.booleanValue("active"));
   }
 
-  private Integer integer(ResultSet result, String column) throws SQLException {
-    Number value = (Number) result.getObject(column);
+  private Integer integer(JpaSql.Row result, String column) {
+    Number value = (Number) result.columns().get(column);
     return value == null ? null : value.intValue();
   }
 
-  private long insert(String sql, Object... values) {
-    var key = new GeneratedKeyHolder();
-    jdbc.update(connection -> {
-      var statement = connection.prepareStatement(sql, new String[]{"id"});
-      for (int index = 0; index < values.length; index++) statement.setObject(index + 1, values[index]);
-      return statement;
-    }, key);
-    return Objects.requireNonNull(key.getKey()).longValue();
-  }
 
   private String normalizeRegion(String value) { return value.trim(); }
   private ResponseStatusException bad(String message) { return new ResponseStatusException(HttpStatus.BAD_REQUEST, message); }

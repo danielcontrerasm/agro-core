@@ -6,6 +6,7 @@ import com.yourco.agro.auth.AuthDtos;
 import com.yourco.agro.auth.FarmAccess;
 import com.yourco.agro.config.SecurityConfig;
 import com.yourco.agro.fertilization.*;
+import com.yourco.agro.persistence.JpaSql;
 import com.yourco.agro.tasks.TaskService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,15 +15,12 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.support.JdbcTransactionManager;
-import org.springframework.jdbc.datasource.embedded.*;
+import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
-import org.springframework.transaction.annotation.EnableTransactionManagement;
-import javax.sql.DataSource;
+import java.io.IOException;
 import java.util.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.*;
@@ -32,36 +30,38 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(FertilizationController.class)
 @Import({SecurityConfig.class,FarmAccess.class,TaskService.class,FertilizationService.class,FertilizationApiTest.Database.class})
 class FertilizationApiTest {
-  @TestConfiguration @EnableTransactionManagement
+  @TestConfiguration
+  @Import(JpaTestConfig.class)
   static class Database {
-    @Bean DataSource dataSource() {
-      return new EmbeddedDatabaseBuilder().generateUniqueName(true).setType(EmbeddedDatabaseType.H2)
-        .addScript("fertilization-schema.sql").addScript("db/migration/V2__users_and_memberships.sql")
-        .addScript("db/migration/V3__farm_tasks.sql")
-        .addScript("db/migration/V6__phytosanitary_inspections.sql")
-        .addScript("db/migration/V7__inspection_treatments_and_evidence.sql")
-        .addScript("db/migration/V9__fertilization_workflow.sql")
-        .addScript("db/migration/V10__fertilization_cancellation_audit.sql")
-        .addScript("db/migration/V19__nutrient_profiles_and_reviews.sql")
-        .addScript("db/migration/V21__fertilizer_products_and_recurring_plans.sql").build();
+    @Bean
+    LocalContainerEntityManagerFactoryBean entityManagerFactory() throws IOException {
+      return JpaTestConfig.database(
+        "fertilization-schema.sql",
+        "db/migration/V2__users_and_memberships.sql",
+        "db/migration/V3__farm_tasks.sql",
+        "db/migration/V6__phytosanitary_inspections.sql",
+        "db/migration/V7__inspection_treatments_and_evidence.sql",
+        "db/migration/V9__fertilization_workflow.sql",
+        "db/migration/V10__fertilization_cancellation_audit.sql",
+        "db/migration/V19__nutrient_profiles_and_reviews.sql",
+        "db/migration/V21__fertilizer_products_and_recurring_plans.sql"
+      );
     }
-    @Bean JdbcTemplate jdbcTemplate(DataSource dataSource) { return new JdbcTemplate(dataSource); }
-    @Bean JdbcTransactionManager transactionManager(DataSource dataSource) { return new JdbcTransactionManager(dataSource); }
   }
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
-  @Autowired JdbcTemplate jdbc;
+  @Autowired JpaSql queries;
   @Autowired FertilizationService service;
   private UsernamePasswordAuthenticationToken login(long id) {
     return UsernamePasswordAuthenticationToken.authenticated(new AuthDtos.User(id,"Operator","user@example.com"),null,List.of());
   }
   @BeforeEach void seed() {
-    for (String table : List.of("nutrient_analysis_review","nutrient_reference_range","nutrient_reference_profile","fertilization_plan_task","fertilization_followup","fertilization_application","fertilization_plan","fertilizer_product","soil_analysis","farm_task","field_event","farm_membership","app_user","block","field","farm")) jdbc.update("DELETE FROM "+table);
-    jdbc.update("INSERT INTO farm VALUES (10,'North'),(20,'South')");
-    jdbc.update("INSERT INTO field VALUES (11,10),(21,20)");
-    jdbc.update("INSERT INTO block VALUES (12,11,28,'banana','Valery'),(15,11,18,'banana','Valery'),(22,21,10,'banana','Valery')");
-    jdbc.update("INSERT INTO app_user(id,name,email,password_hash) VALUES (1,'Worker','worker@test.local','hash'),(2,'Manager','manager@test.local','hash'),(3,'Other','other@test.local','hash')");
-    jdbc.update("INSERT INTO farm_membership VALUES (10,1,'WORKER'),(10,2,'ADMIN'),(10,3,'WORKER')");
+    for (String table : List.of("nutrient_analysis_review","nutrient_reference_range","nutrient_reference_profile","fertilization_plan_task","fertilization_followup","fertilization_application","fertilization_plan","fertilizer_product","soil_analysis","farm_task","field_event","farm_membership","app_user","block","field","farm")) queries.execute("DELETE FROM "+table);
+    queries.execute("INSERT INTO farm VALUES (10,'North'),(20,'South')");
+    queries.execute("INSERT INTO field VALUES (11,10),(21,20)");
+    queries.execute("INSERT INTO block VALUES (12,11,28,'banana','Valery'),(15,11,18,'banana','Valery'),(22,21,10,'banana','Valery')");
+    queries.execute("INSERT INTO app_user(id,name,email,password_hash) VALUES (1,'Worker','worker@test.local','hash'),(2,'Manager','manager@test.local','hash'),(3,'Other','other@test.local','hash')");
+    queries.execute("INSERT INTO farm_membership VALUES (10,1,'WORKER'),(10,2,'ADMIN'),(10,3,'WORKER')");
   }
   private Map<String,Object> analysis() {
     return new HashMap<>(Map.of("blockId",12,"sampleType","SOIL","sampledOn","2026-01-10","laboratory","Lab","reference","S-1","depthCm",20,"results",List.of(Map.of("nutrient","K","value",0.35,"unit","CMOL_KG","method","Acetato"),Map.of("nutrient","PH","value",5.8,"unit","PH","method","Agua"))));
@@ -121,8 +121,8 @@ class FertilizationApiTest {
     postAs("plans/"+id+"/approve",Map.of("version",0,"reason","OK"),2).andExpect(status().isConflict());
     postAs("plans/"+id+"/task",Map.of(),2).andExpect(status().isOk());
     postAs("plans/"+id+"/task",Map.of(),2).andExpect(status().isOk());
-    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM farm_task",Integer.class)).isEqualTo(1);
-    assertThat(jdbc.queryForObject("SELECT instructions FROM farm_task",String.class)).contains("50.000000 kg");
+    assertThat(queries.value("SELECT COUNT(*) FROM farm_task",Integer.class)).isEqualTo(1);
+    assertThat(queries.value("SELECT instructions FROM farm_task",String.class)).contains("50.000000 kg");
   }
   @Test void partialApplicationsAreAtomicAuthorizedAndLinkedToEvents() throws Exception {
     long id=approved(true);
@@ -131,15 +131,15 @@ class FertilizationApiTest {
     created("plans/"+id+"/applications",application(20),1);
     postAs("plans/"+id+"/applications",application(31),1).andExpect(status().isBadRequest());
     created("plans/"+id+"/applications",application(30),1);
-    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM field_event WHERE event_type='FERTILIZER_APPLICATION'",Integer.class)).isEqualTo(2);
-    assertThat(jdbc.queryForObject("SELECT status FROM farm_task",String.class)).isEqualTo("progress");
+    assertThat(queries.value("SELECT COUNT(*) FROM field_event WHERE event_type='FERTILIZER_APPLICATION'",Integer.class)).isEqualTo(2);
+    assertThat(queries.value("SELECT status FROM farm_task",String.class)).isEqualTo("progress");
     mvc.perform(get("/api/v1/fertilization?farmId=10").with(authentication(login(1)))).andExpect(status().isOk()).andExpect(jsonPath("$.plans[0].appliedQuantity").value(50)).andExpect(jsonPath("$.applications[0].eventId").isNumber());
-    jdbc.update("UPDATE farm_task SET status='blocked'");
+    queries.execute("UPDATE farm_task SET status='blocked'");
     postAs("plans/"+id+"/applications",application(1),1).andExpect(status().isBadRequest());
   }
   @Test void reportsAreAuthenticatedAndFollowupsValidateBlockAndTime() throws Exception {
     long id=approved(true);
-    long sampleId=jdbc.queryForObject("SELECT analysis_id FROM fertilization_plan WHERE id=?",Long.class,id);
+    long sampleId=queries.value("SELECT analysis_id FROM fertilization_plan WHERE id=?",Long.class,id);
     var file=new MockMultipartFile("file","lab.pdf","application/pdf","%PDF-1.4\nExample".getBytes());
     mvc.perform(multipart("/api/v1/fertilization/analyses/"+sampleId+"/report").file(file).with(authentication(login(1))).with(csrf())).andExpect(status().isNoContent());
     mvc.perform(get("/api/v1/fertilization/analyses/"+sampleId+"/report")).andExpect(status().isUnauthorized());
@@ -183,17 +183,17 @@ class FertilizationApiTest {
     postAs("plans/"+planId+"/approve",Map.of("version",0,"reason","Plan recurrente revisado"),2)
       .andExpect(status().isOk()).andExpect(jsonPath("$.recurrence").value("WEEKLY")).andExpect(jsonPath("$.tasks.length()").value(3)).andExpect(jsonPath("$.totalQuantity").value(300));
     postAs("plans/"+planId+"/task",Map.of(),2).andExpect(status().isOk()).andExpect(jsonPath("$.tasks.length()").value(3));
-    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM farm_task",Integer.class)).isEqualTo(3);
-    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM fertilization_plan_task WHERE plan_id=?",Integer.class,planId)).isEqualTo(3);
+    assertThat(queries.value("SELECT COUNT(*) FROM farm_task",Integer.class)).isEqualTo(3);
+    assertThat(queries.value("SELECT COUNT(*) FROM fertilization_plan_task WHERE plan_id=?",Integer.class,planId)).isEqualTo(3);
 
-    var taskIds=jdbc.queryForList("SELECT task_id FROM fertilization_plan_task WHERE plan_id=? ORDER BY occurrence_on",Long.class,planId);
+    var taskIds=queries.values("SELECT task_id FROM fertilization_plan_task WHERE plan_id=? ORDER BY occurrence_on",Long.class,planId);
     var firstApplication=new HashMap<String,Object>();
     firstApplication.put("occurredAt","2026-01-11T13:00:00Z"); firstApplication.put("quantity",100); firstApplication.put("coverage",2);
     firstApplication.put("method","Aplicación manual"); firstApplication.put("lot","L-001"); firstApplication.put("taskId",taskIds.get(0));
     created("plans/"+planId+"/applications",firstApplication,1);
     var secondApplication=new HashMap<>(firstApplication); secondApplication.put("taskId",taskIds.get(1)); secondApplication.put("occurredAt","2026-01-18T13:00:00Z"); secondApplication.put("lot","L-002");
     created("plans/"+planId+"/applications",secondApplication,1);
-    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM fertilization_application WHERE plan_id=?",Integer.class,planId)).isEqualTo(2);
-    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM fertilization_application WHERE plan_id=? AND task_id=?",Integer.class,planId,taskIds.get(1))).isEqualTo(1);
+    assertThat(queries.value("SELECT COUNT(*) FROM fertilization_application WHERE plan_id=?",Integer.class,planId)).isEqualTo(2);
+    assertThat(queries.value("SELECT COUNT(*) FROM fertilization_application WHERE plan_id=? AND task_id=?",Integer.class,planId,taskIds.get(1))).isEqualTo(1);
   }
 }

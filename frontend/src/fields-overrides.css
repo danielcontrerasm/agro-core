@@ -1,3 +1,61 @@
 .fields-app-shell .fields-map-layer-row {
   margin: 0;
 }
+
+.fields-app-shell .fields-overview-header {
+  margin-bottom: 10px;
+  padding: 9px 12px 10px;
+  border: 1px solid #e5eee9;
+  border-radius: 11px;
+  background: #fff;
+}
+.fields-app-shell .fields-overview-header .fields-heading { height: auto; min-height: 0; padding: 0 0 11px; }
+.fields-app-shell .fields-overview-header .fields-stat-grid { margin: 0; }
+.fields-app-shell .fields-stat-card small { color: #526679; font-size: 13px; white-space: normal; }
+.fields-app-shell .fields-stat-card strong { color: #10233b; }
+.fields-app-shell .fields-content-grid { grid-template-columns: minmax(0, 1fr) minmax(250px, 20%); }
+.fields-app-shell .fields-map-card { height: clamp(375px, 55vh, 540px); min-height: 0; }
+.fields-app-shell .fields-map-card .farm-map { min-height: 100%; }
+.fields-app-shell .fields-map-layer-panel { width: 230px; max-width: 73%; background: #fffffff5; }
+.fields-app-shell .fields-map-layer-tabs { grid-template-columns: 1fr 1fr; }
+.fields-app-shell .fields-map-layer-row { grid-template-columns: 17px 18px minmax(0, 1fr); min-height: 34px; font-size: 13px; }
+.fields-app-shell .fields-map-layer-row > input { accent-color: #158650; }
+.fields-app-shell .fields-tree .fields-tree-row { grid-template-columns: 13px 19px minmax(0, 1fr) auto; min-height: 34px; font-size: 14px; }
+.fields-app-shell .fields-tree .fields-tree-row strong { font-size: 13px; }
+.fields-app-shell .fields-detail-list { display: grid; grid-template-columns: 1fr; gap: 0; }
+.fields-app-shell .fields-detail-list > div { display: flex; justify-content: space-between; gap: 14px; padding: 5px 0; }
+.fields-app-shell .fields-detail-list dt,
+.fields-app-shell .fields-detail-list dd { font-size: 13px; }
+.fields-app-shell .fields-bottom-grid > .panel { height: auto; min-height: 184px; }
+.fields-app-shell .fields-bottom-grid .panel-heading { flex-wrap: wrap; gap: 4px; }
+.fields-app-shell .fields-health-list > div { grid-template-columns: minmax(60px, auto) minmax(20px, 1fr) 31px; }
+.fields-app-shell .fields-data-note { color: #516475; font-size: 14px; }
+.fields-app-shell .fields-overview-map .map-attribution { display: block; }
+.fields-app-shell .fields-heading-actions > button { min-height: 39px; font-size: 14px; }
+.fields-app-shell .fields-map-layer-tabs button { min-height: 35px; font-size: 13px; }
+.fields-app-shell .fields-map-layer-heading strong { font-size: 16px; }
+.fields-app-shell .fields-details-button { min-height: 38px; font-size: 14px; }
+.fields-app-shell :is(
+  .fields-legend-list > div, .fields-legend-list strong, .fields-health-list > div, .fields-health-list strong,
+  .fields-production-bar strong, .fields-production-bar span, .fields-area-summary .donut small
+) { color: #526477; font-size: 13px; }
+.fields-app-shell .fields-production-bar span { white-space: normal; overflow-wrap: anywhere; text-align: center; }
+.fields-app-shell .fields-table-name { font-size: 14px; }
+@media (max-width: 1080px) {
+  .fields-app-shell .fields-bottom-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  .fields-app-shell .fields-content-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 800px) {
+  .fields-app-shell { --sidebar: 0px; }
+  .fields-app-shell .sidebar { width: 230px; }
+}
+@media (max-width: 650px) {
+  .fields-app-shell .fields-map-card { height: 380px; }
+  .fields-app-shell .fields-stat-card { min-width: 0; }
+  .fields-app-shell .fields-variety-card { grid-column: auto; }
+  .fields-app-shell .fields-heading-actions button { margin-left: 0; }
+  .fields-app-shell .fields-bottom-grid { grid-template-columns: minmax(0, 1fr); }
+  .fields-app-shell .fields-plot-label { transform-box: fill-box; transform-origin: center; transform: scale(2.2); }
+}

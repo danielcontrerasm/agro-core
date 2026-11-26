@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
-import { BellRing, CheckCircle2, Clock3, Droplets, Gauge, ThermometerSun, CalendarDays, Play, Leaf, AlertTriangle, ChevronRight, Search, Maximize2 } from 'lucide-react';
+import type { FormEvent, ReactNode } from 'react';
+import { ArrowRight, BellRing, CheckCircle2, Clock3, Droplets, Gauge, ThermometerSun, CalendarDays, Download, TriangleAlert } from 'lucide-react';
 import { useApp } from '../context';
 import { api } from '../lib/api';
 import { saveDemo } from '../lib/demo';
-import { csvCell, localDate } from '../lib/domain';
+import { csvCell, localDate, number } from '../lib/domain';
 import { emptyIrrigation, readIrrigationDemo, refreshIrrigation, moistureLabels, moistureUnits, irrigationKey, executionAmounts } from '../lib/irrigation';
 import type { IrrigationData, IrrigationSector, IrrigationPlan, IrrigationExecution, IrrigationMeasurement, IrrigationWaterSource, IrrigationWaterQuality, IrrigationInfrastructure, IrrigationWaterBalance, IrrigationMaintenance, IrrigationSensorCheck, IrrigationRecurringSchedule, MoistureUnit, RecurrenceUnit } from '../lib/irrigation';
 import type { Member, Task } from '../lib/types';
 import { Badge, Modal, Notice, Panel } from '../components/ui';
-import PhotoGallery from '../components/PhotoGallery';
+import IrrigationDetails from '../components/IrrigationDetails';
+import IrrigationOverview from '../components/IrrigationOverview';
+import IrrigationExecutions from '../components/IrrigationExecutions';
 import '../fertilization.css';
 
 type ManagementRecord = IrrigationWaterSource | IrrigationWaterQuality | IrrigationInfrastructure | IrrigationWaterBalance | IrrigationMaintenance | IrrigationSensorCheck;
@@ -46,29 +48,23 @@ function demoRecurringGeneration(schedule: IrrigationRecurringSchedule, sector: 
   return { plans, tasks };
 }
 
-function IrrigationDashboard({ sectors, plans, executions, blockName, onOpen, onExport }: { sectors: IrrigationSector[]; plans: IrrigationPlan[]; executions: IrrigationExecution[]; blockName: (id: number) => string; onOpen: (tab: 'measurements' | 'plans' | 'management' | 'executions') => void; onExport: () => void }) {
-  const activeSectors = sectors.filter(sector => sector.condition === 'BELOW_RANGE' || sector.condition === 'ABOVE_RANGE');
-  const scheduled = plans.filter(plan => plan.status === 'SCHEDULED');
-  const totalVolume = executions.reduce((sum, execution) => sum + Number(execution.volumeM3 || 0), 0);
-  const statusFor = (sector: IrrigationSector) => sector.condition === 'BELOW_RANGE' ? { label: 'Necesita riego', tone: 'critical' } : sector.condition === 'ABOVE_RANGE' ? { label: 'Regando ahora', tone: 'blue' } : sector.latest ? { label: 'No necesita riego', tone: 'green' } : { label: 'Advertencia', tone: 'gold' };
-  const visibleSectors = sectors.slice(0, 5);
-  return <section className="irrigation-dashboard" aria-label="Resumen de riego">
-    <div className="irrigation-dashboard-heading"><div><span className="eyebrow">CONTROL DEL SISTEMA</span><h2>Riego</h2><p>Gestiona el sistema de riego, monitorea la humedad del suelo y programa ejecuciones por sector.</p></div><div className="irrigation-dashboard-actions"><button className="button secondary" onClick={onExport}><Droplets size={14} />Exportar CSV</button><button className="button" onClick={() => onOpen('plans')}><CalendarDays size={14} />Programar riego<ChevronRight size={14} /></button></div></div>
-    <div className="irrigation-dashboard-tabs"><button className="active">Resumen</button><button onClick={() => onOpen('measurements')}>Sectores</button><button onClick={() => onOpen('plans')}>Programación</button><button onClick={() => onOpen('executions')}>Ejecuciones</button><button onClick={() => onOpen('measurements')}>Sensores</button><button onClick={() => onOpen('management')}>Infraestructura</button><button onClick={() => onOpen('management')}>Histórico</button></div>
-    <div className="irrigation-kpi-grid"><div className="irrigation-kpi"><span className="irrigation-kpi-icon blue"><Droplets size={20} /></span><div><small>Consumo hoy</small><strong>{totalVolume.toFixed(0)} m³</strong><em>vs. ayer</em></div><b>↓ 18%</b></div><div className="irrigation-kpi"><span className="irrigation-kpi-icon green"><Play size={19} /></span><div><small>Sectores activos</small><strong>{activeSectors.length} / {sectors.length}</strong><em>En riego actualmente</em></div></div><div className="irrigation-kpi"><span className="irrigation-kpi-icon green"><Gauge size={20} /></span><div><small>Eficiencia hídrica</small><strong>87%</strong><em>vs. semana anterior</em></div><b>↑ 5%</b></div><div className="irrigation-kpi"><span className="irrigation-kpi-icon blue"><Gauge size={20} /></span><div><small>Presión promedio</small><strong>2.8 bar</strong><em>en la red principal</em></div><mark>Normal</mark></div><div className="irrigation-kpi"><span className="irrigation-kpi-icon blue"><Clock3 size={20} /></span><div><small>Próximo riego</small><strong>{scheduled[0]?.scheduledTime ?? '14:30'}</strong><em>{scheduled[0] ? 'Programado' : 'Sector B-02'}</em></div></div><div className="irrigation-kpi"><span className="irrigation-kpi-icon green"><Leaf size={20} /></span><div><small>Área por regar hoy</small><strong>{Math.round(sectors.reduce((sum, sector) => sum + Number(sector.areaHa || 0), 0))} ha</strong><em>en {sectors.length} sectores</em></div></div></div>
-    <div className="irrigation-dashboard-main"><div className="irrigation-map-card"><div className="irrigation-section-heading"><div><h3>Mapa de sectores de riego</h3><p>Visualiza el estado actual del sistema, sectores, válvulas, sensores y tuberías.</p></div><div><button className="compact-select">Estado de riego⌄</button><button className="compact-select">Todos los campos⌄</button><button className="icon-button" aria-label="Expandir mapa"><Maximize2 size={14} /></button></div></div><div className="irrigation-map"><img src="/images/farm-aerial.png" alt="Mapa aéreo de sectores de riego" /><div className="irrigation-map-wash" />{visibleSectors.map((sector, index) => { const positions = [[23,24], [47,49], [70,23], [76,70], [34,65]]; const position = positions[index % positions.length]; const status = statusFor(sector); return <div className={`irrigation-map-label ${status.tone}`} style={{ left: `${position[0]}%`, top: `${position[1]}%` }} key={sector.id}><strong>{sector.name}</strong><span>{status.label}</span><small>{sector.areaHa ?? '—'} ha</small></div>; })}<div className="irrigation-map-legend"><strong>Leyenda</strong><span><i className="blue" />Regando ahora</span><span><i className="gold" />Programado</span><span><i className="green" />No necesita riego</span><span><i className="critical" />Necesita riego</span></div></div></div><div className="irrigation-alert-card"><div className="irrigation-section-heading"><h3>Alertas de riego</h3><button className="text-button" onClick={() => onOpen('measurements')}>Ver todas <ChevronRight size={13} /></button></div>{visibleSectors.slice(0, 4).map((sector, index) => { const status = statusFor(sector); return <div className="irrigation-dashboard-alert" key={sector.id}><span className={`irrigation-alert-symbol ${status.tone}`}>{status.tone === 'critical' ? <AlertTriangle size={17} /> : status.tone === 'blue' ? <ThermometerSun size={17} /> : <Clock3 size={17} />}</span><div><strong>Sector {sector.name}</strong><small>{status.label}. {sector.latest ? `Humedad del suelo en ${sector.latest.value} ${moistureUnits[sector.unit]}.` : 'Sin lectura reciente del sector.'}</small><em>{sector.areaHa ?? '—'} ha · {index ? 'Última ejecución: hoy' : 'Última lectura: 1 h'}</em></div><button className="outline-action" onClick={() => onOpen('measurements')}>Ver {index % 2 ? 'detalle' : 'zona'}</button></div>; })}</div></div>
-    <div className="irrigation-sector-card"><div className="irrigation-section-heading"><div><h3>Sectores de riego</h3><p>Estado actual de cada sector y configuración principal.</p></div><div className="irrigation-table-actions"><label><Search size={14} /><input placeholder="Buscar sector..." /></label><button className="compact-select">Todos los campos⌄</button><button className="compact-select">Todos los estados⌄</button><button className="button small" onClick={() => onOpen('measurements')}>＋ Nuevo sector</button></div></div><div className="table-wrap"><table className="irrigation-dashboard-table"><thead><tr><th>Sector</th><th>Campo / bloque</th><th>Área</th><th>Plantas</th><th>Humedad actual</th><th>Estado</th><th>Última ejecución</th><th>Próxima ejecución</th><th>Acciones</th></tr></thead><tbody>{visibleSectors.map(sector => { const status = statusFor(sector); return <tr key={sector.id}><td><strong>{sector.name}</strong></td><td>{blockName(sector.blockId)}</td><td>{sector.areaHa ?? '—'} ha</td><td>—</td><td>{sector.latest ? `${sector.latest.value}%` : '—'}</td><td><span className={`irrigation-status-pill ${status.tone}`}><i />{status.label}</span></td><td>24 Oct, 05:30</td><td>{scheduled.find(plan => plan.sectorId === sector.id)?.scheduledTime ?? '—'}</td><td><button className="outline-action" onClick={() => onOpen('measurements')}>Ver</button><button className="table-more" aria-label={`Más acciones para ${sector.name}`}>···</button></td></tr>; })}</tbody></table></div></div>
-  </section>;
-}
+const irrigationTabs = [
+  { id: 'summary', label: 'Resumen' },
+  { id: 'measurements', label: 'Sectores' },
+  { id: 'plans', label: 'Programación' },
+  { id: 'executions', label: 'Ejecuciones' },
+  { id: 'sensors', label: 'Sensores' },
+  { id: 'management', label: 'Infraestructura' },
+] as const;
+type IrrigationTab = typeof irrigationTabs[number]['id'];
 
-export default function Irrigation() {
-  const app = useApp(); const { mode, role, farmId, data, profile, notify } = app;
+export default function Irrigation({ onHistory }: { onHistory: () => void }) {
+  const app = useApp(); const { mode, role, farmId, data, date, profile, notify } = app;
   const demo = mode === 'demo'; const manager = role !== 'WORKER';
   const [records, setRecords] = useState<IrrigationData>(emptyIrrigation);
   const [members, setMembers] = useState<Member[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
-  const [tab, setTab] = useState('measurements');
-  const [dashboardMode, setDashboardMode] = useState(true);
+  const [tab, setTab] = useState<IrrigationTab>('summary');
   const [filter, setFilter] = useState('');
   const [editor, setEditor] = useState<Editor>();
   const [detail, setDetail] = useState<IrrigationExecution | IrrigationPlan | IrrigationSector>();
@@ -90,6 +86,7 @@ export default function Irrigation() {
   const measurements = records.measurements.filter(reading => sectors.some(sector => sector.id === reading.sectorId));
   const sectorName = (id: number) => sectors.find(sector => sector.id === id)?.name ?? `Sector #${id}`;
   const blockName = (id: number) => data.blocks.find(block => block.id === id)?.code ?? `Bloque #${id}`;
+  const memberName = (id: number) => members.find(member => member.userId === id)?.name ?? (profile.user.id === id ? profile.user.name : `Usuario #${id}`);
   const matches = (id: number) => !filter || id === Number(filter);
   function persist(next: IrrigationData) { const updated = refreshIrrigation(next); if (!saveDemo(irrigationKey, updated)) throw new Error('No se pudo guardar la demostración. Revisa el almacenamiento del navegador.'); setRecords(updated); }
   async function run(operation: () => Promise<void>) {
@@ -247,57 +244,250 @@ export default function Irrigation() {
   const sectorSelect = <label>Sector<select aria-label="Sector" name="sectorId" required value={chosenSector} onChange={event => setChosenSector(Number(event.target.value))}>{sectors.map(sector => <option value={sector.id} key={sector.id}>{sector.name} · {blockName(sector.blockId)}</option>)}</select></label>;
   const sectorConfig = sectors.find(sector => sector.id === chosenSector);
   const activeDevices = devices.filter(device => device.active);
-  const thresholdsForm = (sector?: IrrigationSector) => <>{input('Límite inferior (opcional)', 'lowerBound', { type: 'number', min: 0, step: 'any', required: false, value: sector?.lowerBound })}{input('Límite superior (opcional)', 'upperBound', { type: 'number', min: 0, step: 'any', required: false, value: sector?.upperBound })}{input('Vigencia máxima de una lectura (horas)', 'maxAgeHours', { type: 'number', min: 1, max: 720, value: sector?.maxAgeHours ?? 24 })}<label>Fundamento técnico / motivo de configuración<textarea name="technicalBasis" required maxLength={2000} defaultValue={sector?.technicalBasis} /></label><Notice>Sin límites no se clasifica la humedad. kPa, porcentaje volumétrico y gravimétrico no son intercambiables. Los límites no implican una recomendación automática de riego.</Notice></>;
+  const thresholdsForm = (sector?: IrrigationSector) => <IrrigationFormSection title="Umbrales de humedad">
+    {input('Límite inferior (opcional)', 'lowerBound', { type: 'number', min: 0, step: 'any', required: false, value: sector?.lowerBound })}
+    {input('Límite superior (opcional)', 'upperBound', { type: 'number', min: 0, step: 'any', required: false, value: sector?.upperBound })}
+    {input('Vigencia máxima de una lectura (horas)', 'maxAgeHours', { type: 'number', min: 1, max: 720, value: sector?.maxAgeHours ?? 24 })}
+    <label className="irrigation-field-wide">Fundamento técnico / motivo de configuración<textarea name="technicalBasis" required maxLength={2000} defaultValue={sector?.technicalBasis} /></label>
+    <Notice>La clasificación de humedad usa los límites y la unidad del sector. Configura ambos límites para activarla.</Notice>
+  </IrrigationFormSection>;
   return <>
-    {dashboardMode ? <IrrigationDashboard sectors={sectors} plans={plans} executions={executions} blockName={blockName} onOpen={nextTab => { setDashboardMode(false); setTab(nextTab); }} onExport={exportCsv} /> : <div className="irrigation-legacy-workspace">
-    <div className="page-heading"><div><span className="eyebrow">MEDIR · PROGRAMAR · EJECUTAR · VERIFICAR</span><h1>Riego</h1><p>Consumo trazable por sector y decisiones revisables.</p></div><button className="button secondary" onClick={exportCsv}>Exportar ejecuciones CSV</button></div>
-    <Notice>El módulo registra y compara; no calcula necesidades agronómicas ni abre válvulas. Los umbrales los configura el responsable técnico. {demo && 'Los datos iniciales son ficticios.'}</Notice>
-    {error && !editor && !detail && <p role="alert">{error}</p>}
-    <div className="toolbar tabs" aria-label="Proceso de riego">{[['measurements', 'Mediciones'], ['plans', 'Programación'], ['executions', 'Ejecuciones'], ['management', 'Administración de agua']].map(([key, label]) => <button key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}</button>)}<label>Filtrar sector<select aria-label="Filtrar sector" value={filter} onChange={event => setFilter(event.target.value)}><option value="">Todos</option>{sectors.map(sector => <option value={sector.id} key={sector.id}>{sector.name}</option>)}</select></label></div>
+    <section className="irrigation-dashboard" aria-label="Proceso de riego">
+      <header className="module-heading">
+        <div><h1>Riego</h1><p>Gestiona sectores, consulta la humedad del suelo y programa ejecuciones de riego.</p></div>
+        <div className="module-heading-actions">
+          <button className="button secondary" onClick={exportCsv}><Download size={16} />Exportar CSV</button>
+          {tab === 'summary' && manager && <button className="button" disabled={!sectors.length} onClick={() => open({ kind: 'plan' })}><CalendarDays size={16} />Programar riego</button>}
+        </div>
+      </header>
+      <div className="module-tabs" aria-label="Secciones de riego">
+        {irrigationTabs.map(item => <button type="button" key={item.id} aria-pressed={tab === item.id} className={tab === item.id ? 'active' : ''} onClick={() => { setTab(item.id); setFilter(''); }}>{item.label}</button>)}
+        <button type="button" onClick={onHistory}>Historial</button>
+      </div>
+      {error && !editor && !detail && <p className="form-error" role="alert">{error}</p>}
+      {tab === 'summary' ? (
+        loading ? <p role="status">Cargando riego…</p> : <IrrigationOverview key={farmId} data={data} demo={demo} date={date}
+          sectors={sectors} plans={plans} executions={executions} infrastructure={records.infrastructure} maintenance={records.maintenance ?? []}
+          alerts={<IrrigationAlerts sectors={sectors} plans={plans} records={records} onReview={setTab} onViewAll={() => setTab('measurements')} />}
+          onView={sector => { setError(''); setDetail(sector); }}
+          onCreate={manager ? () => open({ kind: 'sector' }) : undefined} canCreate={data.blocks.length > 0} />
+      ) : <div className="irrigation-legacy-workspace">
+    {tab !== 'executions' && <Notice>El responsable técnico configura los umbrales. Las mediciones y las ejecuciones registradas se pueden consultar por sector. {demo && 'Los datos iniciales son ficticios.'}</Notice>}
+    <div className="toolbar irrigation-sector-filter">
+      <label>Filtrar sector<select aria-label="Filtrar sector" value={filter} onChange={event => setFilter(event.target.value)}><option value="">Todos</option>{sectors.map(sector => <option value={sector.id} key={sector.id}>{sector.name}</option>)}</select></label>
+    </div>
     {loading ? <p role="status">Cargando riego…</p> : <div className={tab === 'management' ? 'irrigation-tab-management' : 'irrigation-tab-standard'}>
       {tab === 'measurements' && <IrrigationAlerts sectors={sectors} plans={plans} records={records} onReview={nextTab => setTab(nextTab)} />}
       <div className={tab === 'management' ? 'water-management-view' : 'water-management-view hidden'}><WaterManagement records={records} manager={manager} onOpen={openManagement} sectors={sectors} blockName={blockName} filter={filter} devices={devices} /></div>
-      {tab === 'measurements' ? <>
-        <Panel title="Sectores y configuración técnica" action={manager ? <button className="button small" onClick={() => open({ kind: 'sector' })} disabled={!data.blocks.length}>Nuevo sector</button> : undefined}><div className="table-wrap"><table><thead><tr><th>Sector / bloque</th><th>Sistema / fuente</th><th>Última lectura</th><th>Estado</th><th>Configuración</th></tr></thead><tbody>{sectors.filter(sector => matches(sector.id)).map(sector => <tr key={sector.id}><td>{sector.name}<br />{blockName(sector.blockId)} · {sector.areaHa} ha</td><td>{sector.system}<br />{sector.waterSource} · {sector.flowM3h ?? '—'} m³/h</td><td>{sector.latest ? `${sector.latest.value} ${moistureUnits[sector.unit]} · ${sector.depthCm} cm` : 'Sin medición'}<br />{sector.latest && new Date(sector.latest.recordedAt).toLocaleString('es-CO')}</td><td><Badge tone={sector.condition === 'IN_RANGE' ? 'green' : 'neutral'}>{moistureLabels[sector.condition]}</Badge></td><td><button className="text-button" onClick={() => { setError(''); setDetail(sector); }}>Ver sector {sector.id}</button>{manager && <button className="text-button" onClick={() => open({ kind: 'thresholds', sector })}>Configurar límites {sector.id}</button>}</td></tr>)}</tbody></table></div></Panel>
-        <Panel title="Historial de mediciones" action={<button className="button small" disabled={!sectors.length} onClick={() => open({ kind: 'measurement' })}>Nueva medición</button>}><div className="table-wrap"><table><thead><tr><th>Sector / fecha</th><th>Humedad / profundidad</th><th>Origen / instrumento</th><th>Lluvia registrada</th><th>Drenaje / notas</th></tr></thead><tbody>{measurements.filter(reading => matches(reading.sectorId)).sort((first, second) => Date.parse(second.recordedAt) - Date.parse(first.recordedAt)).map(reading => <tr key={`${reading.sectorId}-${reading.id}`}><td>{sectorName(reading.sectorId)}<br />{new Date(reading.recordedAt).toLocaleString('es-CO')}</td><td>{reading.value} {moistureUnits[reading.unit]} · {reading.depthCm} cm</td><td>{reading.source === 'MANUAL' ? `Manual · usuario #${reading.createdBy}` : 'Sensor'}<br />{reading.instrument}</td><td>{reading.rainMm != null ? `${reading.rainMm} mm` : 'Sin registro'}</td><td>{reading.drainage || 'Sin observación'}<br />{reading.notes}</td></tr>)}</tbody></table></div></Panel>
-      </> : tab === 'plans' ? <><RecurringSchedulePanel schedules={(records.recurringSchedules ?? []).filter(schedule => matches(schedule.sectorId))} sectors={sectors} members={members} manager={manager} busy={busy} onCreate={() => open({ kind: 'recurringSchedule' })} onEdit={schedule => open({ kind: 'recurringSchedule', record: schedule })} onGenerate={schedule => void generateRecurring(schedule)} onAction={(schedule, action) => open({ kind: 'recurringAction', record: schedule, action })} /><Panel title="Programación y tareas" action={manager && <button className="button small" disabled={!sectors.length} onClick={() => open({ kind: 'plan' })}>Programar riego</button>}><div className="table-wrap"><table><thead><tr><th>Sector / fecha</th><th>Minutos previstos / reales</th><th>m³ previstos / reales</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{plans.filter(plan => matches(plan.sectorId)).map(plan => <tr key={plan.id}><td>{sectorName(plan.sectorId)}<br />{plan.scheduledOn} {plan.scheduledTime}{plan.recurringScheduleId && <><br /><small>Recurrencia #{plan.recurringScheduleId}</small></>}</td><td>{plan.durationMinutes} / {plan.actualDurationMinutes}</td><td>{plan.volumeM3} / {plan.actualVolumeM3}</td><td>{plan.status === 'CANCELED' ? 'Anulado' : plan.taskId ? `Tarea #${plan.taskId}` : 'Sin tarea'}</td><td><button className="text-button" onClick={() => { setError(''); setDetail(plan); }}>Ver programación {plan.id}</button>{manager && !plan.taskId && plan.status === 'SCHEDULED' && <><button className="text-button" disabled={busy} onClick={() => void generateTask(plan)}>Generar tarea</button><button className="text-button" onClick={() => open({ kind: 'cancel', plan })}>Anular</button></>}{plan.status === 'SCHEDULED' && plan.taskId && (manager || plan.assigneeId === profile.user.id) && <button className="text-button" onClick={() => open({ kind: 'execution', plan })}>Registrar ejecución</button>}</td></tr>)}</tbody></table></div></Panel></> : <Panel title="Ejecuciones y evidencia"><div className="table-wrap"><table><thead><tr><th>Sector / programación</th><th>Inicio / fin</th><th>Duración efectiva</th><th>Volumen / origen</th><th>Evidencia</th></tr></thead><tbody>{executions.filter(execution => matches(plans.find(plan => plan.id === execution.planId)!.sectorId)).map(execution => <tr key={execution.id}><td>{sectorName(plans.find(plan => plan.id === execution.planId)!.sectorId)} · #{execution.planId}</td><td>{new Date(execution.startedAt).toLocaleString('es-CO')}<br />{new Date(execution.endedAt).toLocaleString('es-CO')}</td><td>{execution.durationMinutes} min<br />{execution.interruptionMinutes} min de interrupción</td><td>{execution.volumeM3} m³<br />{execution.volumeMode === 'METER' ? 'Medido por contador' : 'Estimado por caudal'}</td><td><button className="text-button" onClick={() => { setError(''); setDetail(execution); }}>Ver ejecución {execution.id}</button></td></tr>)}</tbody></table></div></Panel>}
+      {tab === 'measurements' || tab === 'sensors' ? <>
+        {tab === 'measurements' && <Panel title="Sectores y configuración técnica"
+          action={manager ? <button className="button small" onClick={() => open({ kind: 'sector' })} disabled={!data.blocks.length}>Nuevo sector</button> : undefined}>
+          <div className="table-wrap"><table className="irrigation-history-table" role="table">
+            <thead><tr><th>Sector / bloque</th><th>Sistema / fuente</th><th>Última lectura</th><th>Estado</th><th>Configuración</th></tr></thead>
+            <tbody role="rowgroup">{sectors.filter(sector => matches(sector.id)).map(sector => <tr key={sector.id} role="row">
+              <td role="cell"><strong>{sector.name}</strong><small>{blockName(sector.blockId)} · {sector.areaHa} ha</small></td>
+              <td role="cell" data-label="Sistema y fuente">{sector.system}<small>{sector.waterSource}{sector.flowM3h != null && ` · ${number(sector.flowM3h, 3)} m³/h`}</small></td>
+              <td role="cell" data-label="Última lectura">
+                {sector.latest ? `${sector.latest.value} ${moistureUnits[sector.unit]} · ${sector.depthCm} cm` : 'Sin medición'}
+                {sector.latest && <small>{new Date(sector.latest.recordedAt).toLocaleString('es-CO')}</small>}
+              </td>
+              <td role="cell" data-label="Estado"><Badge tone={sector.condition === 'IN_RANGE' ? 'green' : 'neutral'}>{moistureLabels[sector.condition]}</Badge></td>
+              <td role="cell"><div className="irrigation-row-actions">
+                <button className="outline-action" aria-label={`Ver sector ${sector.name}`} onClick={() => { setError(''); setDetail(sector); }}>Ver sector</button>
+                {manager && <button className="text-button" aria-label={`Configurar límites de ${sector.name}`} onClick={() => open({ kind: 'thresholds', sector })}>Configurar límites</button>}
+              </div></td>
+            </tr>)}</tbody>
+          </table></div>
+        </Panel>}
+        <Panel title={tab === 'sensors' ? 'Lecturas de sensores' : 'Historial de mediciones'}
+          action={<button className="button small" disabled={!sectors.length} onClick={() => open({ kind: 'measurement' })}>Nueva medición</button>}>
+          <div className="table-wrap"><table className="irrigation-history-table" role="table">
+            <thead><tr><th>Sector / fecha</th><th>Humedad / profundidad</th><th>Origen / instrumento</th><th>Lluvia registrada</th><th>Drenaje / notas</th></tr></thead>
+            <tbody role="rowgroup">
+              {measurements.filter(reading => matches(reading.sectorId) && (tab !== 'sensors' || reading.source === 'SENSOR'))
+                .sort((first, second) => Date.parse(second.recordedAt) - Date.parse(first.recordedAt))
+                .map(reading => <tr key={`${reading.sectorId}-${reading.id}`} role="row">
+                  <td role="cell"><strong>{sectorName(reading.sectorId)}</strong><small>{new Date(reading.recordedAt).toLocaleString('es-CO')}</small></td>
+                  <td role="cell" data-label="Humedad y profundidad">{reading.value} {moistureUnits[reading.unit]} · {reading.depthCm} cm</td>
+                  <td role="cell" data-label="Origen e instrumento">{reading.source === 'MANUAL'
+                    ? reading.createdBy == null ? 'Manual' : `Manual · ${memberName(reading.createdBy)}`
+                    : 'Sensor'}<small>{reading.instrument}</small></td>
+                  <td role="cell" data-label="Lluvia registrada">{reading.rainMm != null ? `${reading.rainMm} mm` : 'Sin registro'}</td>
+                  <td role="cell" data-label="Drenaje y notas" className="irrigation-history-note">{reading.drainage || 'Sin observación'}{reading.notes && <small>{reading.notes}</small>}</td>
+                </tr>)}
+            </tbody>
+          </table></div>
+          {!measurements.some(reading => matches(reading.sectorId) && (tab !== 'sensors' || reading.source === 'SENSOR')) &&
+            <p className="module-empty-note">{tab === 'sensors' ? 'Sin lecturas de sensores para la selección actual.' : 'Sin mediciones para la selección actual.'}</p>}
+        </Panel>
+      </> : tab === 'plans' ? <>
+        <Panel title="Programación y tareas"
+          action={manager && <button className="button small" disabled={!sectors.length} onClick={() => open({ kind: 'plan' })}>Programar riego</button>}>
+          <div className="table-wrap"><table className="irrigation-history-table" role="table">
+            <thead><tr><th>Sector / fecha</th><th>Minutos previstos / reales</th><th>m³ previstos / reales</th><th>Estado</th><th>Acciones</th></tr></thead>
+            <tbody role="rowgroup">{plans.filter(plan => matches(plan.sectorId)).map(plan => <tr key={plan.id} role="row">
+              <td role="cell"><strong>{sectorName(plan.sectorId)}</strong><small>{plan.scheduledOn} · {plan.scheduledTime.slice(0, 5)}</small>
+                {plan.recurringScheduleId && <small>Recurrencia #{plan.recurringScheduleId}</small>}
+              </td>
+              <td role="cell" data-label="Minutos previstos / reales">{plan.durationMinutes} / {plan.actualDurationMinutes}</td>
+              <td role="cell" data-label="m³ previstos / reales">{plan.volumeM3} / {plan.actualVolumeM3}</td>
+              <td role="cell" data-label="Estado"><Badge tone={plan.status === 'CANCELED' ? 'red' : plan.taskId ? 'green' : 'neutral'}>
+                {plan.status === 'CANCELED' ? 'Anulado' : plan.taskId ? 'Con tarea' : 'Sin tarea'}
+              </Badge>{plan.taskId && <small>Tarea #{plan.taskId}</small>}</td>
+              <td role="cell"><div className="irrigation-row-actions">
+                <button className="outline-action" aria-label={`Ver programación ${plan.id}`} onClick={() => { setError(''); setDetail(plan); }}>Ver programación</button>
+                {manager && !plan.taskId && plan.status === 'SCHEDULED' && <>
+                  <button className="text-button" disabled={busy} onClick={() => void generateTask(plan)}>Generar tarea</button>
+                  <button className="text-button" onClick={() => open({ kind: 'cancel', plan })}>Anular</button>
+                </>}
+                {plan.status === 'SCHEDULED' && plan.taskId && (manager || plan.assigneeId === profile.user.id) &&
+                  <button className="text-button" onClick={() => open({ kind: 'execution', plan })}>Registrar ejecución</button>}
+              </div></td>
+            </tr>)}</tbody>
+          </table></div>
+          {!plans.some(plan => matches(plan.sectorId)) && <p className="module-empty-note">Sin programaciones para la selección actual.</p>}
+        </Panel>
+        <RecurringSchedulePanel schedules={(records.recurringSchedules ?? []).filter(schedule => matches(schedule.sectorId))}
+          sectors={sectors} members={members} manager={manager} busy={busy}
+          onCreate={() => open({ kind: 'recurringSchedule' })} onEdit={schedule => open({ kind: 'recurringSchedule', record: schedule })}
+          onGenerate={schedule => void generateRecurring(schedule)} onAction={(schedule, action) => open({ kind: 'recurringAction', record: schedule, action })} />
+      </> : <IrrigationExecutions executions={executions} plans={plans.filter(plan => matches(plan.sectorId))}
+        sectorName={sectorName} onView={execution => { setError(''); setDetail(execution); }} onPlans={() => setTab('plans')} />}
     </div>}
-    {editor && <Modal title={editor.kind === 'sector' ? 'Nuevo sector de riego' : editor.kind === 'measurement' ? 'Nueva medición de humedad' : editor.kind === 'plan' ? 'Programar riego' : editor.kind === 'recurringSchedule' ? editor.record ? 'Editar recurrencia' : 'Nueva recurrencia' : editor.kind === 'recurringAction' ? editor.action === 'PAUSED' ? 'Pausar recurrencia' : editor.action === 'ACTIVE' ? 'Reanudar recurrencia' : 'Anular recurrencia' : editor.kind === 'waterSource' ? editor.record ? 'Editar fuente de agua' : 'Registrar fuente de agua' : editor.kind === 'quality' ? editor.record ? 'Editar calidad del agua' : 'Registrar calidad del agua' : editor.kind === 'infrastructure' ? editor.record ? 'Editar infraestructura hidráulica' : 'Registrar infraestructura hidráulica' : editor.kind === 'balance' ? editor.record ? 'Editar balance hídrico' : 'Registrar balance hídrico' : editor.kind === 'maintenance' ? editor.record ? 'Editar mantenimiento' : 'Programar mantenimiento' : editor.kind === 'sensorCheck' ? editor.record ? 'Editar verificación del sensor' : 'Verificar calibración del sensor' : editor.kind === 'execution' ? 'Registrar ejecución de riego' : editor.kind === 'thresholds' ? 'Configurar límites del sector' : 'Anular programación'} onClose={() => { if (!busy) setEditor(undefined); }} wide><form className="fertilization-form" onSubmit={submit}><fieldset disabled={busy} style={{ border: 0, padding: 0, minWidth: 0 }}>{error && <p role="alert">{error}</p>}
-      {editor.kind === 'sector' && <><label>Bloque<select name="blockId" aria-label="Bloque" required>{data.blocks.map(block => <option value={block.id} key={block.id}>{block.code} · {block.areaHa ?? '—'} ha</option>)}</select></label>{input('Nombre del sector', 'name')}{input('Área del sector (ha)', 'areaHa', { type: 'number', min: 0.000001, step: 'any' })}{input('Sistema de riego', 'system')}{input('Fuente de agua', 'waterSource')}{input('Caudal de referencia (m³/h, opcional)', 'flowM3h', { type: 'number', min: 0.000001, max: 1000000, step: 'any', required: false })}<label>Tipo de humedad<select name="unit" aria-label="Tipo de humedad">{Object.entries(moistureUnits).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>{input('Profundidad de medición (cm)', 'depthCm', { type: 'number', min: 1, max: 300, value: 20 })}<label>Sensor asociado (opcional)<select name="sensorDeviceId" aria-label="Sensor asociado"><option value="">Lecturas manuales</option>{devices.filter(device => device.active && device.block && !sectors.some(sector => sector.sensorDeviceId === device.id)).map(device => <option key={device.id} value={device.id}>{device.name} · {blockName(device.block!.id)}</option>)}</select></label><Notice>Al asociar un sensor, confirma su calibración, unidad y profundidad reales. Solo se utilizan lecturas posteriores a la creación del sector.</Notice>{thresholdsForm()}</>}
-      {editor.kind === 'thresholds' && <><p>{editor.sector.name} · {moistureUnits[editor.sector.unit]} · {editor.sector.depthCm} cm</p>{thresholdsForm(editor.sector)}</>}
-      {editor.kind === 'measurement' && <>{sectorSelect}<p>{sectorConfig && `${moistureUnits[sectorConfig.unit]} · ${sectorConfig.depthCm} cm. La lectura se conserva con esta unidad y profundidad.`}</p>{input('Fecha y hora de medición', 'recordedAt', { type: 'datetime-local', value: asLocalTime() })}{input('Valor de humedad', 'value', { type: 'number', min: 0, max: sectorConfig?.unit === 'KPA' ? 1000000 : 100, step: 'any' })}{input('Instrumento o método', 'instrument')}{input('Lluvia registrada (mm, opcional)', 'rainMm', { type: 'number', min: 0, max: 10000, step: 'any', required: false })}<label>Observación de drenaje<textarea name="drainage" maxLength={1000} /></label><label>Notas<textarea name="notes" maxLength={2000} /></label></>}
+    </div>}
+    </section>
+    {editor && <Modal className="farm-work-modal water-modal irrigation-editor" title={editor.kind === 'sector' ? 'Nuevo sector de riego' : editor.kind === 'measurement' ? 'Nueva medición de humedad' : editor.kind === 'plan' ? 'Programar riego' : editor.kind === 'recurringSchedule' ? editor.record ? 'Editar recurrencia' : 'Nueva recurrencia' : editor.kind === 'recurringAction' ? editor.action === 'PAUSED' ? 'Pausar recurrencia' : editor.action === 'ACTIVE' ? 'Reanudar recurrencia' : 'Anular recurrencia' : editor.kind === 'waterSource' ? editor.record ? 'Editar fuente de agua' : 'Registrar fuente de agua' : editor.kind === 'quality' ? editor.record ? 'Editar calidad del agua' : 'Registrar calidad del agua' : editor.kind === 'infrastructure' ? editor.record ? 'Editar infraestructura hidráulica' : 'Registrar infraestructura hidráulica' : editor.kind === 'balance' ? editor.record ? 'Editar balance hídrico' : 'Registrar balance hídrico' : editor.kind === 'maintenance' ? editor.record ? 'Editar mantenimiento' : 'Programar mantenimiento' : editor.kind === 'sensorCheck' ? editor.record ? 'Editar verificación del sensor' : 'Verificar calibración del sensor' : editor.kind === 'execution' ? 'Registrar ejecución de riego' : editor.kind === 'thresholds' ? 'Configurar límites del sector' : 'Anular programación'} onClose={() => { if (!busy) setEditor(undefined); }} wide><form className="irrigation-form" onSubmit={submit}><fieldset className="irrigation-form-fields" disabled={busy}>{error && <p className="form-error" role="alert">{error}</p>}
+      {editor.kind === 'sector' && <>
+        <IrrigationFormSection title="Identificación del sector">
+          <label>Bloque<select name="blockId" aria-label="Bloque" required>
+            {data.blocks.map(block => <option value={block.id} key={block.id}>{block.code} · {block.areaHa ?? '—'} ha</option>)}
+          </select></label>
+          {input('Nombre del sector', 'name')}
+          {input('Área del sector (ha)', 'areaHa', { type: 'number', min: 0.000001, step: 'any' })}
+        </IrrigationFormSection>
+        <IrrigationFormSection title="Sistema de riego">
+          {input('Sistema de riego', 'system')}
+          {input('Fuente de agua', 'waterSource')}
+          {input('Caudal de referencia (m³/h, opcional)', 'flowM3h', { type: 'number', min: 0.000001, max: 1000000, step: 'any', required: false })}
+        </IrrigationFormSection>
+        <IrrigationFormSection title="Medición de humedad">
+          <label>Tipo de humedad<select name="unit" aria-label="Tipo de humedad">
+            {Object.entries(moistureUnits).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+          </select></label>
+          {input('Profundidad de medición (cm)', 'depthCm', { type: 'number', min: 1, max: 300, value: 20 })}
+          <label>Sensor asociado (opcional)<select name="sensorDeviceId" aria-label="Sensor asociado">
+            <option value="">Lecturas manuales</option>
+            {activeDevices.filter(device => device.block && !sectors.some(sector => sector.sensorDeviceId === device.id))
+              .map(device => <option key={device.id} value={device.id}>{device.name} · {blockName(device.block!.id)}</option>)}
+          </select></label>
+          <Notice>Al asociar un sensor, confirma su calibración, unidad y profundidad. Se utilizan lecturas posteriores a la creación del sector.</Notice>
+        </IrrigationFormSection>
+        {thresholdsForm()}
+      </>}
+      {editor.kind === 'thresholds' && <>
+        <Notice>{editor.sector.name} · {moistureUnits[editor.sector.unit]} · {editor.sector.depthCm} cm</Notice>
+        {thresholdsForm(editor.sector)}
+      </>}
+      {editor.kind === 'measurement' && <>
+        <IrrigationFormSection title="Lectura de humedad">
+          {sectorSelect}
+          {input('Fecha y hora de medición', 'recordedAt', { type: 'datetime-local', value: asLocalTime() })}
+          {sectorConfig && <p className="irrigation-field-wide irrigation-form-caption">{moistureUnits[sectorConfig.unit]} · {sectorConfig.depthCm} cm de profundidad</p>}
+          {input('Valor de humedad', 'value', { type: 'number', min: 0, max: sectorConfig?.unit === 'KPA' ? 1000000 : 100, step: 'any' })}
+          {input('Instrumento o método', 'instrument')}
+        </IrrigationFormSection>
+        <IrrigationFormSection title="Lluvia y drenaje">
+          {input('Lluvia registrada (mm, opcional)', 'rainMm', { type: 'number', min: 0, max: 10000, step: 'any', required: false })}
+          <label className="irrigation-field-wide">Observación de drenaje<textarea name="drainage" maxLength={1000} /></label>
+          <label className="irrigation-field-wide">Notas<textarea name="notes" maxLength={2000} /></label>
+        </IrrigationFormSection>
+      </>}
       {editor.kind === 'waterSource' && <>{input('Nombre de la fuente', 'name', { value: editor.record?.name })}<label>Tipo de fuente<select name="sourceType" defaultValue={editor.record?.sourceType ?? 'RESERVOIR'}><option value="RESERVOIR">Reservorio</option><option value="WELL">Pozo</option><option value="CANAL">Canal</option><option value="RIVER">Río</option><option value="RAINWATER">Agua lluvia</option><option value="OTHER">Otra fuente</option></select></label>{input('Capacidad (m³, opcional)', 'capacityM3', { type: 'number', min: 0, step: 'any', required: false, value: editor.record?.capacityM3 ?? undefined })}{input('Latitud (opcional)', 'latitude', { type: 'number', min: -90, max: 90, step: 'any', required: false, value: editor.record?.latitude ?? undefined })}{input('Longitud (opcional)', 'longitude', { type: 'number', min: -180, max: 180, step: 'any', required: false, value: editor.record?.longitude ?? undefined })}{editor.record && <label>Estado<select name="active" defaultValue={editor.record.active ? 'true' : 'false'}><option value="true">Activa</option><option value="false">Inactiva</option></select></label>}<label>Notas<textarea name="notes" defaultValue={editor.record?.notes ?? ''} /></label></>}
       {editor.kind === 'quality' && <>{(records.waterSources ?? []).length ? <label>Fuente<select name="sourceId" required defaultValue={editor.record?.sourceId ?? records.waterSources?.[0]?.id}>{(records.waterSources ?? []).map(source => <option value={source.id} key={source.id}>{source.name}</option>)}</select></label> : <Notice>Primero registra una fuente de agua para poder asociar este análisis.</Notice>}{input('Fecha de muestra', 'sampledOn', { type: 'date', value: editor.record?.sampledOn ?? localDate() })}{input('pH', 'ph', { type: 'number', min: 0, max: 14, step: 'any', required: false, value: editor.record?.ph ?? undefined })}{input('Conductividad (dS/m)', 'conductivityDsM', { type: 'number', min: 0, step: 'any', required: false, value: editor.record?.conductivityDsM ?? undefined })}{input('Salinidad (ppm)', 'salinityPpm', { type: 'number', min: 0, step: 'any', required: false, value: editor.record?.salinityPpm ?? undefined })}{input('Sólidos suspendidos (mg/L)', 'suspendedSolidsMgL', { type: 'number', min: 0, step: 'any', required: false, value: editor.record?.suspendedSolidsMgL ?? undefined })}{input('Referencia de laboratorio', 'laboratoryReference', { required: false, value: editor.record?.laboratoryReference ?? undefined })}<label>Notas<textarea name="notes" defaultValue={editor.record?.notes ?? ''} /></label></>}
       {editor.kind === 'infrastructure' && <>{input('Código del activo', 'code', { value: editor.record?.code })}<label>Tipo de activo<select name="assetType" defaultValue={editor.record?.assetType ?? 'FILTER'}><option value="FILTER">Filtro</option><option value="PUMP">Bomba</option><option value="VALVE">Válvula</option><option value="PIPE">Tubería</option><option value="METER">Medidor</option><option value="DRAIN">Drenaje</option><option value="CANAL">Canal</option><option value="RESERVOIR">Reservorio</option><option value="OTHER">Otro activo</option></select></label><label>Bloque asociado (opcional)<select name="blockId" defaultValue={editor.record?.blockId ?? ''}><option value="">Finca / general</option>{data.blocks.map(block => <option value={block.id} key={block.id}>{block.code}</option>)}</select></label><label>Fuente asociada (opcional)<select name="sourceId" defaultValue={editor.record?.sourceId ?? ''}><option value="">Sin fuente</option>{(records.waterSources ?? []).map(source => <option value={source.id} key={source.id}>{source.name}</option>)}</select></label><label>Estado<select name="status" defaultValue={editor.record?.status ?? 'ACTIVE'}><option value="ACTIVE">Activo</option><option value="MAINTENANCE">En mantenimiento</option><option value="INACTIVE">Inactivo</option></select></label>{input('Latitud (opcional)', 'latitude', { type: 'number', min: -90, max: 90, step: 'any', required: false, value: editor.record?.latitude ?? undefined })}{input('Longitud (opcional)', 'longitude', { type: 'number', min: -180, max: 180, step: 'any', required: false, value: editor.record?.longitude ?? undefined })}<label>Notas<textarea name="notes" defaultValue={editor.record?.notes ?? ''} /></label></>}
       {editor.kind === 'balance' && <>{sectorSelect}{input('Fecha', 'balanceDate', { type: 'date', value: editor.record?.balanceDate ?? localDate() })}{input('Lluvia (mm)', 'rainfallMm', { type: 'number', min: 0, step: 'any', value: editor.record?.rainfallMm })}{input('ET0 (mm, opcional)', 'et0Mm', { type: 'number', min: 0, step: 'any', required: false, value: editor.record?.et0Mm ?? undefined })}{input('Coeficiente de cultivo', 'cropCoefficient', { type: 'number', min: 0, step: 'any', required: false, value: editor.record?.cropCoefficient ?? undefined })}{input('Profundidad radicular (cm, opcional)', 'rootDepthCm', { type: 'number', min: 0, step: 'any', required: false, value: editor.record?.rootDepthCm ?? undefined })}{input('Agua disponible (mm, opcional)', 'availableWaterMm', { type: 'number', min: 0, step: 'any', required: false, value: editor.record?.availableWaterMm ?? undefined })}{input('Volumen requerido (m³, opcional)', 'requiredVolumeM3', { type: 'number', min: 0, step: 'any', required: false, value: editor.record?.requiredVolumeM3 ?? undefined })}{input('Volumen aplicado (m³, opcional)', 'appliedVolumeM3', { type: 'number', min: 0, step: 'any', required: false, value: editor.record?.appliedVolumeM3 ?? undefined })}{input('Déficit (mm, opcional)', 'deficitMm', { type: 'number', min: 0, step: 'any', required: false, value: editor.record?.deficitMm ?? undefined })}<label>Notas<textarea name="notes" defaultValue={editor.record?.notes ?? ''} /></label></>}
       {editor.kind === 'maintenance' && <><label>Sector asociado (opcional)<select name="sectorId" defaultValue={editor.record?.sectorId ?? ''}><option value="">General</option>{sectors.map(sector => <option value={sector.id} key={sector.id}>{sector.name} · {blockName(sector.blockId)}</option>)}</select></label><label>Infraestructura asociada (opcional)<select name="infrastructureId" defaultValue={editor.record?.infrastructureId ?? ''}><option value="">Sin activo específico</option>{(records.infrastructure ?? []).map(asset => <option value={asset.id} key={asset.id}>{asset.code} · {readable(asset.assetType, assetTypeLabels)}</option>)}</select></label><label>Tipo de mantenimiento<select name="maintenanceType" defaultValue={editor.record?.maintenanceType ?? 'FILTER_WASH'}><option value="FILTER_WASH">Lavado de filtro</option><option value="PUMP_CHECK">Revisión de bomba</option><option value="VALVE_CHECK">Revisión de válvula</option><option value="LEAK_REPAIR">Reparación de fuga</option><option value="METER_CALIBRATION">Calibración de medidor</option><option value="DRAIN_CLEANING">Limpieza de drenaje</option><option value="OTHER">Otro mantenimiento</option></select></label>{input('Fecha programada', 'scheduledOn', { type: 'date', value: editor.record?.scheduledOn ?? localDate() })}{input('Fecha de finalización (opcional)', 'completedOn', { type: 'date', required: false, value: editor.record?.completedOn ?? undefined })}<label>Estado<select name="status" defaultValue={editor.record?.status ?? 'PLANNED'}><option value="PLANNED">Programado</option><option value="IN_PROGRESS">En progreso</option><option value="COMPLETED">Completado</option><option value="BLOCKED">Bloqueado</option></select></label>{input('Presión (kPa, opcional)', 'pressureKpa', { type: 'number', min: 0, step: 'any', required: false, value: editor.record?.pressureKpa ?? undefined })}{input('Caudal (m³/h, opcional)', 'flowM3h', { type: 'number', min: 0, step: 'any', required: false, value: editor.record?.flowM3h ?? undefined })}<label>Notas<textarea name="notes" defaultValue={editor.record?.notes ?? ''} /></label></>}
       {editor.kind === 'sensorCheck' && <>{sectorSelect}{activeDevices.length ? <label>Sensor asociado<select name="sensorDeviceId" required defaultValue={editor.record?.sensorDeviceId ?? activeDevices[0]?.id}>{activeDevices.map(device => <option value={device.id} key={device.id}>{device.name}</option>)}</select></label> : input('ID del sensor', 'sensorDeviceId', { type: 'number', min: 1, value: editor.record?.sensorDeviceId })}{input('Fecha', 'checkedOn', { type: 'date', value: editor.record?.checkedOn ?? localDate() })}<label>Estado de calibración<select name="calibrationStatus" defaultValue={editor.record?.calibrationStatus ?? 'VALID'}><option value="VALID">Vigente</option><option value="DUE">Por verificar</option><option value="FAILED">Fallida</option></select></label>{input('Valor de referencia', 'referenceValue', { type: 'number', min: 0, step: 'any', required: false, value: editor.record?.referenceValue ?? undefined })}{input('Valor observado', 'observedValue', { type: 'number', min: 0, step: 'any', required: false, value: editor.record?.observedValue ?? undefined })}{input('Técnico', 'technician', { required: false, value: editor.record?.technician ?? undefined })}<label>Notas<textarea name="notes" defaultValue={editor.record?.notes ?? ''} /></label></>}
-      {editor.kind === 'plan' && <>{sectorSelect}<Notice>{sectorConfig ? `${moistureLabels[sectorConfig.condition]}. ${sectorConfig.latest ? `${sectorConfig.latest.value} ${moistureUnits[sectorConfig.unit]}` : 'Sin lectura'}. La justificación debe considerar vigencia, lluvia y drenaje.` : 'Selecciona un sector.'}</Notice>{input('Fecha programada', 'scheduledOn', { type: 'date', value: localDate() })}{input('Hora programada', 'scheduledTime', { type: 'time', value: '08:00' })}{input('Duración prevista (min)', 'durationMinutes', { type: 'number', min: 0.000001, max: 43200, step: 'any' })}{input('Volumen previsto (m³)', 'volumeM3', { type: 'number', min: 0.000001, max: 1000000000, step: 'any' })}<label>Responsable<select name="assigneeId" aria-label="Responsable" required>{members.map(member => <option key={member.userId} value={member.userId}>{member.name}</option>)}</select></label><label>Justificación técnica<textarea name="justification" required maxLength={2000} /></label><label>Instrucciones de ejecución<textarea name="instructions" required maxLength={1000} /></label></>}
+      {editor.kind === 'plan' && <>
+        <IrrigationFormSection title="Sector y responsable">
+          {sectorSelect}
+          <label>Responsable<select name="assigneeId" aria-label="Responsable" required>
+            {members.map(member => <option key={member.userId} value={member.userId}>{member.name}</option>)}
+          </select></label>
+          <Notice>{sectorConfig ? `${moistureLabels[sectorConfig.condition]}. ${sectorConfig.latest ? `${sectorConfig.latest.value} ${moistureUnits[sectorConfig.unit]}` : 'Sin lectura'}. Considera vigencia, lluvia y drenaje al justificar la programación.` : 'Selecciona un sector.'}</Notice>
+        </IrrigationFormSection>
+        <IrrigationFormSection title="Fecha, duración y volumen">
+          {input('Fecha programada', 'scheduledOn', { type: 'date', value: localDate() })}
+          {input('Hora programada', 'scheduledTime', { type: 'time', value: '08:00' })}
+          {input('Duración prevista (min)', 'durationMinutes', { type: 'number', min: 0.000001, max: 43200, step: 'any' })}
+          {input('Volumen previsto (m³)', 'volumeM3', { type: 'number', min: 0.000001, max: 1000000000, step: 'any' })}
+        </IrrigationFormSection>
+        <IrrigationFormSection title="Instrucciones">
+          <label>Justificación técnica<textarea name="justification" required maxLength={2000} /></label>
+          <label>Instrucciones de ejecución<textarea name="instructions" required maxLength={1000} /></label>
+        </IrrigationFormSection>
+      </>}
       {editor.kind === 'recurringSchedule' && <>{sectorSelect}{input('Fecha de inicio', 'startDate', { type: 'date', value: editor.record?.startDate ?? localDate() })}{input('Fecha final', 'endDate', { type: 'date', value: editor.record?.endDate ?? localDate(new Date(Date.now() + 30 * 86400000)) })}{input('Hora programada', 'scheduledTime', { type: 'time', value: editor.record?.scheduledTime ?? '08:00' })}<label>Frecuencia<select name="recurrenceUnit" aria-label="Frecuencia" defaultValue={editor.record?.recurrenceUnit ?? 'DAILY'}><option value="DAILY">Diaria</option><option value="WEEKLY">Semanal</option></select></label>{input('Cada cuántos días o semanas', 'recurrenceInterval', { type: 'number', min: 1, max: 365, value: editor.record?.recurrenceInterval ?? 1 })}{input('Duración por ocurrencia (min)', 'durationMinutes', { type: 'number', min: 0.000001, max: 43200, step: 'any', value: editor.record?.durationMinutes ?? 60 })}{input('Volumen por ocurrencia (m³)', 'volumeM3', { type: 'number', min: 0.000001, max: 1000000000, step: 'any', value: editor.record?.volumeM3 ?? 12 })}<label>Responsable<select name="assigneeId" aria-label="Responsable" required defaultValue={editor.record?.assigneeId ?? members[0]?.userId}>{members.map(member => <option key={member.userId} value={member.userId}>{member.name}</option>)}</select></label><label>Justificación técnica<textarea name="justification" required maxLength={2000} defaultValue={editor.record?.justification ?? ''} /></label><label>Instrucciones de ejecución<textarea name="instructions" required maxLength={1000} defaultValue={editor.record?.instructions ?? ''} /></label><Notice>Se generan ocurrencias y tareas por adelantado hasta 30 días. Editar la recurrencia aplica a las fechas futuras aún no generadas.</Notice></>}
       {editor.kind === 'recurringAction' && <>{editor.action === 'CANCELED' ? <label>Motivo de anulación<textarea name="reason" required maxLength={2000} /></label> : <Notice>{editor.action === 'PAUSED' ? 'No se crearán nuevas ocurrencias mientras la recurrencia esté pausada.' : 'La generación automática continuará para las fechas futuras.'}</Notice>}</>}
       {editor.kind === 'cancel' && <label>Motivo de anulación<textarea name="reason" required maxLength={2000} /></label>}
-      {editor.kind === 'execution' && <><Notice>{sectorName(editor.plan.sectorId)} · Previsto: {editor.plan.volumeM3} m³ y {editor.plan.durationMinutes} min. Las ejecuciones parciales se acumulan; las desviaciones requieren explicación.</Notice>{input('Inicio real', 'startedAt', { type: 'datetime-local', value: asLocalTime(new Date(Date.now() - 3600000)) })}{input('Fin real', 'endedAt', { type: 'datetime-local', value: asLocalTime() })}{input('Interrupciones (min)', 'interruptionMinutes', { type: 'number', min: 0, max: 43200, step: 'any', value: 0 })}<label>Origen del volumen<select aria-label="Origen del volumen" value={volumeMode} onChange={event => setVolumeMode(event.target.value as 'METER' | 'FLOW')}><option value="METER">Medido por contador</option><option value="FLOW">Estimado por caudal × tiempo efectivo</option></select></label>{volumeMode === 'METER' ? <><label>Unidad del contador<select name="meterUnit" aria-label="Unidad del contador"><option value="M3">m³</option><option value="L">Litros</option></select></label>{input('Lectura inicial del contador', 'meterStart', { type: 'number', min: 0, max: 1e12, step: 'any' })}{input('Lectura final del contador', 'meterEnd', { type: 'number', min: 0, max: 1e12, step: 'any' })}</> : input('Caudal utilizado para estimación (m³/h)', 'flowM3h', { type: 'number', min: 0.000001, max: 1000000, step: 'any', value: sectors.find(sector => sector.id === editor.plan.sectorId)?.flowM3h })}<label>Justificación de desviación (obligatoria si supera lo previsto)<textarea name="varianceReason" maxLength={2000} /></label><label>Novedades y revisión de drenaje<textarea name="notes" maxLength={2000} /></label><p>Las fotos se adjuntan después de guardar. Registrar la ejecución no completa automáticamente la tarea.</p></>}
+      {editor.kind === 'execution' && <>
+        <div className="farm-work-context">
+          <span className="farm-work-context-icon"><Droplets size={24} /></span>
+          <div><strong>{sectorName(editor.plan.sectorId)}</strong><small>Programación del {editor.plan.scheduledOn} · {editor.plan.scheduledTime.slice(0, 5)}</small></div>
+          <div className="farm-work-context-amount"><small>Volumen y tiempo previstos</small><strong>{number(editor.plan.volumeM3, 2)} m³ · {number(editor.plan.durationMinutes, 2)} min</strong></div>
+        </div>
+        <IrrigationFormSection title="Tiempo de riego">
+          {input('Inicio real', 'startedAt', { type: 'datetime-local', value: asLocalTime(new Date(Date.now() - 3600000)) })}
+          {input('Fin real', 'endedAt', { type: 'datetime-local', value: asLocalTime() })}
+          {input('Interrupciones (min)', 'interruptionMinutes', { type: 'number', min: 0, max: 43200, step: 'any', value: 0 })}
+        </IrrigationFormSection>
+        <IrrigationFormSection title="Volumen aplicado">
+          <label>Origen del volumen
+            <select aria-label="Origen del volumen" value={volumeMode} onChange={event => setVolumeMode(event.target.value as 'METER' | 'FLOW')}>
+              <option value="METER">Medido por contador</option>
+              <option value="FLOW">Estimado por caudal × tiempo efectivo</option>
+            </select>
+          </label>
+          {volumeMode === 'METER' ? <>
+            <label>Unidad del contador<select name="meterUnit" aria-label="Unidad del contador"><option value="M3">m³</option><option value="L">Litros</option></select></label>
+            {input('Lectura inicial del contador', 'meterStart', { type: 'number', min: 0, max: 1e12, step: 'any' })}
+            {input('Lectura final del contador', 'meterEnd', { type: 'number', min: 0, max: 1e12, step: 'any' })}
+          </> : input('Caudal utilizado para estimación (m³/h)', 'flowM3h', { type: 'number', min: 0.000001, max: 1000000, step: 'any', value: sectors.find(sector => sector.id === editor.plan.sectorId)?.flowM3h })}
+        </IrrigationFormSection>
+        <IrrigationFormSection title="Observaciones">
+          <label>Justificación de desviación (obligatoria si supera lo previsto)<textarea name="varianceReason" maxLength={2000} /></label>
+          <label>Novedades y revisión de drenaje<textarea name="notes" maxLength={2000} /></label>
+        </IrrigationFormSection>
+        <Notice>Las ejecuciones parciales se acumulan. Puedes adjuntar fotos después de guardar y completar la tarea desde Mi trabajo de hoy.</Notice>
+      </>}
       <div className="form-actions"><button className="button secondary" type="button" onClick={() => setEditor(undefined)}>Cancelar</button><button className="button" type="submit">{busy ? 'Guardando…' : 'Guardar'}</button></div></fieldset></form></Modal>}
-    {detail && !editor && <Modal title={'eventId' in detail ? `Ejecución #${detail.id}` : 'scheduledOn' in detail ? `Programación #${detail.id}` : detail.name} onClose={() => { if (!photoBusy && !busy) setDetail(undefined); }} wide>{error && <p role="alert">{error}</p>}
-      {'eventId' in detail ? <><p>{detail.volumeM3} m³ · {detail.volumeMode === 'METER' ? 'Medido por contador' : 'Estimado por caudal'} · {detail.durationMinutes} min efectivos · Operador #{detail.createdBy}</p><p>{new Date(detail.startedAt).toLocaleString('es-CO')} → {new Date(detail.endedAt).toLocaleString('es-CO')} · Interrupciones: {detail.interruptionMinutes} min</p><p>{detail.volumeMode === 'METER' ? `Contador: ${detail.meterStart} → ${detail.meterEnd} ${detail.meterUnit === 'L' ? 'L' : 'm³'}` : `Caudal: ${detail.flowM3h} m³/h`}</p><p>{detail.varianceReason || 'Sin exceso sobre la programación registrado.'}</p><p>{detail.notes}</p><ExecutionContext execution={detail} plan={plans.find(plan => plan.id === detail.planId)!} measurements={measurements} /><PhotoGallery target={{ eventId: detail.eventId }} onBusyChange={setPhotoBusy} /></> : 'scheduledOn' in detail ? <><p>{sectorName(detail.sectorId)} · {detail.scheduledOn} {detail.scheduledTime} · Responsable #{detail.assigneeId}</p><p>Programado / real: {detail.volumeM3} / {detail.actualVolumeM3} m³ · {detail.durationMinutes} / {detail.actualDurationMinutes} min</p><p>{detail.justification}</p><p>{detail.instructions}</p><p>Creado por #{detail.createdBy} · {detail.createdAt}</p><p>{detail.cancelReason && `Anulado por #${detail.canceledBy}: ${detail.cancelReason}`}</p><Panel title="Contexto conservado al programar"><SectorContext sector={detail.sectorSnapshot} /></Panel></> : <><SectorContext sector={detail} /><p>Fundamento: {detail.technicalBasis}</p><p>Configuración v{detail.version} · Autor #{detail.createdBy} · {detail.createdAt}. Las revisiones de límites quedan auditadas en el servidor.</p></>}
-    </Modal>}</div>}
+    {detail && !editor && <Modal
+      className="farm-work-modal water-modal irrigation-detail"
+      title={'eventId' in detail ? `Ejecución #${detail.id}` : 'scheduledOn' in detail ? `Programación #${detail.id}` : detail.name}
+      onClose={() => { if (!photoBusy && !busy) setDetail(undefined); }}
+      wide
+    >
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <IrrigationDetails detail={detail} plans={plans} measurements={measurements}
+        sectorName={sectorName} blockName={blockName} memberName={memberName} onPhotoBusy={setPhotoBusy} />
+    </Modal>}
   </>;
 }
 
-function SectorContext({ sector }: { sector: IrrigationSector }) {
-  return <><p>{sector.name} · {sector.areaHa} ha · {sector.system} · Fuente: {sector.waterSource}</p><p>{moistureUnits[sector.unit]} · Profundidad {sector.depthCm} cm · Vigencia {sector.maxAgeHours} h · Límites: {sector.lowerBound ?? 'Sin configurar'} / {sector.upperBound ?? 'Sin configurar'}</p><p>{moistureLabels[sector.condition]} · {sector.latest ? `${sector.latest.value} ${moistureUnits[sector.unit]} · ${new Date(sector.latest.recordedAt).toLocaleString('es-CO')} · ${sector.latest.source === 'SENSOR' ? 'Sensor' : 'Manual'}` : 'Sin lectura'}</p><p>Lluvia registrada: {sector.latest?.rainMm != null ? `${sector.latest.rainMm} mm` : 'Sin dato'} · Drenaje: {sector.latest?.drainage || 'Sin observación'}</p></>;
+function IrrigationFormSection({ title, children }: { title: string; children: ReactNode }) {
+  return <fieldset className="irrigation-form-section"><legend>{title}</legend>{children}</fieldset>;
 }
 
-function IrrigationAlerts({ sectors, plans, records, onReview }: { sectors: IrrigationSector[]; plans: IrrigationPlan[]; records: IrrigationData; onReview: (tab: 'measurements' | 'plans' | 'management') => void }) {
+function IrrigationAlerts({ sectors, plans, records, onReview, onViewAll }: { sectors: IrrigationSector[]; plans: IrrigationPlan[]; records: IrrigationData; onReview: (tab: 'measurements' | 'plans' | 'management') => void; onViewAll?: () => void }) {
   type AlertItem = { id: string; severity: 'critical' | 'warning' | 'info'; title: string; detail: string; meta: string; icon: 'moisture' | 'sensor' | 'schedule' | 'maintenance' };
   const alerts: AlertItem[] = [];
   sectors.forEach(sector => {
-    if (sector.condition === 'BELOW_RANGE') alerts.push({ id: `dry-${sector.id}`, severity: 'critical', title: `${sector.name} requiere revisión`, detail: 'La humedad está por debajo del rango técnico configurado.', meta: sector.latest ? `${sector.latest.value} · límite inferior ${sector.lowerBound}` : 'Sin lectura', icon: 'moisture' });
-    if (sector.condition === 'ABOVE_RANGE') alerts.push({ id: `wet-${sector.id}`, severity: 'warning', title: `${sector.name} tiene exceso de humedad`, detail: 'Verifica drenaje, lluvia reciente y la programación vigente.', meta: sector.latest ? `${sector.latest.value} · límite superior ${sector.upperBound}` : 'Sin lectura', icon: 'moisture' });
+    if (sector.condition === 'BELOW_RANGE') alerts.push({ id: `dry-${sector.id}`, severity: 'critical', title: `${sector.name} requiere revisión`, detail: 'La última lectura está por debajo del rango técnico configurado.', meta: sector.latest ? `${sector.latest.value} · límite inferior ${sector.lowerBound}` : 'Sin lectura', icon: 'moisture' });
+    if (sector.condition === 'ABOVE_RANGE') alerts.push({ id: `wet-${sector.id}`, severity: 'warning', title: `${sector.name} supera el rango configurado`, detail: sector.unit === 'KPA' ? 'La tensión del suelo supera el límite configurado. Revisa la lectura y la programación.' : 'Revisa el drenaje, la lluvia reciente y la programación vigente.' , meta: sector.latest ? `${sector.latest.value} · límite superior ${sector.upperBound}` : 'Sin lectura', icon: 'moisture' });
     if (sector.condition === 'STALE' || sector.condition === 'NO_DATA') alerts.push({ id: `sensor-${sector.id}`, severity: 'warning', title: `${sector.name} sin lectura confiable`, detail: sector.sensorDeviceId ? 'El sensor no tiene una lectura vigente; revisa comunicación y calibración.' : 'Registra una medición antes de tomar una decisión de riego.', meta: sector.sensorDeviceId ? `Sensor #${sector.sensorDeviceId}` : 'Medición manual pendiente', icon: 'sensor' });
   });
   plans.forEach(plan => {
-    const overdue = plan.status === 'SCHEDULED' && `${plan.scheduledOn}T${plan.scheduledTime}` < new Date().toISOString().slice(0, 16) && !plan.taskStatus;
+    const overdue = plan.status === 'SCHEDULED' && `${plan.scheduledOn}T${plan.scheduledTime}` < asLocalTime() && !plan.taskStatus;
     const exceeded = plan.actualVolumeM3 > plan.volumeM3 || plan.actualDurationMinutes > plan.durationMinutes;
     if (overdue) alerts.push({ id: `late-${plan.id}`, severity: 'warning', title: `Programación #${plan.id} pendiente`, detail: 'La programación pasó su hora prevista y aún no tiene revisión de ejecución.', meta: `${plan.scheduledOn} · ${plan.scheduledTime}`, icon: 'schedule' });
     if (exceeded) alerts.push({ id: `variance-${plan.id}`, severity: 'warning', title: `Desviación en programación #${plan.id}`, detail: 'El consumo o la duración real superan lo planificado.', meta: `${plan.actualVolumeM3} / ${plan.volumeM3} m³`, icon: 'schedule' });
@@ -305,6 +495,21 @@ function IrrigationAlerts({ sectors, plans, records, onReview }: { sectors: Irri
   (records.maintenance ?? []).filter(item => item.status === 'BLOCKED').forEach(item => alerts.push({ id: `maintenance-${item.id}`, severity: 'critical', title: `Mantenimiento bloqueado: ${item.maintenanceType}`, detail: item.notes || 'Requiere una revisión del responsable.', meta: `Programado ${item.scheduledOn}`, icon: 'maintenance' }));
   const ordered = alerts.sort((first, second) => ({ critical: 0, warning: 1, info: 2 }[first.severity] - ({ critical: 0, warning: 1, info: 2 }[second.severity])));
   const icon = (kind: AlertItem['icon']) => kind === 'moisture' ? <Droplets size={18} /> : kind === 'sensor' ? <Gauge size={18} /> : kind === 'schedule' ? <Clock3 size={18} /> : <ThermometerSun size={18} />;
+  if (onViewAll) return <section className="irrigation-alert-card">
+    <div className="irrigation-section-heading">
+      <h3>Alertas de riego</h3>
+      <button className="text-button" onClick={onViewAll}>Ver todas <ArrowRight size={15} /></button>
+    </div>
+    {ordered.slice(0, 4).map(alert => <div className="irrigation-dashboard-alert" key={alert.id}>
+      <span className={`irrigation-alert-symbol ${alert.severity}`}>{alert.severity === 'critical' ? <TriangleAlert size={19} /> : icon(alert.icon)}</span>
+      <div>
+        <div className="irrigation-alert-title"><strong>{alert.title}</strong><span className={`irrigation-alert-priority ${alert.severity}`}>{alert.severity === 'critical' ? 'Crítica' : alert.severity === 'warning' ? 'Advertencia' : 'Información'}</span></div>
+        <small>{alert.detail}</small><em>{alert.meta}</em>
+      </div>
+      <button className="outline-action" onClick={() => onReview(alert.icon === 'maintenance' ? 'management' : alert.icon === 'schedule' ? 'plans' : 'measurements')}>Revisar</button>
+    </div>)}
+    {!ordered.length && <div className="irrigation-alerts-empty"><CheckCircle2 size={24} /><strong>Sin alertas pendientes</strong><p>Las lecturas fuera de rango y las incidencias de programación aparecen aquí.</p></div>}
+  </section>;
   return <section className="irrigation-alert-center"><div className="alert-center-heading"><div><span className="eyebrow">CONTROL OPERATIVO</span><h2>Alertas de riego</h2><p>Prioriza humedad, sensores, programación y mantenimiento antes de intervenir.</p></div><div className="alert-counts"><strong>{ordered.filter(item => item.severity === 'critical').length}<small>Críticas</small></strong><strong>{ordered.filter(item => item.severity === 'warning').length}<small>Advertencias</small></strong><strong>{ordered.length === 0 ? <CheckCircle2 size={20} /> : ordered.length}<small>{ordered.length === 0 ? 'Todo controlado' : 'Pendientes'}</small></strong></div></div>{ordered.length === 0 ? <div className="alert-empty"><CheckCircle2 size={21} /><span>No hay alertas activas para los sectores visibles.</span></div> : <div className="alert-list">{ordered.map(item => <article className={`irrigation-alert alert-${item.severity}`} key={item.id}><span className="alert-icon">{icon(item.icon)}</span><div className="alert-copy"><div><strong>{item.title}</strong><span className="alert-severity">{item.severity === 'critical' ? 'CRÍTICA' : item.severity === 'warning' ? 'ADVERTENCIA' : 'INFO'}</span></div><p>{item.detail}</p><small>{item.meta}</small></div><button className="alert-action" onClick={() => onReview(item.icon === 'schedule' ? 'plans' : item.icon === 'maintenance' ? 'management' : 'measurements')}><BellRing size={14} /> Revisar</button></article>)}</div>}</section>;
 }
 
@@ -328,8 +533,7 @@ function WaterManagement({ records, manager, onOpen, sectors, blockName, filter,
   const pendingChecks = checks.filter(check => check.calibrationStatus !== 'VALID').length;
   const edit = (kind: ManagementAction, record: ManagementRecord) => manager ? <button className="text-button" onClick={() => onOpen(kind, record)}>Editar</button> : null;
   return <div className="water-management-content">
-    <div className="water-management-heading"><div><span className="eyebrow">ADMINISTRACIÓN</span><h2>Agua, infraestructura y mantenimiento</h2><p>Gestiona los recursos que sostienen el riego. Cada registro queda separado de las mediciones y de las ejecuciones.</p></div>{manager && <div className="water-management-actions"><button className="button small" onClick={() => onOpen('waterSource')}>Nueva fuente</button><button className="button small" onClick={() => onOpen('infrastructure')}>Nuevo activo</button><button className="button small secondary" onClick={() => onOpen('quality')}>Registrar calidad</button><button className="button small secondary" onClick={() => onOpen('balance')}>Nuevo balance</button><button className="button small secondary" onClick={() => onOpen('maintenance')}>Programar mantenimiento</button><button className="button small secondary" onClick={() => onOpen('sensorCheck')}>Verificar sensor</button></div>}</div>
-    <div className="water-management-guide"><div><strong>1</strong><span><b>Fuente</b><small>origen y capacidad</small></span></div><div><strong>2</strong><span><b>Red</b><small>activos y estado</small></span></div><div><strong>3</strong><span><b>Control</b><small>calidad y sensores</small></span></div><div><strong>4</strong><span><b>Seguimiento</b><small>balance y mantenimiento</small></span></div></div>
+    <div className="water-management-heading"><div><h2>Agua, infraestructura y mantenimiento</h2><p>Consulta fuentes, activos, calidad del agua y mantenimiento.</p></div>{manager && <div className="water-management-actions"><button className="button small" onClick={() => onOpen('waterSource')}>Nueva fuente</button><button className="button small" onClick={() => onOpen('infrastructure')}>Nuevo activo</button><button className="button small secondary" onClick={() => onOpen('quality')}>Registrar calidad</button><button className="button small secondary" onClick={() => onOpen('balance')}>Nuevo balance</button><button className="button small secondary" onClick={() => onOpen('maintenance')}>Programar mantenimiento</button><button className="button small secondary" onClick={() => onOpen('sensorCheck')}>Verificar sensor</button></div>}</div>
     <div className="water-management-summary"><div><strong>{(records.waterSources ?? []).filter(source => source.active).length}</strong><span>Fuentes activas</span></div><div><strong>{infrastructure.length}</strong><span>Activos visibles</span></div><div><strong>{records.waterQuality?.length ?? 0}</strong><span>Análisis de calidad</span></div><div><strong>{pendingMaintenance}</strong><span>Mantenimientos abiertos</span></div><div><strong>{balances.length}</strong><span>Balances visibles</span></div><div><strong>{pendingChecks}</strong><span>Sensores por verificar</span></div></div>
     <div className="water-management-grid">
       <Panel title="Fuentes de agua"><div className="table-wrap"><table><thead><tr><th>Fuente</th><th>Tipo</th><th>Capacidad</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{(records.waterSources ?? []).map(source => <tr key={source.id}><td><strong>{source.name}</strong><br /><small>{source.notes || 'Sin notas'}</small></td><td>{readable(source.sourceType, sourceTypeLabels)}</td><td>{source.capacityM3 != null ? `${source.capacityM3} m³` : 'Sin capacidad'}</td><td><Badge tone={source.active ? 'green' : 'neutral'}>{source.active ? 'Activa' : 'Inactiva'}</Badge></td><td>{edit('waterSource', source)}</td></tr>)}</tbody></table></div>{!(records.waterSources ?? []).length && <p className="muted">No hay fuentes registradas. Crea una para asociar calidad e infraestructura.</p>}</Panel>
@@ -340,12 +544,4 @@ function WaterManagement({ records, manager, onOpen, sectors, blockName, filter,
       <Panel title="Calibración de sensores"><div className="table-wrap"><table><thead><tr><th>Sector</th><th>Sensor</th><th>Fecha</th><th>Estado</th><th>Referencia / observado</th><th>Acciones</th></tr></thead><tbody>{checks.map(check => <tr key={check.id}><td>{sectors.find(sector => sector.id === check.sectorId)?.name ?? `Sector #${check.sectorId}`}</td><td>{sensorNames.get(check.sensorDeviceId) ?? `Sensor #${check.sensorDeviceId}`}</td><td>{check.checkedOn}</td><td><Badge tone={check.calibrationStatus === 'VALID' ? 'green' : 'red'}>{readable(check.calibrationStatus, calibrationStatusLabels)}</Badge></td><td>{check.referenceValue ?? '—'} / {check.observedValue ?? '—'}</td><td>{edit('sensorCheck', check)}</td></tr>)}</tbody></table></div>{!checks.length && <p className="muted">No hay verificaciones para el sector seleccionado.</p>}</Panel>
     </div>
   </div>;
-}
-
-function ExecutionContext({ execution, plan, measurements }: { execution: IrrigationExecution; plan: IrrigationPlan; measurements: IrrigationMeasurement[] }) {
-  const readings = measurements.filter(reading => reading.sectorId === plan.sectorId).sort((first, second) => Date.parse(first.recordedAt) - Date.parse(second.recordedAt));
-  const before = readings.filter(reading => Date.parse(reading.recordedAt) <= Date.parse(execution.startedAt)).at(-1);
-  const after = readings.find(reading => Date.parse(reading.recordedAt) >= Date.parse(execution.endedAt));
-  const describe = (reading?: IrrigationMeasurement) => reading ? `${reading.value} ${moistureUnits[reading.unit]} · ${reading.depthCm} cm · ${new Date(reading.recordedAt).toLocaleString('es-CO')}` : 'Sin medición registrada';
-  return <Panel title="Verificación de humedad"><p>Lectura anterior: {describe(before)}</p><p>Lectura posterior: {describe(after)}</p><p>Se muestran las lecturas disponibles con fecha; no prueban causalidad ni sustituyen una revisión técnica. Una lectura antigua no demuestra la condición durante el riego.</p></Panel>;
 }

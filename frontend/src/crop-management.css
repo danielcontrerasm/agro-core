@@ -264,29 +264,186 @@
   .crop-app-shell .alert-counts strong{flex:1}
 }
 
-.crop-app-shell .irrigation-dashboard{padding:0 2px 12px}
-.crop-app-shell .irrigation-dashboard-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding:16px 12px 10px}
-.crop-app-shell .irrigation-dashboard-heading h2{margin:4px 0 2px;color:#13243e;font-family:Manrope,sans-serif;font-size:27px;letter-spacing:-.8px}
-.crop-app-shell .irrigation-dashboard-heading p{margin:0;color:#5f718a;font-size:11px}
-.crop-app-shell .irrigation-dashboard-actions,.crop-app-shell .irrigation-table-actions{display:flex;align-items:center;gap:8px}
-.crop-app-shell .irrigation-dashboard-tabs{display:flex;gap:3px;border-bottom:1px solid #e1eae5;margin:0 12px 12px}
-.crop-app-shell .irrigation-dashboard-tabs button{height:37px;padding:0 16px;border:1px solid transparent;border-radius:7px 7px 0 0;background:#f3f7f6;color:#68798b;font-size:10px}
-.crop-app-shell .irrigation-dashboard-tabs button.active{border-color:#079b60;background:#f0faf4;color:#087b50;font-weight:700}
-.crop-app-shell .irrigation-kpi-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:0 0 10px}
-.crop-app-shell .irrigation-kpi{display:flex;align-items:center;gap:9px;min-width:0;min-height:76px;padding:10px;border:1px solid #e3ebe7;border-radius:9px;background:#fff;box-shadow:0 3px 12px #193c2c08}
-.crop-app-shell .irrigation-kpi-icon{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;flex:0 0 auto}
-.crop-app-shell .irrigation-kpi-icon.blue{background:#e8f2ff;color:#1979e7}.crop-app-shell .irrigation-kpi-icon.green{background:#e8f7ed;color:#25a05b}
-.crop-app-shell .irrigation-kpi>div{min-width:0}.crop-app-shell .irrigation-kpi small{display:block;color:#778898;font-size:8px;white-space:nowrap}.crop-app-shell .irrigation-kpi strong{display:block;color:#16243a;font-family:Manrope,sans-serif;font-size:19px;line-height:1.4;white-space:nowrap}.crop-app-shell .irrigation-kpi em{display:block;color:#8998a8;font-size:7px;font-style:normal;white-space:nowrap}.crop-app-shell .irrigation-kpi>b,.crop-app-shell .irrigation-kpi mark{margin-left:auto;padding:4px 7px;border:0;border-radius:6px;background:#e8f7ed;color:#2a9b5d;font-size:8px;white-space:nowrap}.crop-app-shell .irrigation-kpi mark{font-weight:500}
-.crop-app-shell .irrigation-dashboard-main{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(330px,.85fr);gap:10px;margin-bottom:10px}
-.crop-app-shell .irrigation-map-card,.crop-app-shell .irrigation-alert-card,.crop-app-shell .irrigation-sector-card{min-width:0;padding:12px;border:1px solid #e3ebe7;border-radius:10px;background:#fff;box-shadow:0 4px 16px #193c2c08}
-.crop-app-shell .irrigation-section-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}.crop-app-shell .irrigation-section-heading h3{margin:0;color:#182d28;font-size:14px}.crop-app-shell .irrigation-section-heading p{margin:3px 0 0;color:#7e8f84;font-size:9px}.crop-app-shell .irrigation-section-heading>div:last-child{display:flex;align-items:center;gap:7px}
-.crop-app-shell .compact-select{height:33px;padding:0 10px;border:1px solid #dfe9e2;border-radius:7px;background:#fff;color:#40594b;font-size:9px;white-space:nowrap}.crop-app-shell .icon-button{display:grid;place-items:center;width:33px;height:33px;border:1px solid #dfe9e2;border-radius:7px;background:#fff;color:#40594b}
-.crop-app-shell .irrigation-map{position:relative;height:315px;overflow:hidden;border-radius:8px;background:#dcebd8}.crop-app-shell .irrigation-map>img{width:100%;height:100%;object-fit:cover}.crop-app-shell .irrigation-map-wash{position:absolute;inset:0;background:linear-gradient(130deg,#163e1b42,#1d7d3b15 45%,#122e1836)}
-.crop-app-shell .irrigation-map-label{position:absolute;display:flex;flex-direction:column;min-width:88px;padding:7px 9px;border:1px solid #ffffffaa;border-radius:7px;background:#ffffffdd;box-shadow:0 3px 10px #193c2c28;text-align:center;transform:translate(-50%,-50%)}.crop-app-shell .irrigation-map-label strong{color:#21342c;font-size:10px}.crop-app-shell .irrigation-map-label span{font-size:8px;color:#536a5b}.crop-app-shell .irrigation-map-label small{font-size:8px;color:#334b3d}.crop-app-shell .irrigation-map-label.blue{border-bottom:3px solid #2186ee}.crop-app-shell .irrigation-map-label.green{border-bottom:3px solid #31aa60}.crop-app-shell .irrigation-map-label.gold{border-bottom:3px solid #e8ac22}.crop-app-shell .irrigation-map-label.critical{border-bottom:3px solid #ec3b3b}
-.crop-app-shell .irrigation-map-legend{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:6px;width:155px;padding:10px;border-radius:7px;background:#ffffffed;color:#536579;font-size:8px}.crop-app-shell .irrigation-map-legend strong{color:#182d28;font-size:9px}.crop-app-shell .irrigation-map-legend span{display:flex;align-items:center;gap:6px}.crop-app-shell .irrigation-map-legend i{width:8px;height:8px;border-radius:50%;background:#2186ee}.crop-app-shell .irrigation-map-legend i.gold{background:#e8ac22}.crop-app-shell .irrigation-map-legend i.green{background:#31aa60}.crop-app-shell .irrigation-map-legend i.critical{background:#ec3b3b}
-.crop-app-shell .irrigation-alert-card .irrigation-section-heading{margin-bottom:3px}.crop-app-shell .irrigation-alert-card .text-button{display:inline-flex;align-items:center;gap:2px;font-size:8px}.crop-app-shell .irrigation-dashboard-alert{display:flex;align-items:center;gap:9px;padding:10px 2px;border-bottom:1px solid #edf2ee}.crop-app-shell .irrigation-dashboard-alert:last-child{border-bottom:0}.crop-app-shell .irrigation-alert-symbol{display:grid;place-items:center;width:34px;height:34px;flex:0 0 auto;border-radius:8px;background:#fff1df;color:#eea227}.crop-app-shell .irrigation-alert-symbol.critical{background:#ffebe9;color:#ed4545}.crop-app-shell .irrigation-alert-symbol.blue{background:#e8f2ff;color:#267fe2}.crop-app-shell .irrigation-dashboard-alert>div{min-width:0;flex:1}.crop-app-shell .irrigation-dashboard-alert strong{display:block;color:#24364a;font-size:10px}.crop-app-shell .irrigation-dashboard-alert small{display:block;margin-top:3px;color:#68798b;font-size:8px;line-height:1.4}.crop-app-shell .irrigation-dashboard-alert em{display:block;margin-top:3px;color:#9aa7b3;font-size:7px;font-style:normal}.crop-app-shell .outline-action{padding:6px 9px;border:1px solid #bfe4d0;border-radius:7px;background:#fff;color:#15834f;font-size:8px;white-space:nowrap}.crop-app-shell .irrigation-sector-card{padding-bottom:8px}.crop-app-shell .irrigation-sector-card .irrigation-section-heading{margin-bottom:8px}.crop-app-shell .irrigation-table-actions label{display:flex;align-items:center;gap:5px;height:33px;padding:0 9px;border:1px solid #dfe9e2;border-radius:7px;color:#647789}.crop-app-shell .irrigation-table-actions input{width:130px;border:0;outline:0;color:#40594b;font-size:9px}.crop-app-shell .irrigation-table-actions .button.small{min-height:33px;padding:7px 11px}.crop-app-shell .irrigation-dashboard-table{min-width:900px}.crop-app-shell .irrigation-dashboard-table th{background:#f5f9f7}.crop-app-shell .irrigation-dashboard-table td{padding:8px 9px}.crop-app-shell .irrigation-status-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 7px;border-radius:999px;background:#fff2d9;color:#d28a0b;font-size:8px;white-space:nowrap}.crop-app-shell .irrigation-status-pill i{width:7px;height:7px;border-radius:50%;background:#f0ad21}.crop-app-shell .irrigation-status-pill.green{background:#e8f7ed;color:#2c9b5b}.crop-app-shell .irrigation-status-pill.green i{background:#2caa60}.crop-app-shell .irrigation-status-pill.blue{background:#e6f1ff;color:#2377d6}.crop-app-shell .irrigation-status-pill.blue i{background:#2377d6}.crop-app-shell .irrigation-status-pill.critical{background:#ffe8e7;color:#df3c3c}.crop-app-shell .irrigation-status-pill.critical i{background:#ef3e3e}.crop-app-shell .table-more{border:0;background:none;color:#526a7a;font-size:12px}
-@media(max-width:1200px){.crop-app-shell .irrigation-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.crop-app-shell .irrigation-dashboard-main{grid-template-columns:minmax(0,1.5fr) minmax(300px,.9fr)}}
-@media(max-width:800px){.crop-app-shell .irrigation-dashboard-heading{display:block;padding-left:2px;padding-right:2px}.crop-app-shell .irrigation-dashboard-actions{margin-top:12px}.crop-app-shell .irrigation-dashboard-actions .button{flex:1}.crop-app-shell .irrigation-dashboard-tabs{margin-left:2px;margin-right:2px;overflow-x:auto}.crop-app-shell .irrigation-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.crop-app-shell .irrigation-dashboard-main{grid-template-columns:1fr}.crop-app-shell .irrigation-section-heading{align-items:flex-start;flex-direction:column}.crop-app-shell .irrigation-section-heading>div:last-child,.crop-app-shell .irrigation-table-actions{width:100%;overflow-x:auto}.crop-app-shell .irrigation-map{height:280px}.crop-app-shell .irrigation-map-legend{width:125px}.crop-app-shell .irrigation-table-actions label{flex:1}.crop-app-shell .irrigation-table-actions input{width:100px}}
+.crop-app-shell .irrigation-dashboard { padding-bottom: 12px; }
+.crop-app-shell .module-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 10px 12px 12px;
+}
+.crop-app-shell .module-heading h1 { margin: 0; color: #10233b; font-size: 30px; line-height: 1.2; }
+.crop-app-shell .module-heading p { margin: 4px 0 0; color: #54677b; font-size: 13px; }
+.crop-app-shell .module-heading-actions,
+.crop-app-shell .irrigation-table-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.crop-app-shell .module-tabs {
+  display: flex;
+  gap: 5px;
+  margin: 0 12px 12px;
+  padding-bottom: 9px;
+  overflow-x: auto;
+  border-bottom: 1px solid #e1eae5;
+}
+.crop-app-shell .module-tabs button {
+  flex: none;
+  padding: 9px 15px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: #edf3f0;
+  color: #455a66;
+  font-size: 12px;
+}
+.crop-app-shell .module-tabs button.active { border-color: #188b59; background: #eef8f2; color: #07683d; font-weight: 700; }
+.crop-app-shell .irrigation-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.crop-app-shell .module-kpi {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 86px;
+  padding: 12px;
+  border: 1px solid #e3ebe7;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 3px 12px #193c2c08;
+}
+.crop-app-shell .module-kpi-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 10px; flex: none; }
+.crop-app-shell .module-kpi-icon.blue { background: #eaf3ff; color: #146fd0; }
+.crop-app-shell .module-kpi-icon.green { background: #e9f7ee; color: #11864b; }
+.crop-app-shell .module-kpi small,
+.crop-app-shell .module-kpi div > span { display: block; color: #526477; font-size: 11px; line-height: 1.3; }
+.crop-app-shell .module-kpi strong { display: block; color: #142039; font: 800 20px/1.35 Manrope, sans-serif; }
+.crop-app-shell .irrigation-dashboard-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.95fr) minmax(275px, 1fr);
+  gap: 9px;
+  margin-bottom: 9px;
+}
+.crop-app-shell .irrigation-map-card,
+.crop-app-shell .irrigation-alert-card,
+.crop-app-shell .irrigation-sector-card {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #e5eee9;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 4px 16px #193c2c08;
+}
+.crop-app-shell .irrigation-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.crop-app-shell .irrigation-section-heading h3 { margin: 0; color: #142039; font-size: 15px; }
+.crop-app-shell .irrigation-section-heading p { margin: 3px 0 0; color: #526477; font-size: 11px; }
+.crop-app-shell .compact-select {
+  min-height: 35px;
+  padding: 0 10px;
+  border: 1px solid #dfe9e2;
+  border-radius: 7px;
+  background: #fff;
+  color: #384d5d;
+  font-size: 11px;
+}
+.crop-app-shell .irrigation-map { position: relative; height: 320px; border-radius: 8px; background: #e2eee3; }
+.crop-app-shell .irrigation-map .farm-map { min-height: 100%; }
+.crop-app-shell .irrigation-map .map-controls { inset: 10px auto auto 10px; }
+.crop-app-shell .irrigation-map .map-caption { display: none; }
+.crop-app-shell .irrigation-map-legend {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  gap: 7px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  background: #fffffff5;
+  color: #45596b;
+  font-size: 11px;
+}
+.crop-app-shell .irrigation-map:has(.real-map) .irrigation-map-legend { top: auto; right: 12px; bottom: 25px; }
+.crop-app-shell .irrigation-map-legend strong { color: #142039; }
+.crop-app-shell .irrigation-map-legend span,
+.crop-app-shell .irrigation-map-selection { display: flex; align-items: center; gap: 7px; }
+.crop-app-shell .irrigation-map-legend i,
+.crop-app-shell .irrigation-status-pill i { flex: none; width: 9px; height: 9px; border-radius: 50%; }
+.crop-app-shell .irrigation-map-selection { flex-wrap: wrap; padding: 8px 2px 0; font-size: 12px; }
+.crop-app-shell .irrigation-dashboard-alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 72px;
+  padding: 9px 2px;
+  border-top: 1px solid #edf2ee;
+}
+.crop-app-shell .irrigation-alert-symbol {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  background: #fff3e2;
+  color: #a75b17;
+}
+.crop-app-shell .irrigation-alert-symbol.critical { background: #ffebe9; color: #ce3732; }
+.crop-app-shell .irrigation-alert-symbol.info { background: #eaf3ff; color: #146fd0; }
+.crop-app-shell .irrigation-dashboard-alert > div { flex: 1; min-width: 0; }
+.crop-app-shell .irrigation-dashboard-alert strong { display: block; color: #1c2d45; font-size: 12px; }
+.crop-app-shell .irrigation-dashboard-alert small,
+.crop-app-shell .irrigation-dashboard-alert em { display: block; margin-top: 3px; color: #526477; font-size: 10px; line-height: 1.4; font-style: normal; }
+.crop-app-shell .outline-action {
+  padding: 6px 10px;
+  border: 1px solid #b7ddc8;
+  border-radius: 7px;
+  background: #fff;
+  color: #0f6b3e;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.crop-app-shell .irrigation-table-actions label,
+.crop-app-shell .irrigation-sector-filter label { display: flex; align-items: center; gap: 7px; }
+.crop-app-shell .irrigation-table-actions label { padding: 0 8px; border: 1px solid #dfe9e2; border-radius: 7px; color: #647789; }
+.crop-app-shell .irrigation-table-actions input { width: 132px; height: 34px; border: 0; background: transparent; color: #384d5d; font-size: 12px; }
+.crop-app-shell .irrigation-dashboard-table { min-width: 830px; }
+.crop-app-shell .irrigation-dashboard-table th { background: #f2f7f5; }
+.crop-app-shell .irrigation-dashboard-table td { padding: 8px 9px; }
+.crop-app-shell .irrigation-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #f0f3f1;
+  color: #43574d;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.crop-app-shell .irrigation-status-pill.gold { background: #fdf3d9; color: #805703; }
+.crop-app-shell .irrigation-status-pill.green { background: #e8f7ed; color: #186640; }
+.crop-app-shell .irrigation-status-pill.blue { background: #e6f1ff; color: #165da5; }
+.crop-app-shell .irrigation-status-pill.critical { background: #ffe8e7; color: #a72b28; }
+.crop-app-shell .module-empty-note { margin: 12px 0 3px; color: #516374; font-size: 12px; }
+.crop-app-shell .module-back-button { margin-bottom: 12px; }
+@media (max-width: 1280px) {
+  .crop-app-shell .irrigation-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 950px) {
+  .crop-app-shell .irrigation-dashboard-main { grid-template-columns: 1fr; }
+  .crop-app-shell .irrigation-section-heading { align-items: flex-start; flex-wrap: wrap; }
+}
+@media (max-width: 600px) {
+  .crop-app-shell .module-heading { align-items: flex-start; flex-direction: column; padding-inline: 0; }
+  .crop-app-shell .module-tabs { margin-inline: 0; }
+  .crop-app-shell .irrigation-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .crop-app-shell .module-kpi { gap: 7px; padding: 9px; }
+  .crop-app-shell .module-kpi-icon { width: 31px; height: 31px; }
+  .crop-app-shell .module-kpi-icon svg { width: 17px; }
+  .crop-app-shell .irrigation-map { height: 285px; }
+  .crop-app-shell .irrigation-map-legend { top: auto; bottom: 22px; font-size: 9px; padding: 7px; gap: 4px; }
+}
 
 @media(max-width:1200px){
   .crop-app-shell .page-heading{align-items:flex-start}
@@ -766,4 +923,54 @@
   .crop-app-shell .water-report-actions{justify-content:flex-start}
   .crop-app-shell .water-report-actions .button{flex:1}
   .crop-app-shell .water-analytics-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+.crop-app-shell .fertilization-workspace { display: grid; gap: 11px; }
+.crop-app-shell .fertilization-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.crop-app-shell .module-kpi-icon.gold { background: #fff4de; color: #925b15; }
+.crop-app-shell .fertilization-controls { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.crop-app-shell .fertilization-controls .module-tabs { margin: 0; padding-bottom: 4px; border-bottom: 0; }
+.crop-app-shell .fertilization-controls > label { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.crop-app-shell .fertilization-body { display: grid; gap: 10px; min-width: 0; align-items: start; }
+.crop-app-shell .fertilization-body.with-catalogs { grid-template-columns: minmax(0, 1fr) minmax(235px, .32fr); }
+.crop-app-shell .fertilization-records { min-width: 0; }
+.crop-app-shell .fertilization-records > .muted { margin: 11px 0 0; }
+.crop-app-shell .fertilization-records th { background: #f2f7f5; }
+.crop-app-shell .fertilization-catalogs { display: grid; gap: 10px; min-width: 0; }
+.crop-app-shell .fertilization-catalogs .panel-heading { flex-wrap: wrap; gap: 5px; }
+@media (max-width: 920px) {
+  .crop-app-shell .fertilization-body.with-catalogs { grid-template-columns: minmax(0, 1fr); }
+  .crop-app-shell .fertilization-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .crop-app-shell .fertilization-controls { flex-direction: column; align-items: stretch; }
+}
+
+.crop-app-shell .planting-reference-workspace { gap: 9px; }
+.crop-app-shell .planting-reference-workspace > .planting-cycle-list-panel { min-height: 100%; }
+.crop-app-shell .planting-cycle-thumb { display: grid; place-items: center; color: #12834d; background: #eaf6ed; }
+.crop-app-shell .planting-reference-kpis .planting-kpi-card > div > span,
+.crop-app-shell .planting-reference-kpis .planting-kpi-card small { color: #546679; font-size: 11px; }
+.crop-app-shell .planting-reference-kpis .planting-kpi-card strong,
+.crop-app-shell .planting-summary-card-heading h3 { color: #10233b; }
+.crop-app-shell .planting-reference-tabs button { flex: 1 0 auto; min-height: 37px; padding-inline: 11px; color: #465a70; }
+.crop-app-shell .planting-summary-grid { grid-template-columns: minmax(0, .9fr) minmax(0, 1.2fr); }
+.crop-app-shell .planting-summary-map { height: 204px; min-height: 204px; }
+.crop-app-shell .planting-stage-timeline { position: relative; gap: 5px; }
+.crop-app-shell .planting-stage-timeline::before {
+  content: '';
+  position: absolute;
+  top: 11px;
+  inset-inline: 10%;
+  height: 2px;
+  background: #e2e8ef;
+}
+.crop-app-shell .planting-stage-timeline > div { position: relative; }
+.crop-app-shell .planting-stage-timeline > div.current > span { background: #12834d; border-color: #12834d; color: #fff; }
+.crop-app-shell .planting-stage-timeline small { color: #546679; font-size: 10px; }
+.crop-app-shell .planting-stage-timeline .current small { color: #0b6c40; font-weight: 700; }
+.crop-app-shell .planting-progress-track { height: 9px; }
+.crop-app-shell .planting-status-metrics span { color: #546679; font-size: 10px; }
+@media (max-width: 1040px) {
+  .crop-app-shell .planting-summary-grid { grid-template-columns: 1fr; }
 }

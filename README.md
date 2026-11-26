@@ -58,17 +58,25 @@ layouts, a sidebar, global view search, farm selection, and these screens:
 - Daily work with filtering, farm-member assignment, field/block targeting,
   creation, execution, blocking, review, and approval persisted in PostgreSQL.
 - Farm maps with interactive fields, blocks, and rows, zoom, filters, layer
-  controls, and health, moisture, nutrient, and disease-observation views. Demo
-  layers are illustrative. Real mode draws stored field/block polygons and row
-  lines over OpenStreetMap, with Esri World Imagery satellite and hybrid options.
-- Fields, blocks, and rows with creation forms, parent filters, and confirmed
-  deletion according to the current user's permissions.
+  controls, and health, moisture, nutrient, and disease-observation views. The
+  moisture and nutrient views include legends, summaries, and traceability tables.
+  Demo mode can split the illustrated map to compare two layers. Real mode draws
+  stored geometries over satellite imagery by default, with a hybrid option and
+  an OpenStreetMap plan.
+- Fields with map and list views, a farm hierarchy, field details, and a
+  field-specific block list. In connected mode the map uses recorded geometry.
+  Creation forms, parent filters, and confirmed deletion follow farm permissions.
+- Rows and plants with a block-filtered inventory of row length, spacing,
+  and estimated plant counts.
 - Planting cycles, site/material approvals, planting execution, establishment, and
-  regional planting calendars.
-- Irrigation sectors, moisture readings, recurring scheduling, execution, water
-  administration, and usage reports.
-- Soil/foliar analyses, nutrient profiles, approved fertilizer plans, and
-  application follow-up.
+  regional planting calendars. The selected cycle shows planned dates, recorded
+  milestones, and its associated block. **Ver calendario** opens the regional rules.
+- Irrigation overview with recorded consumption, pending volume, sector map,
+  alerts, and a searchable sector table. The module includes readings, recurring
+  scheduling, executions, water administration, and usage reports.
+- Fertilization overview with record counts and a block filter for soil/foliar
+  analyses, approved plans, applications, and technical follow-up. Farm profiles and
+  product catalogs are available to authorized roles in connected mode.
 - Pest/disease inspections, preventive assignments, treatments, and event history.
 - Structured crop-cycle harvest records alongside legacy harvest events.
 - Event creation and detail, authenticated photo uploads, legacy media references,
@@ -272,6 +280,26 @@ See the permissions table and onboarding examples below for the complete flow.
 - Docker Compose database setup with persistent database storage.
 - Gradle wrapper and automated authentication, permission, membership, and
   application startup tests.
+
+### JPA persistence
+
+Spring Data JPA repositories manage mapped records, including account creation and
+normalized email lookup through `AppUserRepository`. The block map uses a typed
+harvest projection from `CropMonitoringRecordRepository` for harvested quantity,
+estimated yield, and growth stage. [Account repository](src/main/java/com/yourco/agro/auth/AppUserRepository.java) ·
+[Monitoring repository](src/main/java/com/yourco/agro/monitoring/CropMonitoringRecordRepository.java)
+
+`JpaSql` uses JPA's `EntityManager` for native SQL. It binds parameters and maps
+report rows, handles generated IDs, and runs writes in Spring-managed JPA
+transactions. PostgreSQL queries use features such as `FOR UPDATE` for row locks,
+`ON CONFLICT` for membership upserts, and `RETURNING` for generated IDs. Farm
+creation stores the farm, creator membership, and initial catalog entries in one
+transaction. Flyway manages the database schema. [Native query adapter](src/main/java/com/yourco/agro/persistence/JpaSql.java)
+
+The H2 API tests create isolated schemas through JPA and use a
+`JpaTransactionManager`. The QA runner executes the PostGIS tests and the Chrome
+walkthrough against a disposable database.
+[JPA test configuration](src/test/java/com/yourco/agro/JpaTestConfig.java)
 
 ## Functional requirements
 
@@ -572,7 +600,7 @@ flowchart TB
     Controllers["REST controllers: auth, farms, tasks, events, planting, inspections, irrigation, fertilization, monitoring, analytics, media"]
     Services["Domain services: access, tasks, crop planning, water, nutrient, inspection, production, analytics"]
     JPA["Spring Data JPA + Hibernate Spatial"]
-    JDBC["JdbcTemplate: users, memberships, access checks"]
+    NativeJPA["Native JPA queries via EntityManager"]
     Geometry["GeoMapper + JTS: point, polygon, line conversion"]
     Sessions[("In-memory HTTP sessions")]
     Flyway["Flyway schema migrations: V1–V24 (version gaps)"]
@@ -588,13 +616,13 @@ flowchart TB
   Security --> Controllers
   Controllers --> Services
   Controllers --> JPA
-  Controllers --> JDBC
+  Controllers --> NativeJPA
   Services --> JPA
-  Services --> JDBC
+  Services --> NativeJPA
   Services --> Geometry
   Controllers --> Geometry
   JPA --> DB
-  JDBC --> DB
+  NativeJPA --> JPA
   Flyway -.->|"Schema migrations on startup"| DB
   DB --- Volume
 ```
@@ -643,25 +671,26 @@ flowchart LR
   end
 
   Geometry["geo package: GeoMapper + GeoDtos"]
-  JDBC["JdbcTemplate"]
+  NativeJPA["Native JPA queries via EntityManager"]
   JPA["Spring Data JPA / Hibernate Spatial"]
   DB[("PostgreSQL / PostGIS")]
 
   SecurityConfig --> Encoder
   AuthController --> UserService
   UserService --> Encoder
-  UserService --> JDBC
+  UserService --> JPA
+  UserService --> NativeJPA
   MembershipController --> UserService
   MembershipController --> FarmAccess
-  MembershipController --> JDBC
-  FarmAccess --> JDBC
+  MembershipController --> NativeJPA
+  FarmAccess --> NativeJPA
   FarmControllers --> FarmAccess
   FarmControllers --> FarmServices
   FarmControllers --> FarmRepos
   FarmServices --> FarmRepos
   FarmServices --> Geometry
   FarmServices --> FarmAccess
-  FarmServices --> JDBC
+  FarmServices --> NativeJPA
   EventController --> FarmAccess
   EventController --> EventService
   EventController --> EventRepos
@@ -680,12 +709,12 @@ flowchart LR
   EventRepos --> JPA
   MediaRepo --> JPA
   JPA --> DB
-  JDBC --> DB
+  NativeJPA --> JPA
 ```
 
 Entities and DTOs belong to their respective domain packages. Farm creation also
-inserts the creator's administrator membership through JDBC in the same
-transaction as the JPA farm insert. `FarmAccess` resolves resource ownership and
+inserts the creator's administrator membership in the same JPA transaction as
+the farm record. `FarmAccess` resolves resource ownership and
 checks farm roles against the database on each request that uses it.
 
 ## Prerequisites
@@ -788,11 +817,14 @@ catalog data, permissions, and auditability remain incomplete.
 ### Implemented
 
 - Farm-scoped crop and variety records with catalog selection in planting workflows.
-- Crop-cycle creation by block with planting dates, area, expected harvest, and stage data.
+- Crop-cycle creation by block with planting dates, expected harvest, and stage
+  data. Planting plans store planned area and density. Execution records store
+  actual area and plant counts.
 - Site/lote assessment with approval and rejection actions.
 - Planting-material lot registration with accept/reject decisions.
 - Planting-plan creation, approval, task creation, and field execution records.
-- Establishment checks for survival, mortality, replacement, and follow-up evidence.
+- Establishment checks for survival, mortality, and replacement, with dated
+  follow-up notes.
 - Phenological stage observations and cycle stage history.
 - Regional annual/perennial planting rules, suggestions, and cycle-window validation.
 
@@ -1144,6 +1176,13 @@ python3 scripts/run_qa_tests.py
 
 See the [automated QA walkthrough](frontend/tests/manual-agricultural-workflow.md#pruebas-automatizadas-en-chrome)
 for prerequisites, playback speed, and report locations.
+See the [test results report](docs/test-results.md) for the latest verification,
+module coverage, and evidence.
+
+The November 25, 2026 run after the JPA migration passed **48 backend tests**,
+**11 frontend unit tests**, **58 Chrome tests** across desktop and mobile, and
+the recorded QA farm walkthrough. The frontend production build also passed.
+[JPA validation reports and recording](frontend/tests/manual-agricultural-workflow.md#validación-de-la-migración-a-jpa)
 
 Authentication, CSRF, session rotation, and access checks can run without PostGIS:
 

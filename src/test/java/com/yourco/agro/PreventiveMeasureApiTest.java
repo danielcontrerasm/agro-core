@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yourco.agro.auth.AuthDtos;
 import com.yourco.agro.auth.FarmAccess;
 import com.yourco.agro.config.SecurityConfig;
+import com.yourco.agro.persistence.JpaSql;
 import com.yourco.agro.preventive.PreventiveMeasureController;
 import com.yourco.agro.preventive.PreventiveMeasureService;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,13 +14,11 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
-import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
+import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 
-import javax.sql.DataSource;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -31,22 +30,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({SecurityConfig.class, FarmAccess.class, PreventiveMeasureService.class, PreventiveMeasureApiTest.DatabaseConfig.class})
 class PreventiveMeasureApiTest {
   @TestConfiguration
+  @Import(JpaTestConfig.class)
   static class DatabaseConfig {
-    @Bean DataSource dataSource() {
-      return new EmbeddedDatabaseBuilder().generateUniqueName(true).setType(EmbeddedDatabaseType.H2)
-        .addScript("auth-schema.sql")
-        .addScript("db/migration/V2__users_and_memberships.sql")
-        .addScript("preventive-schema.sql")
-        .addScript("db/migration/V16__preventive_measure_workflow.sql")
-        .build();
+    @Bean
+    LocalContainerEntityManagerFactoryBean entityManagerFactory() throws IOException {
+      return JpaTestConfig.database(
+        "auth-schema.sql",
+        "db/migration/V2__users_and_memberships.sql",
+        "preventive-schema.sql",
+        "db/migration/V16__preventive_measure_workflow.sql"
+      );
     }
 
-    @Bean JdbcTemplate jdbcTemplate(DataSource dataSource) { return new JdbcTemplate(dataSource); }
   }
 
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
-  @Autowired JdbcTemplate jdbc;
+  @Autowired JpaSql queries;
 
   private UsernamePasswordAuthenticationToken login(long id) {
     return UsernamePasswordAuthenticationToken.authenticated(
@@ -56,19 +56,19 @@ class PreventiveMeasureApiTest {
 
   @BeforeEach
   void seed() {
-    jdbc.update("DELETE FROM preventive_measure_evidence");
-    jdbc.update("DELETE FROM preventive_measure_assignment");
-    jdbc.update("DELETE FROM preventive_measure_template");
-    jdbc.update("DELETE FROM farm_membership");
-    jdbc.update("DELETE FROM app_user");
-    jdbc.update("DELETE FROM block");
-    jdbc.update("DELETE FROM field");
-    jdbc.update("DELETE FROM farm");
-    jdbc.update("INSERT INTO farm VALUES (10, 'North'), (20, 'South')");
-    jdbc.update("INSERT INTO field VALUES (11, 10), (21, 20)");
-    jdbc.update("INSERT INTO block(id, field_id, code) VALUES (12, 11, 'A'), (22, 21, 'B')");
-    jdbc.update("INSERT INTO app_user(id, name, email, password_hash) VALUES (1, 'Worker', 'worker@example.com', 'hash'), (2, 'Manager', 'manager@example.com', 'hash')");
-    jdbc.update("INSERT INTO farm_membership VALUES (10, 1, 'WORKER'), (10, 2, 'ADMIN'), (20, 2, 'ADMIN')");
+    queries.execute("DELETE FROM preventive_measure_evidence");
+    queries.execute("DELETE FROM preventive_measure_assignment");
+    queries.execute("DELETE FROM preventive_measure_template");
+    queries.execute("DELETE FROM farm_membership");
+    queries.execute("DELETE FROM app_user");
+    queries.execute("DELETE FROM block");
+    queries.execute("DELETE FROM field");
+    queries.execute("DELETE FROM farm");
+    queries.execute("INSERT INTO farm VALUES (10, 'North'), (20, 'South')");
+    queries.execute("INSERT INTO field VALUES (11, 10), (21, 20)");
+    queries.execute("INSERT INTO block(id, field_id, code) VALUES (12, 11, 'A'), (22, 21, 'B')");
+    queries.execute("INSERT INTO app_user(id, name, email, password_hash) VALUES (1, 'Worker', 'worker@example.com', 'hash'), (2, 'Manager', 'manager@example.com', 'hash')");
+    queries.execute("INSERT INTO farm_membership VALUES (10, 1, 'WORKER'), (10, 2, 'ADMIN'), (20, 2, 'ADMIN')");
   }
 
   @Test

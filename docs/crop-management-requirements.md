@@ -1,6 +1,6 @@
 # Crop Management Requirements Audit
 
-Last reviewed: **2026-11-21**.
+Last reviewed **2026-11-25**.
 
 This document audits **crop management only**: crop master data, varieties,
 planting cycles, lote evaluation, planting material, planting plans, field
@@ -61,7 +61,12 @@ product-completeness estimate, not an automated test-coverage percentage.
 
 ## Implemented user-facing workflow
 
-The Planting page currently supports:
+**Siembra y ciclos** lists cycles by lot and opens the selected cycle's detail.
+The overview shows planned dates, its block, planned area across its plans,
+and the target and recorded plant counts. Progress counts five documented
+milestones. These are site approval, accepted planting material, plan approval,
+recorded execution, and an establishment check. Phenological stage comes from
+the cycle's stage observations. The page supports the following actions.
 
 1. Create and view a crop cycle.
 2. Evaluate and approve/reject the site or lot.
@@ -71,8 +76,9 @@ The Planting page currently supports:
 6. Record establishment and replacement follow-up.
 7. Update and review phenological stages.
 
-Crop and variety catalogs and regional calendars are managed from the Settings
-area. The main crop-management API groups are `/api/v1/catalog/crops`,
+Crop and variety catalogs and regional calendars are managed from **Configuración**.
+**Ver calendario** opens the regional calendar directly from the cycle workspace.
+The main crop-management API groups are `/api/v1/catalog/crops`,
 `/api/v1/planting`, and `/api/v1/planting-calendars`.
 
 ## Complete endpoint inventory
@@ -123,6 +129,16 @@ route. There are no separate GET-by-id, update, or delete routes yet for cycles,
 material lots, planting plans, executions, establishment checks, or stage
 observations. Crop and variety records also have create/list routes only; full
 catalog lifecycle endpoints are part of the in-progress work.
+
+## Persistence and verification
+
+The crop catalog, planting, and regional-calendar services use native
+JPA queries for their Flyway-managed tables. Approval and execution writes run in
+JPA transactions with the existing version checks. The live PostgreSQL tests
+cover agronomist access and regional-calendar suggestions. The November 25, 2026
+QA walkthrough created a cycle and recorded a linked harvest.
+[JPA persistence](../README.md#jpa-persistence) ·
+[QA reports and recording](../frontend/tests/manual-agricultural-workflow.md#última-ejecución-completa-verificada)
 
 ## Planned next work
 

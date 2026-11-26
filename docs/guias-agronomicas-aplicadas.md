@@ -1,6 +1,7 @@
 # Guías agronómicas aplicadas en Agro Core
 
-Fecha de revisión: **21 de noviembre de 2026**.
+Última revisión de las fuentes **21 de noviembre de 2026**. Revisión de la
+implementación **25 de noviembre de 2026**.
 
 ## Propósito
 
@@ -322,6 +323,11 @@ Los límites de humedad son definidos por el técnico en la unidad del sector
 (`% volumétrico`, `% gravimétrico` o `kPa`). El modo demo contiene valores ficticios
 y los identifica expresamente como no agronómicos.
 
+El resumen de **Riego** relaciona las condiciones de los sectores con la
+programación, las ejecuciones y las alertas registradas. La presión que aparece
+en el resumen procede de los registros de mantenimiento de la fecha elegida.
+[Guía de gestión del agua](water-management.md)
+
 ### Mapas, sensores y alertas
 
 Actualmente existen estas capas:
@@ -333,6 +339,11 @@ Actualmente existen estas capas:
    Cuando un bloque tiene varios sectores no se inventa un promedio.
 4. **Nutrientes:** disponibilidad del resultado de cada nutriente en la última muestra
    de suelo. El color no significa deficiencia ni recomendación de dosis.
+
+La leyenda de nutrientes agrupa los valores observados de las muestras que
+comparten unidad. La ficha y las tablas conservan la referencia del laboratorio
+y la interpretación provisional. En humedad, el resumen promedio reúne lecturas
+de la misma unidad y el perfil del bloque conserva las profundidades registradas.
 
 Los sensores admiten humedad del suelo, humedad del aire, temperatura del aire y
 temperatura del suelo. También hay registros de verificación/calibración. Las reglas
@@ -357,6 +368,9 @@ sitio, lotes de material vegetal, planes de siembra, ejecuciones, controles de
 establecimiento y observaciones fechadas de etapas. Los planes aprobados pueden
 generar tareas de campo. El inventario de endpoints y sus límites está en la
 [auditoría de gestión de cultivos](crop-management-requirements.md).
+
+En **Siembra y ciclos**, el resumen muestra los hitos registrados, las fechas y
+el bloque asociado. **Ver calendario** abre las reglas regionales de la finca.
 
 La cosecha también tiene un registro `HARVEST` estructurado y asociado al ciclo.
 Su captura y corrección son operativas; no debe confundirse con seguimiento por

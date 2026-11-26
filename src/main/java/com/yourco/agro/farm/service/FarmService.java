@@ -5,18 +5,18 @@ import com.yourco.agro.farm.entity.Farm;
 import com.yourco.agro.farm.repo.FarmRepository;
 import org.springframework.stereotype.Service;
 import com.yourco.agro.auth.FarmAccess;
-import org.springframework.jdbc.core.JdbcTemplate;
+import com.yourco.agro.persistence.JpaSql;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class FarmService {
   private final FarmRepository repo;
   private final FarmAccess access;
-  private final JdbcTemplate jdbc;
-  public FarmService(FarmRepository repo, FarmAccess access, JdbcTemplate jdbc) {
+  private final JpaSql queries;
+  public FarmService(FarmRepository repo, FarmAccess access, JpaSql queries) {
     this.repo = repo;
     this.access = access;
-    this.jdbc = jdbc;
+    this.queries = queries;
   }
 
   @Transactional
@@ -26,12 +26,12 @@ public class FarmService {
     f.setCountry(req.country);
     f.setRegion(req.region);
     Farm saved = repo.saveAndFlush(f);
-    jdbc.update("INSERT INTO farm_membership (farm_id, user_id, role) VALUES (?, ?, 'ADMIN')",
+    queries.execute("INSERT INTO farm_membership (farm_id, user_id, role) VALUES (?, ?, 'ADMIN')",
       saved.getId(), access.userId());
     if (catalogTablesAvailable()) {
-      jdbc.update("INSERT INTO crop_catalog(farm_id,code,name,created_by) VALUES (?, 'banana', 'Banano', ?)",
+      queries.execute("INSERT INTO crop_catalog(farm_id,code,name,created_by) VALUES (?, 'banana', 'Banano', ?)",
         saved.getId(), access.userId());
-      jdbc.update("""
+      queries.execute("""
         INSERT INTO crop_variety(crop_id,code,name,created_by)
         SELECT id,'cavendish','Cavendish',? FROM crop_catalog WHERE farm_id=? AND code='banana'
         """, access.userId(), saved.getId());
@@ -40,6 +40,6 @@ public class FarmService {
   }
 
   private boolean catalogTablesAvailable() {
-    return jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name) IN ('crop_catalog', 'crop_variety')", Integer.class) == 2;
+    return queries.value("SELECT COUNT(*) FROM information_schema.tables WHERE LOWER(table_name) IN ('crop_catalog', 'crop_variety')", Integer.class) == 2;
   }
 }

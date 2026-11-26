@@ -1,16 +1,28 @@
-import { useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
-import { Plus, Eye, Download } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import type { FormEvent, ReactNode } from 'react';
+import { Bug, CalendarDays, ClipboardList, Download, Eye, MapPin, Plus } from 'lucide-react';
 import { useApp } from '../context';
 import { api } from '../lib/api';
 import { localDate, number } from '../lib/domain';
 import { readDemo, saveDemo } from '../lib/demo';
 import { assessmentLabels, demoInspections, incidence, inspectionCsv, inspectionDemoKey, loadSanitaryProblemsDemo } from '../lib/inspections';
 import type { Inspection, NewInspection, SanitaryProblem, AssessmentStatus } from '../lib/inspections';
-import { Badge, Empty, Modal, Notice, Panel } from '../components/ui';
+import { Badge, Empty, Loading, Modal, Notice, Panel } from '../components/ui';
 import InspectionActions from '../components/InspectionActions';
+import InspectionOverview from '../components/InspectionOverview';
+import '../inspections.css';
 
-export default function Inspections() {
+function visitDate(date: string) {
+  return new Date(`${date}T00:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function InspectionStatus({ record }: { record: Inspection }) {
+  if (record.canceledAt) return <Badge tone="neutral">Anulada</Badge>;
+  const tone = record.assessmentStatus === 'DISCARDED' ? 'neutral' : record.assessmentStatus === 'CONFIRMED' ? 'red' : 'gold';
+  return <span className="inspection-status"><Badge tone={tone}>{assessmentLabels[record.assessmentStatus]}</Badge>{record.resolved && <Badge tone="green">Resuelta</Badge>}</span>;
+}
+
+export default function Inspections({ navigation }: { navigation: ReactNode }) {
   const { data, mode, farmId, profile, role, search, notify } = useApp();
   const [records, setRecords] = useState<Inspection[]>([]);
   const [problems, setProblems] = useState<SanitaryProblem[]>(loadSanitaryProblemsDemo().filter(problem => problem.active));
@@ -24,6 +36,8 @@ export default function Inspections() {
   const [problem, setProblem] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [catalog, setCatalog] = useState(false);
+  const register = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     let active = true; setLoading(true); setError(''); setSelected(null); setForm(false); setRecords([]);
     if (mode === 'demo') { setRecords(readDemo(inspectionDemoKey, demoInspections())); setProblems(loadSanitaryProblemsDemo().filter(problem => problem.active)); setLoading(false); return; }
@@ -38,7 +52,7 @@ export default function Inspections() {
   async function create(payload: NewInspection) {
     const saved: Inspection = mode === 'live' ? await api.createInspection(payload) : {
       ...payload, id: Math.max(0, ...records.map(record => record.id)) + 1, farmId,
-      problemName: problems.find(item => item.code === payload.problemCode)!.name,
+      problemName: problems.find(item => item.code === payload.problemCode)?.name ?? followUp?.problemName ?? payload.problemCode,
       incidencePercent: incidence(payload.inspectedPlants, payload.affectedPlants),
       assessmentStatus: 'SUSPECTED', resolved: false, createdByUserId: profile.user.id,
       inspectorName: profile.user.name, version: 0,
@@ -60,6 +74,11 @@ export default function Inspections() {
     && (!from || record.inspectedAt >= new Date(`${from}T00:00:00`).toISOString()) && (!to || record.inspectedAt <= new Date(`${to}T23:59:59.999`).toISOString())
     && `${record.problemName} ${record.symptoms} ${record.inspectorName}`.toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es')))
     .sort((first, second) => second.inspectedAt.localeCompare(first.inspectedAt) || second.id - first.id);
+  const farmRecords = records.filter(record => record.farmId === farmId);
+  const blockLabel = (id: number) => data.blocks.find(item => item.id === id)?.code ?? `Bloque #${id}`;
+  const rowLabel = (id?: number | null) => id == null ? 'Todo el bloque' : data.rows.find(item => item.id === id)?.rowCode ?? `Surco #${id}`;
+  const openRecord = (record: Inspection | null) => { setError(''); setSelected(record); };
+  const showRegister = () => register.current?.focus();
   function exportCsv() {
     const content = inspectionCsv(filtered, id => data.blocks.find(item => item.id === id)?.code ?? String(id), id => data.rows.find(item => item.id === id)?.rowCode ?? String(id));
     const url = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8;' }));
@@ -68,13 +87,80 @@ export default function Inspections() {
     notify(`Exportadas ${filtered.length} inspecciones.`);
   }
   return <>
-    <div className="page-heading"><div><span className="eyebrow">MONITOREO FITOSANITARIO</span><h1>Inspecciones fitosanitarias</h1><p>Registra la muestra, revisa los hallazgos y programa el seguimiento.</p></div><div className="heading-buttons"><button className="button secondary" disabled={!filtered.length} onClick={exportCsv}><Download size={16} />Exportar inspecciones CSV</button><button className="button" disabled={!data.blocks.length || loading} onClick={() => { setFollowUp(undefined); setForm(true); }}><Plus size={16} />Nueva inspección</button></div></div>
-    <Notice>{mode === 'demo' ? 'Datos de demostración guardados en este navegador. ' : ''}La incidencia mide plantas afectadas; la severidad mide daño porcentual según el método registrado. Una observación no confirma el diagnóstico.</Notice>
+    <header className="page-heading inspection-heading">
+      <div><h1>Plagas y enfermedades</h1><p>Monitorea los hallazgos, registra inspecciones y consulta el seguimiento de cada caso.</p></div>
+      <div className="heading-buttons">
+        <button className="button secondary" onClick={showRegister}><ClipboardList size={17} />Registro de inspección</button>
+        <button className="button secondary" onClick={() => setCatalog(true)}><Bug size={17} />Catálogo de plagas</button>
+        <button className="button" disabled={!data.blocks.length || !problems.length || loading} onClick={() => { setFollowUp(undefined); setForm(true); }}><Plus size={17} />Nueva inspección</button>
+      </div>
+    </header>
+    {navigation}
     {error && !selected && <p className="form-error" role="alert">{error}</p>}
-    <div className="record-filters"><label>Bloque<select value={block} onChange={event => setBlock(event.target.value)}><option value="">Todos</option>{data.blocks.map(item => <option key={item.id} value={item.id}>{item.code}</option>)}</select></label><label>Problema<select value={problem} onChange={event => setProblem(event.target.value)}><option value="">Todos</option>{problems.map(item => <option key={item.code} value={item.code}>{item.name}</option>)}</select></label><label>Desde<input type="date" value={from} max={to || undefined} onChange={event => setFrom(event.target.value)} /></label><label>Hasta<input type="date" value={to} min={from || undefined} onChange={event => setTo(event.target.value)} /></label></div>
-    <Panel><div className="table-wrap"><table><thead><tr><th>Fecha / responsable</th><th>Ubicación</th><th>Problema</th><th>Muestra / incidencia</th><th>Área afectada</th><th>Severidad</th><th>Evaluación</th><th>Próxima visita</th><th>Detalle</th></tr></thead><tbody>{filtered.map(record => <tr key={record.id}><td>{new Date(record.inspectedAt).toLocaleDateString('es-CO')}<small className="table-subtitle">{record.inspectorName}</small></td><td>{data.blocks.find(item => item.id === record.blockId)?.code}<small className="table-subtitle">{data.rows.find(item => item.id === record.rowId)?.rowCode ?? 'Todo el bloque'}</small></td><td>{record.problemName}</td><td>{record.affectedPlants} / {record.inspectedPlants}<small className="table-subtitle">{number(record.incidencePercent, 1)} %</small></td><td>{record.affectedAreaHa == null ? '—' : `${number(record.affectedAreaHa, 3)} ha`}</td><td>{number(record.severityPercent, 1)} %<small className="table-subtitle">{record.severityMethod}</small></td><td><Badge tone={record.resolved || record.assessmentStatus === 'DISCARDED' ? 'neutral' : 'gold'}>{record.canceledAt ? 'Anulada' : assessmentLabels[record.assessmentStatus]}</Badge>{!record.canceledAt && record.resolved && <small className="table-subtitle">Resuelta</small>}</td><td>{record.nextVisit}{!record.canceledAt && record.nextVisit < localDate() && !record.resolved && record.assessmentStatus !== 'DISCARDED' && <small className="table-subtitle">Visita vencida</small>}</td><td><button className="icon-button" aria-label={`Ver inspección ${record.id}`} onClick={() => { setError(''); setSelected(record); }}><Eye size={18} /></button></td></tr>)}</tbody></table>{loading ? <p role="status">Cargando inspecciones…</p> : !filtered.length && <Empty title="Sin inspecciones" description="Registra una inspección o cambia los filtros." />}</div></Panel>
+    {!loading && !error && <InspectionOverview records={farmRecords} problems={problems} onOpen={openRecord} onShowRegister={showRegister} />}
+    <Panel className="inspection-register">
+      <div className="inspection-register-header">
+        <div><h2 ref={register} tabIndex={-1}>Inspecciones fitosanitarias</h2><p>Historial de hallazgos, evaluaciones y próximas visitas.</p></div>
+        <button className="button secondary" disabled={!filtered.length} onClick={exportCsv}><Download size={16} />Exportar inspecciones CSV</button>
+      </div>
+      <div className="record-filters inspection-filters">
+        <label>Bloque<select value={block} onChange={event => setBlock(event.target.value)}><option value="">Todos los bloques</option>{data.blocks.map(item => <option key={item.id} value={item.id}>{item.code}</option>)}</select></label>
+        <label>Problema<select value={problem} onChange={event => setProblem(event.target.value)}><option value="">Todos los problemas</option>{problems.map(item => <option key={item.code} value={item.code}>{item.name}</option>)}</select></label>
+        <label>Desde<input type="date" value={from} max={to || undefined} onChange={event => setFrom(event.target.value)} /></label>
+        <label>Hasta<input type="date" value={to} min={from || undefined} onChange={event => setTo(event.target.value)} /></label>
+      </div>
+      {loading ? <Loading /> : filtered.length ? <div className="table-wrap inspection-table" tabIndex={0} role="region" aria-label="Historial de inspecciones">
+        <table role="table"><thead role="rowgroup"><tr role="row"><th scope="col">Problema y ubicación</th><th scope="col">Fecha y responsable</th><th scope="col">Incidencia</th><th scope="col">Severidad y área</th><th scope="col">Evaluación</th><th scope="col">Próxima visita</th><th scope="col">Detalle</th></tr></thead>
+          <tbody role="rowgroup">{filtered.map(record => <tr key={record.id} role="row">
+            <td role="cell"><strong>{record.problemName}</strong><small className="table-subtitle">{blockLabel(record.blockId)} · {rowLabel(record.rowId)}</small></td>
+            <td role="cell" data-heading="Fecha y responsable">{new Date(record.inspectedAt).toLocaleDateString('es-CO')}<small className="table-subtitle">{record.inspectorName}</small></td>
+            <td role="cell" data-heading="Incidencia"><strong>{number(record.incidencePercent, 1)} %</strong><small className="table-subtitle">{number(record.affectedPlants)} de {number(record.inspectedPlants)} plantas</small></td>
+            <td role="cell" data-heading="Severidad y área">{number(record.severityPercent, 1)} %<small className="table-subtitle">{record.affectedAreaHa == null ? 'Área sin dato' : `${number(record.affectedAreaHa, 3)} ha`}</small></td>
+            <td role="cell" data-heading="Evaluación"><InspectionStatus record={record} /></td>
+            <td role="cell" data-heading="Próxima visita">{visitDate(record.nextVisit)}{!record.canceledAt && record.nextVisit < localDate() && !record.resolved && record.assessmentStatus !== 'DISCARDED' && <small className="table-subtitle inspection-overdue">Visita vencida</small>}</td>
+            <td role="cell"><button className="button secondary" aria-label={`Ver inspección ${record.id}`} onClick={() => openRecord(record)}><Eye size={17} />Ver detalle</button></td>
+          </tr>)}</tbody>
+        </table>
+      </div> : <Empty title="Sin inspecciones" description="Registra una inspección o cambia los filtros." />}
+    </Panel>
+    {catalog && <Modal title="Catálogo de plagas y enfermedades" className="inspection-modal" wide onClose={() => setCatalog(false)}>
+      <div className="inspection-dialog-body">
+        {problems.length ? <ul className="inspection-catalog">{problems.map(item => <li key={item.code}><Bug size={18} /><strong>{item.name}</strong><Badge tone={item.category === 'PEST' ? 'gold' : 'neutral'}>{item.category === 'PEST' ? 'Plaga' : 'Enfermedad'}</Badge></li>)}</ul>
+          : <Empty title="Catálogo vacío" description="Aún no hay problemas fitosanitarios disponibles." />}
+      </div>
+    </Modal>}
     {form && <InspectionForm problems={problems} followUp={followUp} onSave={create} onClose={() => setForm(false)} />}
-    {selected && <Modal key={selected.id} title="Detalle de inspección" onClose={() => !reviewBusy && setSelected(null)}><div className="form-stack"><h3>{selected.problemName}</h3><p>{selected.symptoms}</p><p>Incidencia: {number(selected.incidencePercent, 1)} % · Área afectada: {selected.affectedAreaHa == null ? 'sin dato histórico' : `${number(selected.affectedAreaHa, 3)} ha`} · Severidad: {number(selected.severityPercent, 1)} %</p><p>Método: {selected.severityMethod}</p><p>Próxima visita: {selected.nextVisit}</p><p>{assessmentLabels[selected.assessmentStatus]}{selected.resolved ? ' · Resuelta' : ''}</p>{selected.reviewNotes && <p>Revisión: {selected.reviewNotes}</p>}{!selected.canceledAt && role !== 'WORKER' && <form className="form-stack" onSubmit={review}><label>Estado de evaluación<select name="assessmentStatus" defaultValue={selected.assessmentStatus}>{Object.entries(assessmentLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label><input type="checkbox" name="resolved" defaultChecked={selected.resolved} /> Hallazgo resuelto</label><label>Justificación de la revisión<textarea name="reviewNotes" required maxLength={4000} defaultValue={selected.reviewNotes ?? ''} /></label><button className="button" disabled={reviewBusy}>Guardar revisión</button></form>}<InspectionActions inspection={selected} related={records} onOpen={id => { setError(''); setSelected(records.find(record => record.id === id) ?? null); }} onUpdate={saved => { persist(records.map(record => record.id === saved.id ? saved : record)); setSelected(saved); }} onFollowUp={() => { setFollowUp(selected); setSelected(null); setForm(true); }} onBusyChange={setReviewBusy} />{error && <p role="alert" className="form-error">{error}</p>}</div></Modal>}
+    {selected && <Modal key={selected.id} title="Detalle de inspección" className="inspection-modal" wide onClose={() => !reviewBusy && setSelected(null)}>
+      <div className="inspection-dialog-body">
+        <div className="inspection-detail-summary">
+          <div className="inspection-detail-heading"><div><span>Inspección #{selected.id}</span><h3>{selected.problemName}</h3></div><InspectionStatus record={selected} /></div>
+          <div className="inspection-detail-context"><span><MapPin size={17} />{blockLabel(selected.blockId)} · {rowLabel(selected.rowId)}</span><span><CalendarDays size={17} />{new Date(selected.inspectedAt).toLocaleString('es-CO')}</span><span>{selected.inspectorName}</span></div>
+        </div>
+        <dl className="inspection-detail-metrics">
+          <div><dt>Incidencia</dt><dd>{number(selected.incidencePercent, 1)} %<span>{number(selected.affectedPlants)} de {number(selected.inspectedPlants)} plantas</span></dd></div>
+          <div><dt>Severidad</dt><dd>{number(selected.severityPercent, 1)} %</dd></div>
+          <div><dt>Área afectada</dt><dd>{selected.affectedAreaHa == null ? 'Sin dato' : `${number(selected.affectedAreaHa, 3)} ha`}</dd></div>
+          <div><dt>Próxima visita</dt><dd>{visitDate(selected.nextVisit)}</dd></div>
+        </dl>
+        <section className="inspection-detail-section">
+          <h3>Hallazgos en campo</h3>
+          <dl className="inspection-detail-copy"><div><dt>Síntomas observados</dt><dd>{selected.symptoms}</dd></div><div><dt>Método de evaluación</dt><dd>{selected.severityMethod}</dd></div>
+            {selected.reviewNotes && <div><dt>Última revisión</dt><dd>{selected.reviewNotes}{selected.reviewedAt && <time dateTime={selected.reviewedAt}>{new Date(selected.reviewedAt).toLocaleString('es-CO')}</time>}</dd></div>}
+          </dl>
+        </section>
+        {!selected.canceledAt && role !== 'WORKER' && <section className="inspection-detail-section">
+          <h3>Evaluación del hallazgo</h3>
+          <form className="inspection-review-form" onSubmit={review}>
+            <label>Estado de evaluación<select name="assessmentStatus" defaultValue={selected.assessmentStatus}>{Object.entries(assessmentLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label className="inspection-checkbox"><input type="checkbox" name="resolved" defaultChecked={selected.resolved} /> Hallazgo resuelto</label>
+            <label className="inspection-full-row">Justificación de la revisión<textarea name="reviewNotes" required maxLength={4000} defaultValue={selected.reviewNotes ?? ''} /></label>
+            {error && <p role="alert" className="form-error inspection-full-row">{error}</p>}
+            <div className="form-actions inspection-full-row"><button className="button" disabled={reviewBusy}>Guardar revisión</button></div>
+          </form>
+        </section>}
+        <InspectionActions inspection={selected} related={records} onOpen={id => openRecord(records.find(record => record.id === id) ?? null)} onUpdate={saved => { persist(records.map(record => record.id === saved.id ? saved : record)); setSelected(saved); }} onFollowUp={() => { setFollowUp(selected); setSelected(null); setForm(true); }} onBusyChange={setReviewBusy} />
+      </div>
+    </Modal>}
   </>;
 }
 
@@ -102,22 +188,43 @@ function InspectionForm({ problems, followUp, onSave, onClose }: { problems: San
       setBusy(true); await onSave(payload);
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'No se pudo registrar.'); } finally { setBusy(false); }
   }
-  return <Modal title="Nueva inspección fitosanitaria" onClose={() => !busy && onClose()}><form className="form-stack" onSubmit={submit}>
-    <p className="muted">Después de guardar, abre el detalle para adjuntar fotos a la inspección o sus tratamientos.</p>
-    {mode === 'demo' && <Notice>Se guardará en la demostración de este navegador.</Notice>}
-    {followUp && <p>Seguimiento de inspección #{followUp.id}</p>}
-    <label>Bloque<select required disabled={!!followUp} value={blockId} onChange={event => setBlockId(event.target.value)}><option value="">Seleccionar bloque</option>{data.blocks.map(item => <option key={item.id} value={item.id}>{item.code}</option>)}</select></label>
-    <label>Surco<select name="rowId" key={blockId} disabled={!!followUp} defaultValue={followUp?.rowId ?? ''}><option value="">Todo el bloque</option>{data.rows.filter(item => item.block.id === Number(blockId)).map(item => <option key={item.id} value={item.id}>{item.rowCode}</option>)}</select></label>
-    <label>Problema sospechado<select name="problemCode" disabled={!!followUp} defaultValue={followUp?.problemCode}>{problems.map(item => <option key={item.code} value={item.code}>{item.name}</option>)}</select></label>
-    <label>Fecha de inspección<input type="datetime-local" name="inspectedAt" required max={localTime} defaultValue={localTime} /></label>
-    <div className="form-grid"><label>Plantas inspeccionadas<input type="number" min={1} step={1} required value={inspected} onChange={event => setInspected(Number(event.target.value))} /></label><label>Plantas afectadas<input type="number" min={0} max={inspected} step={1} required value={affected} onChange={event => setAffected(Number(event.target.value))} /></label></div>
-    <p role="status">Incidencia: {inspected > 0 && affected >= 0 && affected <= inspected ? `${number(affected / inspected * 100, 1)} %` : 'Revisa los conteos'}</p>
-    <label>Área afectada (ha)<input name="affectedAreaHa" type="number" min={0} step="0.001" required value={affectedAreaHa} onChange={event => setAffectedAreaHa(Number(event.target.value))} /><small>Área estimada con presencia o daño, no el área total del bloque.</small></label>
-    <label>Síntomas observados<textarea name="symptoms" required maxLength={4000} placeholder="Describe los síntomas o indica que no se observaron." /></label>
-    <label>Severidad del daño (%)<input name="severityPercent" type="number" min={0} max={100} step="any" required defaultValue={0} /></label>
-    <label>Método de evaluación<textarea name="severityMethod" required maxLength={250} placeholder="Indica el tejido, daño y método usados para estimar el porcentaje." /></label>
-    <label>Próxima visita<input name="nextVisit" type="date" required defaultValue={localDate(new Date(now.getTime() + 7 * 86400000))} /></label>
-    {error && <p role="alert" className="form-error">{error}</p>}
-    <div className="form-actions"><button type="button" className="button secondary" disabled={busy} onClick={onClose}>Cancelar</button><button className="button" disabled={busy}>{busy ? 'Guardando…' : 'Guardar inspección'}</button></div>
-  </form></Modal>;
+  const problemList = followUp && !problems.some(item => item.code === followUp.problemCode)
+    ? [...problems, { code: followUp.problemCode, name: followUp.problemName }]
+    : problems;
+  return <Modal title="Nueva inspección fitosanitaria" className="inspection-modal" wide onClose={() => !busy && onClose()}>
+    <form className="inspection-dialog-body inspection-editor" onSubmit={submit}>
+      {mode === 'demo' && <Notice>Se guardará en la demostración de este navegador.</Notice>}
+      {followUp && <p className="inspection-follow-up">Seguimiento de inspección #{followUp.id}</p>}
+      <fieldset>
+        <legend>Ubicación y fecha</legend>
+        <div className="inspection-form-grid">
+          <label>Bloque<select required disabled={!!followUp} value={blockId} onChange={event => setBlockId(event.target.value)}><option value="">Seleccionar bloque</option>{data.blocks.map(item => <option key={item.id} value={item.id}>{item.code}</option>)}</select></label>
+          <label>Surco<select name="rowId" key={blockId} disabled={!!followUp} defaultValue={followUp?.rowId ?? ''}><option value="">Todo el bloque</option>{data.rows.filter(item => item.block.id === Number(blockId)).map(item => <option key={item.id} value={item.id}>{item.rowCode}</option>)}</select></label>
+          <label>Problema sospechado<select name="problemCode" disabled={!!followUp} defaultValue={followUp?.problemCode}>{problemList.map(item => <option key={item.code} value={item.code}>{item.name}</option>)}</select></label>
+          <label>Fecha de inspección<input type="datetime-local" name="inspectedAt" required max={localTime} defaultValue={localTime} /></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Muestra y daño</legend>
+        <div className="inspection-form-grid">
+          <label>Plantas inspeccionadas<input type="number" min={1} step={1} required value={inspected} onChange={event => setInspected(Number(event.target.value))} /></label>
+          <label>Plantas afectadas<input type="number" min={0} max={inspected} step={1} required value={affected} onChange={event => setAffected(Number(event.target.value))} /></label>
+          <p role="status" className="inspection-incidence inspection-full-row">Incidencia: {inspected > 0 && affected >= 0 && affected <= inspected ? `${number(affected / inspected * 100, 1)} %` : 'Revisa los conteos'}</p>
+          <label>Área afectada (ha)<input name="affectedAreaHa" type="number" min={0} step="0.001" required value={affectedAreaHa} onChange={event => setAffectedAreaHa(Number(event.target.value))} /></label>
+          <label>Severidad del daño (%)<input name="severityPercent" type="number" min={0} max={100} step="any" required defaultValue={0} /></label>
+          <label>Síntomas observados<textarea name="symptoms" required maxLength={4000} placeholder="Describe los síntomas o indica si la muestra estaba sana." /></label>
+          <label>Método de evaluación<textarea name="severityMethod" required maxLength={250} placeholder="Indica el tejido evaluado y cómo estimaste el daño." /></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Seguimiento</legend>
+        <div className="inspection-form-grid">
+          <label>Próxima visita<input name="nextVisit" type="date" required defaultValue={localDate(new Date(now.getTime() + 7 * 86400000))} /></label>
+          <p className="inspection-form-hint">Guarda la inspección para agregar fotos y registrar tratamientos desde el detalle.</p>
+        </div>
+      </fieldset>
+      {error && <p role="alert" className="form-error">{error}</p>}
+      <div className="form-actions inspection-editor-footer"><button type="button" className="button secondary" disabled={busy} onClick={onClose}>Cancelar</button><button className="button" disabled={busy}>{busy ? 'Guardando…' : 'Guardar inspección'}</button></div>
+    </form>
+  </Modal>;
 }

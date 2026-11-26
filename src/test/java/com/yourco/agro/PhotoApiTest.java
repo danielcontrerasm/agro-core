@@ -6,12 +6,12 @@ import com.yourco.agro.auth.FarmAccess;
 import com.yourco.agro.config.SecurityConfig;
 import com.yourco.agro.media.PhotoController;
 import com.yourco.agro.media.PhotoService;
+import com.yourco.agro.persistence.JpaSql;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({SecurityConfig.class, FarmAccess.class, PhotoService.class, InspectionApiTest.DatabaseConfig.class})
 class PhotoApiTest {
   @Autowired MockMvc mvc;
-  @Autowired JdbcTemplate jdbc;
+  @Autowired JpaSql queries;
   @Autowired ObjectMapper json;
 
   private UsernamePasswordAuthenticationToken login() {
@@ -39,24 +39,24 @@ class PhotoApiTest {
   }
 
   @BeforeEach void seed() {
-    jdbc.update("DELETE FROM photo_asset"); jdbc.update("DELETE FROM inspection_evidence"); jdbc.update("DELETE FROM inspection_treatment");
-    jdbc.update("DELETE FROM phytosanitary_inspection"); jdbc.update("DELETE FROM farm_membership");
-    jdbc.update("DELETE FROM app_user"); jdbc.update("DELETE FROM field_event"); jdbc.update("DELETE FROM row_line");
-    jdbc.update("DELETE FROM block"); jdbc.update("DELETE FROM field"); jdbc.update("DELETE FROM farm");
-    jdbc.update("INSERT INTO farm VALUES (10, 'North'), (20, 'South')");
-    jdbc.update("INSERT INTO field VALUES (11, 10), (21, 20)");
-    jdbc.update("INSERT INTO block VALUES (12, 11), (22, 21)");
-    jdbc.update("INSERT INTO field_event VALUES (14, 12, NULL), (24, 22, NULL)");
-    jdbc.update("INSERT INTO app_user(id, name, email, password_hash) VALUES (1, 'Worker', 'worker@example.com', 'hash')");
-    jdbc.update("INSERT INTO farm_membership VALUES (10, 1, 'WORKER')");
-    jdbc.update("""
+    queries.execute("DELETE FROM photo_asset"); queries.execute("DELETE FROM inspection_evidence"); queries.execute("DELETE FROM inspection_treatment");
+    queries.execute("DELETE FROM phytosanitary_inspection"); queries.execute("DELETE FROM farm_membership");
+    queries.execute("DELETE FROM app_user"); queries.execute("DELETE FROM field_event"); queries.execute("DELETE FROM row_line");
+    queries.execute("DELETE FROM block"); queries.execute("DELETE FROM field"); queries.execute("DELETE FROM farm");
+    queries.execute("INSERT INTO farm VALUES (10, 'North'), (20, 'South')");
+    queries.execute("INSERT INTO field VALUES (11, 10), (21, 20)");
+    queries.execute("INSERT INTO block(id, field_id) VALUES (12, 11), (22, 21)");
+    queries.execute("INSERT INTO field_event VALUES (14, 12, NULL), (24, 22, NULL)");
+    queries.execute("INSERT INTO app_user(id, name, email, password_hash) VALUES (1, 'Worker', 'worker@example.com', 'hash')");
+    queries.execute("INSERT INTO farm_membership VALUES (10, 1, 'WORKER')");
+    queries.execute("""
       INSERT INTO phytosanitary_inspection(id, block_id, problem_code, inspected_at, inspected_plants,
         affected_plants, symptoms, severity_percent, severity_method, next_visit, created_by_user_id)
       VALUES (30, 12, 'SIGATOKA', CURRENT_TIMESTAMP, 20, 2, 'Manchas', 10, 'Visual', CURRENT_DATE, 1),
         (31, 12, 'MOKO', CURRENT_TIMESTAMP, 20, 1, 'Marchitez', 5, 'Visual', CURRENT_DATE, 1),
         (32, 22, 'SIGATOKA', CURRENT_TIMESTAMP, 20, 2, 'Manchas', 10, 'Visual', CURRENT_DATE, 1)
       """);
-    jdbc.update("INSERT INTO inspection_treatment(id, inspection_id, occurred_at, description, created_by_user_id) VALUES (40, 30, CURRENT_TIMESTAMP, 'Deshoje', 1), (41, 31, CURRENT_TIMESTAMP, 'Inspección', 1)");
+    queries.execute("INSERT INTO inspection_treatment(id, inspection_id, occurred_at, description, created_by_user_id) VALUES (40, 30, CURRENT_TIMESTAMP, 'Deshoje', 1), (41, 31, CURRENT_TIMESTAMP, 'Inspección', 1)");
   }
 
   private MockMultipartFile photo(String format) throws Exception {
@@ -84,10 +84,10 @@ class PhotoApiTest {
     mvc.perform(get("/api/v1/photos/" + id + "/content").param("download", "true").with(authentication(login())))
       .andExpect(status().isOk()).andExpect(header().string("Content-Disposition", "attachment; filename=\"foto-" + id + ".png\""));
     mvc.perform(get("/api/v1/photos/" + id + "/content")).andExpect(status().isUnauthorized());
-    jdbc.update("DELETE FROM farm_membership WHERE user_id = 1");
+    queries.execute("DELETE FROM farm_membership WHERE user_id = 1");
     mvc.perform(get("/api/v1/photos/" + id + "/content").with(authentication(login()))).andExpect(status().isForbidden());
-    jdbc.update("DELETE FROM field_event WHERE id = 14");
-    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM photo_asset WHERE id = ?", Integer.class, id)).isZero();
+    queries.execute("DELETE FROM field_event WHERE id = 14");
+    assertThat(queries.value("SELECT COUNT(*) FROM photo_asset WHERE id = ?", Integer.class, id)).isZero();
   }
 
   @Test void inspectionAndTreatmentPhotosKeepTheirTargetAndSurviveAnnulment() throws Exception {
@@ -99,7 +99,7 @@ class PhotoApiTest {
     mvc.perform(get("/api/v1/photos").param("inspectionId", "30").param("treatmentId", "40").with(authentication(login())))
       .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
     mvc.perform(multipart("/api/v1/photos").file(photo("png")).param("inspectionId", "30").param("treatmentId", "41").with(authentication(login())).with(csrf())).andExpect(status().isBadRequest());
-    jdbc.update("UPDATE phytosanitary_inspection SET canceled_at = CURRENT_TIMESTAMP WHERE id = 30");
+    queries.execute("UPDATE phytosanitary_inspection SET canceled_at = CURRENT_TIMESTAMP WHERE id = 30");
     mvc.perform(multipart("/api/v1/photos").file(photo("png")).param("inspectionId", "30").with(authentication(login())).with(csrf())).andExpect(status().isConflict());
     mvc.perform(get("/api/v1/photos").param("inspectionId", "30").with(authentication(login())))
       .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));

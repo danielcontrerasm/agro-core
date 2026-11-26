@@ -8,6 +8,21 @@ import java.time.Instant;
 import java.util.List;
 
 public interface CropMonitoringRecordRepository extends JpaRepository<CropMonitoringRecord, Long> {
+  interface HarvestTotals {
+    Double getHarvestedQuantity();
+    String getGrowthStage();
+    Double getEstimatedYield();
+  }
+
+  @Query("""
+    select coalesce(sum(r.harvestedQuantity), 0.0) as harvestedQuantity,
+           max(r.growthStage) as growthStage,
+           coalesce(sum(r.estimatedYield), 0.0) as estimatedYield
+    from CropMonitoringRecord r
+    where r.block.id = :blockId and r.recordType = com.yourco.agro.monitoring.MonitoringRecordType.HARVEST
+    """)
+  HarvestTotals harvestTotals(@Param("blockId") Long blockId);
+
   @Query("""
     select r from CropMonitoringRecord r
     where (:blockId is null or r.block.id = :blockId)

@@ -7,19 +7,23 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) {
 }
 const baseURL = `http://127.0.0.1:${port}`;
 const customChromium = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE;
+const watch = process.env.AGRO_QA_WATCH === '1';
+const record = process.env.AGRO_QA_RECORD === '1';
 
 export default defineConfig({
   testDir: './tests',
   fullyParallel: false,
   reporter: 'list',
+  timeout: watch ? 180_000 : undefined,
   use: {
     baseURL,
     browserName: 'chromium',
     channel: qaPort ? 'chrome' : undefined,
-    actionTimeout: qaPort ? 10_000 : undefined,
-    navigationTimeout: qaPort ? 20_000 : undefined,
+    actionTimeout: watch ? 30_000 : qaPort ? 10_000 : undefined,
+    navigationTimeout: watch ? 45_000 : qaPort ? 20_000 : undefined,
+    video: record ? 'on' : undefined,
     launchOptions: qaPort
-      ? { slowMo: process.env.AGRO_QA_WALKTHROUGH === '1' ? 120 : 0 }
+      ? { slowMo: watch ? 700 : process.env.AGRO_QA_WALKTHROUGH === '1' ? 120 : 0 }
       : { executablePath: customChromium },
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',

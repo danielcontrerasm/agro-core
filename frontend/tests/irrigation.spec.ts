@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test('sector, manual reading, programming, measured partial execution, photos and followup persist', async ({ page }) => {
   await page.goto('/#irrigation');
+  await page.getByRole('button', { name: 'Sectores', exact: true }).click();
   await page.getByRole('button', { name: 'Nuevo sector', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Nombre del sector', { exact: true }).fill('Sector E2E');
@@ -80,13 +81,15 @@ test('estimated executions subtract interruptions and require explanation for ov
   await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
   await expect(dialog).toContainText('18 m³ · Estimado por caudal · 90 min efectivos');
   await dialog.getByRole('button', { name: 'Cerrar', exact: true }).click();
-  await expect(page.getByText('Consumo medido:', { exact: false })).toContainText('0.000 m³');
-  await expect(page.getByText('Consumo medido:', { exact: false })).toContainText('18.000 m³');
+  const execution = page.getByRole('row').filter({ hasText: 'Estimado por caudal' });
+  await expect(execution).toContainText('18 m³');
+  await expect(execution).toContainText('90 min');
+  await expect(page.getByRole('row').filter({ hasText: 'Medido por contador' })).toHaveCount(0);
 });
 
 test('water management records can be edited from each management table', async ({ page }) => {
   await page.goto('/#irrigation');
-  await page.getByRole('button', { name: 'Administración de agua', exact: true }).click();
+  await page.getByRole('button', { name: 'Infraestructura', exact: true }).click();
   const managementTables = page.locator('.water-management-grid table');
 
   let row = managementTables.nth(0).getByRole('row').filter({ hasText: 'Reservorio principal' });
@@ -203,6 +206,7 @@ test('live worker records a unit-aware reading without requesting management per
   });
   await page.goto('/#irrigation');
   await expect(page.locator('.environment-bar')).toContainText('Conectado a tu finca');
+  await page.getByRole('button', { name: 'Sectores', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Nuevo sector', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Nueva medición', exact: true }).click();
   const dialog = page.getByRole('dialog'); await dialog.getByLabel('Valor de humedad', { exact: true }).fill('17'); await dialog.getByLabel('Instrumento o método', { exact: true }).fill('Tensiómetro conectado');

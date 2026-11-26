@@ -119,11 +119,12 @@ async function visibleStep(page: Page, number: number, title: string, detail: st
   });
 }
 
-test.use({ screenshot: 'on', trace: automated ? 'off' : 'on', video: automated ? 'off' : 'on' });
+test.use({ screenshot: 'on', trace: automated ? 'off' : 'on', ...(!automated && { video: 'on' }) });
 
 test('recorrido manual: finca, lote, riego, fertilización y cosecha', async ({ page }, testInfo) => {
   test.skip(!enabled, 'Usa scripts/run_qa_tests.py o habilita AGRO_MANUAL_E2E=1 para el recorrido manual.');
-  test.setTimeout(automated ? 5 * 60 * 1000 : 60 * 60 * 1000);
+  const actionBudget = process.env.AGRO_QA_WATCH === '1' ? 600_000 : 300_000;
+  test.setTimeout(automated ? actionBudget + 19 * automaticStepDelay : 3_600_000);
 
   if (writeConfirmation !== 'SI') {
     throw new Error('Esta prueba crea datos persistentes. Ejecuta solo con AGRO_E2E_ALLOW_WRITES=SI.');

@@ -1,7 +1,7 @@
 package com.yourco.agro.auth;
 
+import com.yourco.agro.persistence.JpaSql;
 import jakarta.validation.Valid;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
@@ -13,22 +13,22 @@ import java.util.List;
 public class MembershipController {
   private final FarmAccess access;
   private final UserService users;
-  private final JdbcTemplate jdbc;
+  private final JpaSql queries;
 
-  public MembershipController(FarmAccess access, UserService users, JdbcTemplate jdbc) {
+  public MembershipController(FarmAccess access, UserService users, JpaSql queries) {
     this.access = access;
     this.users = users;
-    this.jdbc = jdbc;
+    this.queries = queries;
   }
 
   @GetMapping
   public List<AuthDtos.Member> list(@PathVariable Long farmId) {
     access.require(farmId, true);
-    return jdbc.query("""
+    return queries.select("""
       SELECT u.id, u.name, u.email, m.role FROM farm_membership m
       JOIN app_user u ON u.id = m.user_id WHERE m.farm_id = ? ORDER BY u.name, u.id
-      """, (result, rowNumber) -> new AuthDtos.Member(result.getLong("id"), result.getString("name"),
-        result.getString("email"), AuthDtos.Role.valueOf(result.getString("role"))), farmId);
+      """, result -> new AuthDtos.Member(result.longValue("id"), result.text("name"),
+        result.text("email"), AuthDtos.Role.valueOf(result.text("role"))), farmId);
   }
 
   @PutMapping
@@ -38,7 +38,7 @@ public class MembershipController {
     if (user.id().equals(access.userId()) && request.role() != AuthDtos.Role.ADMIN) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot demote yourself");
     }
-    jdbc.update("""
+    queries.execute("""
       INSERT INTO farm_membership (farm_id, user_id, role) VALUES (?, ?, ?)
       ON CONFLICT (farm_id, user_id) DO UPDATE SET role = EXCLUDED.role
       """, farmId, user.id(), request.role().name());

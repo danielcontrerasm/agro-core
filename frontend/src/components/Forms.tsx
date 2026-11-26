@@ -101,15 +101,19 @@ export function EventForm({ onClose, initialType = 'SCOUTING_OBSERVATION' }: { o
     catch (failure) { setError(failure instanceof Error ? failure.message : 'No se pudo guardar.'); } finally { setBusy(false); }
   }
   const now = new Date(); const localTime = `${localDate(now)}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-  return <Modal title="Registrar actividad" onClose={onClose}><form className="form-stack" onSubmit={submit}>
+  return <Modal title="Registrar actividad" onClose={() => !busy && onClose()} wide><form className="form-stack" onSubmit={submit}>
     <p className="muted">Después de guardar, abre el detalle de la actividad para adjuntar fotos desde archivos o cámara.</p>
     {mode === 'demo' && <Notice>Este registro es de demostración y no se enviará al servidor.</Notice>}
+    <fieldset className="record-form-section form-grid"><legend>Actividad y ubicación</legend>
     <label>Tipo de actividad<select value={type} onChange={event => setType(event.target.value)}>{Object.entries(eventLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-    <div className="form-grid"><label>Bloque<select required value={blockId} onChange={event => setBlockId(event.target.value)}><option value="">Seleccionar bloque</option>{data.blocks.map(block => <option key={block.id} value={block.id}>{block.code}</option>)}</select></label><label>Fecha y hora<input required name="occurredAt" type="datetime-local" defaultValue={localTime} /></label></div>
+    <label>Bloque<select required value={blockId} onChange={event => setBlockId(event.target.value)}><option value="">Seleccionar bloque</option>{data.blocks.map(block => <option key={block.id} value={block.id}>{block.code}</option>)}</select></label><label>Fecha y hora<input required name="occurredAt" type="datetime-local" defaultValue={localTime} /></label>
     <label>Surco (opcional)<select name="rowId" key={blockId}><option value="">Todo el bloque</option>{data.rows.filter(row => row.block.id === Number(blockId)).map(row => <option key={row.id} value={row.id}>{row.rowCode}</option>)}</select></label>
-    <div className="form-grid"><label>Desde planta (opcional)<input type="number" min="1" step="1" name="plantStart" /></label><label>Hasta planta (opcional)<input type="number" min="1" step="1" name="plantEnd" /></label></div>
-    {type === 'SCOUTING_OBSERVATION' && <><label>Severidad de observación<select name="severity"><option value="1">1 · Leve</option><option value="2">2 · Moderada</option><option value="3">3 · Alta</option><option value="4">4 · Muy alta</option><option value="5">5 · Crítica</option></select><small>Escala de captura del frontend; no constituye un diagnóstico.</small></label><label>Síntomas observados<textarea name="symptoms" rows={2} required placeholder="Describe lo que observaste…" /></label></>}
-    <label>Notas<textarea name="notes" rows={3} placeholder="Qué se realizó, novedades e información para el equipo…" /></label>
+    <label>Desde planta (opcional)<input type="number" min="1" step="1" name="plantStart" /></label><label>Hasta planta (opcional)<input type="number" min="1" step="1" name="plantEnd" /></label>
+    </fieldset>
+    <fieldset className="record-form-section form-grid"><legend>Resultados y notas</legend>
+    {type === 'SCOUTING_OBSERVATION' && <><label>Severidad de observación<select name="severity"><option value="1">1 · Leve</option><option value="2">2 · Moderada</option><option value="3">3 · Alta</option><option value="4">4 · Muy alta</option><option value="5">5 · Crítica</option></select><small>Escala de captura del frontend; no constituye un diagnóstico.</small></label><label className="full-span">Síntomas observados<textarea name="symptoms" rows={2} required placeholder="Describe lo que observaste…" /></label></>}
+    <label className="full-span">Notas<textarea name="notes" rows={3} placeholder="Qué se realizó, novedades e información para el equipo…" /></label>
+    </fieldset>
     {error && <p className="form-error" role="alert">{error}</p>}<div className="form-actions"><button className="button secondary" type="button" disabled={busy} onClick={onClose}>Cancelar</button><button className="button" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : <Check size={16} />}Registrar actividad</button></div>
   </form></Modal>;
 }

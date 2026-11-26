@@ -43,6 +43,7 @@ DOCUMENT_GROUPS = [
         [
             ("frontend/README.md", "AgroVision frontend"),
             ("frontend/tests/manual-agricultural-workflow.md", "QA tests and farm walkthrough"),
+            ("docs/test-results.md", "Resultados de pruebas"),
             ("scripts/README.md", "Guasita map fixture"),
             ("frontend/public/images/README.md", "Demonstration aerial image"),
         ],
@@ -58,6 +59,7 @@ PAGE_NAMES = {
     "docs/water-management.md": "water-management.html",
     "frontend/README.md": "frontend.html",
     "frontend/tests/manual-agricultural-workflow.md": "manual-workflow.html",
+    "docs/test-results.md": "test-results.html",
     "scripts/README.md": "map-fixture.html",
     "frontend/public/images/README.md": "aerial-image.html",
 }
@@ -71,6 +73,7 @@ DESCRIPTIONS = {
     "docs/water-management.md": "Irrigation planning and execution, moisture, water records, persistence, API, and open gaps.",
     "frontend/README.md": "AgroVision screens, demo and real modes, authentication, setup, build, and frontend organization.",
     "frontend/tests/manual-agricultural-workflow.md": "Run the backend and frontend suites and watch an automated QA farm walkthrough in Chrome.",
+    "docs/test-results.md": "Resultados por suite y módulo, incidencias de la verificación y evidencias de la ejecución.",
     "scripts/README.md": "The Guasita test-map fixture, its geographic reference, and how its example geometry is created.",
     "frontend/public/images/README.md": "Provenance and intended use of the demonstration aerial image.",
 }
@@ -609,7 +612,7 @@ def architecture_html() -> str:
         ("01 · Web client", "AgroVision", "React · TypeScript · Vite", "Demonstration mode or authenticated farm workspace"),
         ("02 · Application API", "Agro Core", "Spring Boot · Java 17 · REST", "Sessions · CSRF · farm-scoped permissions"),
         ("03 · Domain workflows", "Agricultural modules", "Farms · tasks · planting · irrigation", "Fertilization · inspections · harvest · analytics"),
-        ("04 · Persistence", "PostgreSQL + PostGIS", "JPA / JDBC · Flyway migrations", "Operational records · spatial data · photos"),
+        ("04 · Persistence", "PostgreSQL + PostGIS", "JPA + Hibernate Spatial · Flyway migrations", "Operational records · spatial data · photos"),
     ]
     nodes = []
     for index, (step, title, stack, detail) in enumerate(stages):

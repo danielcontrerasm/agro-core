@@ -15,6 +15,7 @@ import com.yourco.agro.farm.repo.*;
 import com.yourco.agro.farm.service.*;
 import com.yourco.agro.media.controller.MediaController;
 import com.yourco.agro.media.repo.MediaAssetRepository;
+import com.yourco.agro.persistence.JpaSql;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,15 +24,14 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
-import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
-import javax.sql.DataSource;
+import java.io.IOException;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -48,21 +48,22 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
   AuthIntegrationTest.DatabaseConfig.class})
 class AuthIntegrationTest {
   @TestConfiguration
+  @Import(JpaTestConfig.class)
+  @EnableJpaRepositories(basePackageClasses = AppUserRepository.class)
   static class DatabaseConfig {
     @Bean
-    DataSource dataSource() {
-      return new EmbeddedDatabaseBuilder().generateUniqueName(true).setType(EmbeddedDatabaseType.H2)
-        .addScript("auth-schema.sql")
-        .addScript("db/migration/V2__users_and_memberships.sql").build();
+    LocalContainerEntityManagerFactoryBean entityManagerFactory() throws IOException {
+      return JpaTestConfig.database(
+        "auth-schema.sql",
+        "db/migration/V2__users_and_memberships.sql"
+      );
     }
 
-    @Bean
-    JdbcTemplate jdbcTemplate(DataSource dataSource) { return new JdbcTemplate(dataSource); }
   }
 
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
-  @Autowired JdbcTemplate jdbc;
+  @Autowired JpaSql queries;
   @Autowired PasswordEncoder passwords;
   @Autowired UserService users;
   @Autowired FarmAccess access;
@@ -80,22 +81,22 @@ class AuthIntegrationTest {
 
   @BeforeEach
   void seed() {
-    jdbc.update("DELETE FROM farm_membership");
-    jdbc.update("DELETE FROM app_user");
-    jdbc.update("DELETE FROM field_event");
-    jdbc.update("DELETE FROM row_line");
-    jdbc.update("DELETE FROM block");
-    jdbc.update("DELETE FROM field");
-    jdbc.update("DELETE FROM farm");
-    jdbc.update("INSERT INTO farm VALUES (10, 'North'), (20, 'South')");
-    jdbc.update("INSERT INTO field VALUES (11, 10), (21, 20)");
-    jdbc.update("INSERT INTO block VALUES (12, 11), (22, 21)");
-    jdbc.update("INSERT INTO row_line VALUES (13, 12), (23, 22)");
-    jdbc.update("INSERT INTO field_event VALUES (14, 12, NULL), (24, NULL, 23)");
+    queries.execute("DELETE FROM farm_membership");
+    queries.execute("DELETE FROM app_user");
+    queries.execute("DELETE FROM field_event");
+    queries.execute("DELETE FROM row_line");
+    queries.execute("DELETE FROM block");
+    queries.execute("DELETE FROM field");
+    queries.execute("DELETE FROM farm");
+    queries.execute("INSERT INTO farm VALUES (10, 'North'), (20, 'South')");
+    queries.execute("INSERT INTO field VALUES (11, 10), (21, 20)");
+    queries.execute("INSERT INTO block(id, field_id) VALUES (12, 11), (22, 21)");
+    queries.execute("INSERT INTO row_line VALUES (13, 12), (23, 22)");
+    queries.execute("INSERT INTO field_event VALUES (14, 12, NULL), (24, NULL, 23)");
     users.register(new AuthDtos.RegisterRequest("Worker", "worker@example.com", "worker-password"));
     users.register(new AuthDtos.RegisterRequest("Admin", "admin@example.com", "admin-password"));
-    jdbc.update("INSERT INTO farm_membership SELECT 10, id, 'WORKER' FROM app_user WHERE email = 'worker@example.com'");
-    jdbc.update("INSERT INTO farm_membership SELECT 10, id, 'ADMIN' FROM app_user WHERE email = 'admin@example.com'");
+    queries.execute("INSERT INTO farm_membership SELECT 10, id, 'WORKER' FROM app_user WHERE email = 'worker@example.com'");
+    queries.execute("INSERT INTO farm_membership SELECT 10, id, 'ADMIN' FROM app_user WHERE email = 'admin@example.com'");
   }
 
   @Test
@@ -106,7 +107,7 @@ class AuthIntegrationTest {
           """))
       .andExpect(status().isCreated()).andExpect(jsonPath("email").value("new@example.com"))
       .andExpect(jsonPath("password").doesNotExist()).andExpect(jsonPath("passwordHash").doesNotExist());
-    String hash = jdbc.queryForObject("SELECT password_hash FROM app_user WHERE email = 'new@example.com'", String.class);
+    String hash = queries.value("SELECT password_hash FROM app_user WHERE email = 'new@example.com'", String.class);
     assertThat(hash).isNotEqualTo("long-password-123");
     assertThat(passwords.matches("long-password-123", hash)).isTrue();
     mvc.perform(post("/api/v1/auth/register").with(csrf()).contentType("application/json")
@@ -204,11 +205,11 @@ class AuthIntegrationTest {
     try {
       Farm farm = new Farm(); farm.setId(30L);
       when(farmRepo.saveAndFlush(any(Farm.class))).thenAnswer(invocation -> {
-        jdbc.update("INSERT INTO farm VALUES (30, 'New Farm')");
+        queries.execute("INSERT INTO farm VALUES (30, 'New Farm')");
         return farm;
       });
       FarmDtos.CreateFarmRequest request = new FarmDtos.CreateFarmRequest(); request.name = "New Farm";
-      new FarmService(farmRepo, access, jdbc).create(request);
+      new FarmService(farmRepo, access, queries).create(request);
       assertThat(users.profile(user).memberships()).anyMatch(membership ->
         membership.farmId().equals(30L) && membership.role() == AuthDtos.Role.ADMIN);
     } finally {

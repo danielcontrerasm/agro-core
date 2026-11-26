@@ -4,12 +4,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yourco.agro.auth.AuthDtos;
 import com.yourco.agro.auth.UserService;
+import com.yourco.agro.persistence.JpaSql;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class TaskApiTest {
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
-  @Autowired JdbcTemplate jdbc;
+  @Autowired JpaSql queries;
   @Autowired UserService users;
   AuthDtos.User owner;
   AuthDtos.User worker;
@@ -45,13 +45,13 @@ class TaskApiTest {
   @BeforeEach
   void seed() {
     owner = user("Owner"); worker = user("Worker"); otherWorker = user("Worker"); outsider = user("Outsider");
-    farmId = jdbc.queryForObject("INSERT INTO farm(name) VALUES ('Task test') RETURNING id", Long.class);
-    Long foreignFarmId = jdbc.queryForObject("INSERT INTO farm(name) VALUES ('Foreign test') RETURNING id", Long.class);
+    farmId = queries.value("INSERT INTO farm(name) VALUES ('Task test') RETURNING id", Long.class);
+    Long foreignFarmId = queries.value("INSERT INTO farm(name) VALUES ('Foreign test') RETURNING id", Long.class);
     for (var member : List.of(owner, worker, otherWorker)) {
-      jdbc.update("INSERT INTO farm_membership(farm_id,user_id,role) VALUES (?,?,?)", farmId, member.id(), member == owner ? "ADMIN" : "WORKER");
+      queries.execute("INSERT INTO farm_membership(farm_id,user_id,role) VALUES (?,?,?)", farmId, member.id(), member == owner ? "ADMIN" : "WORKER");
     }
     fieldId = field(farmId); foreignFieldId = field(foreignFarmId);
-    blockId = jdbc.queryForObject("INSERT INTO block(field_id,code,geom) SELECT id,'A',geom FROM field WHERE id=? RETURNING id", Long.class, fieldId);
+    blockId = queries.value("INSERT INTO block(field_id,code,geom) SELECT id,'A',geom FROM field WHERE id=? RETURNING id", Long.class, fieldId);
   }
 
   @Test
@@ -69,7 +69,7 @@ class TaskApiTest {
       .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
     mvc.perform(get("/api/v1/tasks").param("farmId", farmId.toString()).with(authentication(login(outsider))))
       .andExpect(status().isForbidden());
-    assertThat(jdbc.queryForObject("SELECT count(*) FROM farm_task WHERE farm_id=?", Integer.class, farmId)).isEqualTo(2);
+    assertThat(queries.value("SELECT count(*) FROM farm_task WHERE farm_id=?", Integer.class, farmId)).isEqualTo(2);
   }
 
   @Test
@@ -90,7 +90,7 @@ class TaskApiTest {
     update(id, worker, "review", 4, "Lindero revisado").andExpect(status().isOk());
     update(id, owner, "completed", 5, "Aprobado").andExpect(status().isOk()).andExpect(jsonPath("version").value(6));
     update(id, owner, "progress", 6, "").andExpect(status().isBadRequest());
-    assertThat(jdbc.queryForObject("SELECT status FROM farm_task WHERE id=?", String.class, Long.valueOf(id))).isEqualTo("completed");
+    assertThat(queries.value("SELECT status FROM farm_task WHERE id=?", String.class, Long.valueOf(id))).isEqualTo("completed");
   }
 
   @Test
@@ -119,7 +119,7 @@ class TaskApiTest {
 
   private AuthDtos.User user(String name) { return users.register(new AuthDtos.RegisterRequest(name, UUID.randomUUID() + "@example.com", "test-password-123")); }
   private Long field(Long farm) {
-    return jdbc.queryForObject("INSERT INTO field(farm_id,name,geom) VALUES (?,'Division',ST_GeomFromText('POLYGON((-74.82 10.02,-74.81 10.02,-74.81 10.03,-74.82 10.02))',4326)) RETURNING id", Long.class, farm);
+    return queries.value("INSERT INTO field(farm_id,name,geom) VALUES (?,'Division',ST_GeomFromText('POLYGON((-74.82 10.02,-74.81 10.02,-74.81 10.03,-74.82 10.02))',4326)) RETURNING id", Long.class, farm);
   }
   private UsernamePasswordAuthenticationToken login(AuthDtos.User user) { return UsernamePasswordAuthenticationToken.authenticated(user, null, List.of()); }
   private Map<String, Object> payload() {

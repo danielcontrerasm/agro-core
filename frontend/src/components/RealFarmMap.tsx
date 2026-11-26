@@ -3,6 +3,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Layers, LocateFixed, Maximize2, Rows3, Sprout, SquareStack, X } from 'lucide-react';
 import type { AnalyticsLayer, Block, DiseaseLayer, Farm, Field, LineStringGeometry, PolygonGeometry, Row } from '../lib/types';
+import { units } from '../lib/fertilization';
+import { mapNutrientCodes, mapMoistureReading, moistureMapColor, moistureMapUnits, nutrientMapBand, nutrientMapColors, summarizeNutrientMap } from '../lib/map-analytics';
 import type { FarmMapProps, MapLayer } from './FarmMap';
 
 type BaseLayer = 'satellite' | 'hybrid' | 'map';
@@ -153,44 +155,35 @@ function escapeHtml(value: unknown) {
   return String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[character] ?? character));
 }
 
-function numericValue(properties: AnalyticsLayer['features'][number]['properties'] | undefined, nutrient: string) {
-  const nutrientCodes: Record<string, string> = { 'Nitrógeno (N)': 'N', 'Fósforo (P)': 'P', 'Potasio (K)': 'K', pH: 'PH' };
-  const code = nutrientCodes[nutrient];
-  const result = properties?.soilAnalysis?.results.find(item => item.nutrient === code);
-  if (result) return result.value;
-  return code === 'N' ? properties?.nitrogen : code === 'P' ? properties?.phosphorus : code === 'K' ? properties?.potassium : properties?.ph;
+function nutrientResult(properties: AnalyticsLayer['features'][number]['properties'] | undefined, nutrient: string) {
+  return properties?.soilAnalysis?.results.find(item => item.nutrient === mapNutrientCodes[nutrient]);
 }
 
-function blockColor(block: Block, layer: MapLayer, analytics: Map<number, AnalyticsLayer['features'][number]['properties']>, nutrient: string, nutrientRange: { min: number; max: number } | undefined) {
+function blockColor(block: Block, layer: MapLayer, analytics: Map<number, AnalyticsLayer['features'][number]['properties']>, nutrient: string, nutrientRange: ReturnType<typeof summarizeNutrientMap>) {
   const properties = analytics.get(block.id);
   if (layer === 'satellite') return '#579359';
   if (!properties) return '#9eaea0';
   if (layer === 'health') return properties.healthStatus === 'ACTIVE_FINDINGS' ? '#e95e51' : properties.healthStatus === 'NO_ACTIVE_FINDINGS' ? '#62b66b' : '#9eaea0';
-  if (layer === 'moisture') {
-    const condition = properties.irrigationSectors?.find(sector => sector.latest)?.condition ?? properties.conditionStatus;
-    if (condition === 'BELOW_RANGE' || condition === 'DRY') return '#e7ad3d';
-    if (condition === 'ABOVE_RANGE' || condition === 'WET') return '#578edc';
-    if (condition === 'IN_RANGE' || condition === 'OPTIMAL') return '#65b67a';
-    return '#9eaea0';
-  }
-  const value = numericValue(properties, nutrient);
-  if (value == null || !Number.isFinite(value)) return '#9eaea0';
-  const ratio = !nutrientRange || nutrientRange.max === nutrientRange.min ? .5 : (value - nutrientRange.min) / (nutrientRange.max - nutrientRange.min);
-  return ['#e95e51', '#ef9b46', '#d5c84c', '#72b56d', '#5386da'][Math.max(0, Math.min(4, Math.floor(ratio * 5)))];
+  if (layer === 'moisture') return moistureMapColor(mapMoistureReading(properties).condition);
+  const result = nutrientResult(properties, nutrient);
+  return result && result.unit === nutrientRange.unit ? nutrientMapColors[nutrientMapBand(result.value, nutrientRange.min, nutrientRange.max)] : '#a9b5ae';
 }
 
 function blockLabel(block: Block, layer: MapLayer, analytics: Map<number, AnalyticsLayer['features'][number]['properties']>, nutrient: string) {
   const properties = analytics.get(block.id);
-  if (!properties) return `${block.code} · ${block.areaHa ?? 'Sin área'} ha · Sin datos`;
-  if (layer === 'health') return `${block.code} · ${properties.healthStatus === 'ACTIVE_FINDINGS' ? 'Hallazgos activos' : properties.healthStatus === 'NO_ACTIVE_FINDINGS' ? 'Sin hallazgos activos' : 'Sin evaluación reciente'}`;
+  const code = escapeHtml(block.code);
+  if (!properties) return `${code} · ${block.areaHa ?? 'Sin área'} ha · Sin datos`;
+  if (layer === 'health') return `${code} · ${properties.healthStatus === 'ACTIVE_FINDINGS' ? 'Hallazgos activos' : properties.healthStatus === 'NO_ACTIVE_FINDINGS' ? 'Sin hallazgos activos' : 'Sin evaluación reciente'}`;
   if (layer === 'moisture') {
-    const sector = properties.irrigationSectors?.find(item => item.latest) ?? properties.irrigationSectors?.[0];
-    const value = sector?.latest?.value ?? properties.soilMoisture;
-    const unit = sector?.latest?.unit === 'KPA' ? 'kPa' : '%';
-    return `${block.code} · ${value == null ? 'Sin dato' : `${value} ${unit}`}`;
+    const reading = mapMoistureReading(properties);
+    if (reading.sectorCount > 1) return `${code} · ${reading.sectorCount} sectores`;
+    return `${code} · ${reading.value == null || !reading.unit ? 'Sin dato' : `${reading.value} ${moistureMapUnits[reading.unit]}`}`;
   }
-  if (layer === 'nutrients') return `${block.code} · ${nutrient}: ${numericValue(properties, nutrient) ?? 'Sin dato'}`;
-  return `${block.code} · ${block.areaHa ?? properties.areaHa ?? 'Sin área'} ha`;
+  if (layer === 'nutrients') {
+    const result = nutrientResult(properties, nutrient);
+    return `${code} · ${escapeHtml(nutrient)}: ${result ? `${result.value} ${escapeHtml(units[result.unit])}` : 'Sin muestra'}`;
+  }
+  return `${code} · ${block.areaHa ?? properties.areaHa ?? 'Sin área'} ha`;
 }
 
 function popupForBlock(block: Block, field?: Field) {
@@ -208,7 +201,9 @@ function createBaseLayer(mode: BaseLayer) {
   return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: tileAttribution });
 }
 
-export default function RealFarmMap({ blocks, farm, fields = [], rows = [], layer = 'satellite', comparisonLayer, nutrient = 'Nitrógeno (N)', large = false, selected, onSelect, onLayerChange, toolsOpen = false, onToolsChange, expandSignal, disease, analytics, baseLayer = 'map' }: FarmMapProps) {
+const irrigationPointIcon = L.divIcon({ className: 'irrigation-map-point', iconSize: [19, 19], iconAnchor: [9, 9] });
+
+export default function RealFarmMap({ blocks, farm, fields = [], rows = [], layer = 'satellite', comparisonLayer, nutrient = 'Nitrógeno (N)', large = false, selected, onSelect, onSelectField, blockPresentation, infrastructurePoints, legend, toolsOpen = false, onToolsChange, expandSignal, disease, analytics, baseLayer = 'map' }: FarmMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const baseRef = useRef<L.Layer | null>(null);
@@ -226,18 +221,19 @@ export default function RealFarmMap({ blocks, farm, fields = [], rows = [], laye
   const [selectedField, setSelectedField] = useState<Field>();
 
   const analyticsByBlock = useMemo(() => new Map((analytics?.features ?? []).map(feature => [feature.properties.blockId, feature.properties])), [analytics]);
-  const nutrientRange = useMemo(() => {
-    const values = blocks.map(block => numericValue(analyticsByBlock.get(block.id), nutrient)).filter((value): value is number => value != null && Number.isFinite(value));
-    return values.length ? { min: Math.min(...values), max: Math.max(...values) } : undefined;
-  }, [analyticsByBlock, blocks, nutrient]);
-  const filterBlocks = blocks.filter(block => divisionFilter === 'all' || block.field.id === divisionFilter);
-  const filterRows = rows.filter(row => filterBlocks.some(block => block.id === row.block.id) && (blockFilter === 'all' || row.block.id === blockFilter));
-  const visibleFields = fields.filter(field => divisionFilter === 'all' || field.id === divisionFilter);
-  const visibleBlocks = filterBlocks.filter(block => blockFilter === 'all' || block.id === blockFilter);
-  const visibleBlockIds = new Set(visibleBlocks.map(block => block.id));
-  const visibleRows = filterRows.filter(row => visibleBlockIds.has(row.block.id) && (rowFilter === 'all' || row.id === rowFilter));
-  const visibleRowIds = new Set(visibleRows.map(row => row.id));
-  const visibleDisease = disease?.features.filter(feature => visibleRowIds.has(feature.properties.rowId));
+  const nutrientRange = useMemo(() => summarizeNutrientMap(blocks.map(block => nutrientResult(analyticsByBlock.get(block.id), nutrient))), [analyticsByBlock, blocks, nutrient]);
+  const filterBlocks = useMemo(() => blocks.filter(block => divisionFilter === 'all' || block.field.id === divisionFilter), [blocks, divisionFilter]);
+  const visibleFields = useMemo(() => fields.filter(field => divisionFilter === 'all' || field.id === divisionFilter), [fields, divisionFilter]);
+  const visibleBlocks = useMemo(() => filterBlocks.filter(block => blockFilter === 'all' || block.id === blockFilter), [filterBlocks, blockFilter]);
+  const filterRows = useMemo(() => {
+    const ids = new Set(visibleBlocks.map(block => block.id));
+    return rows.filter(row => ids.has(row.block.id));
+  }, [visibleBlocks, rows]);
+  const visibleRows = useMemo(() => filterRows.filter(row => rowFilter === 'all' || row.id === rowFilter), [filterRows, rowFilter]);
+  const visibleDisease = useMemo(() => {
+    const ids = new Set(visibleRows.map(row => row.id));
+    return disease?.features.filter(feature => ids.has(feature.properties.rowId));
+  }, [disease, visibleRows]);
   const selectedRow = rowFilter === 'all' ? undefined : rows.find(row => row.id === rowFilter);
   const selectedPlant = plantFilter === 'all' || selectedRow?.block.id !== 1 ? undefined : plantFilter;
   const selectedPlantCount = selectedRow?.block.id === 1 ? Math.max(0, Math.round(selectedRow.plantsEstimated ?? ((selectedRow.lengthM ?? 0) / (selectedRow.plantSpacingM || 2)) + 1)) : 0;
@@ -246,7 +242,7 @@ export default function RealFarmMap({ blocks, farm, fields = [], rows = [], laye
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const map = L.map(containerRef.current, { zoomControl: false, attributionControl: false, minZoom: 2, maxZoom: 21 });
-    L.control.zoom({ position: 'topright' }).addTo(map);
+    L.control.zoom({ position: blockPresentation ? 'topleft' : 'topright' }).addTo(map);
     map.getPane('overlayPane')?.classList.add('map-canvas');
     map.setView([4.5709, -74.2973], 6);
     mapRef.current = map;
@@ -275,8 +271,14 @@ export default function RealFarmMap({ blocks, farm, fields = [], rows = [], laye
     visibleBlocks.forEach(block => block.geom?.coordinates.flat().forEach(([longitude, latitude]) => points.push([latitude, longitude])));
     visibleRows.forEach(row => row.geom?.coordinates.forEach(([longitude, latitude]) => points.push([latitude, longitude])));
     visibleDisease?.forEach(feature => feature.geometry.coordinates.forEach(([longitude, latitude]) => points.push([latitude, longitude])));
-    focusMap(map, points);
-  }, [blocks, blockFilter, disease, divisionFilter, farm, fields, filterActive, rowFilter, rows, visibleBlocks, visibleDisease, visibleFields, visibleRows]);
+    focusMap(map, points.length ? points : (infrastructurePoints ?? []).map(point => [point.latitude, point.longitude]));
+  }, [blocks, blockFilter, disease, divisionFilter, farm, fields, filterActive, infrastructurePoints, rowFilter, rows, visibleBlocks, visibleDisease, visibleFields, visibleRows]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const geometry = blocks.find(block => block.id === selected)?.geom;
+    if (map && validPolygon(geometry)) focusMap(map, polygonCoordinates(geometry).flat(), true);
+  }, [blocks, selected]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -315,7 +317,7 @@ export default function RealFarmMap({ blocks, farm, fields = [], rows = [], laye
       if (!validPolygon(geometry)) return;
       const polygon = L.polygon(polygonCoordinates(geometry), { color: ['#326c4a', '#568a43', '#3c7792', '#6e7d41'][index % 4], fillColor: '#9ecb8b', fillOpacity: .12, weight: 2.5, dashArray: '8 5' });
       polygon.bindTooltip(`${escapeHtml(field.name)} · ${field.areaHa ?? 'Sin área'} ha`, { sticky: true, className: 'real-map-tooltip' });
-      const activateField = () => { setSelectedField(field); onSelect?.(0); };
+      const activateField = () => { setSelectedField(field); onSelect?.(0); onSelectField?.(field.id); };
       polygon.on('click', activateField);
       polygon.on('keydown', event => { if (event.originalEvent.key === 'Enter' || event.originalEvent.key === ' ') { event.originalEvent.preventDefault(); activateField(); } });
       polygon.addTo(fieldLayer);
@@ -326,10 +328,11 @@ export default function RealFarmMap({ blocks, farm, fields = [], rows = [], laye
       const geometry = block.geom;
       if (!validPolygon(geometry)) return;
       const isSelected = selected === block.id;
-      const polygon = L.polygon(polygonCoordinates(geometry), { color: isSelected ? '#ffffff' : '#294f35', fillColor: blockColor(block, layer, analyticsByBlock, nutrient, nutrientRange), fillOpacity: layer === 'satellite' ? .24 : .62, weight: isSelected ? 4 : 1.6, opacity: .95 });
-      polygon.bindTooltip(blockLabel(block, layer, analyticsByBlock, nutrient), { sticky: true, className: 'real-map-tooltip' });
+      const presentation = blockPresentation?.get(block.id);
+      const polygon = L.polygon(polygonCoordinates(geometry), { color: isSelected || presentation ? '#ffffff' : '#294f35', fillColor: presentation?.color ?? blockColor(block, layer, analyticsByBlock, nutrient, nutrientRange), fillOpacity: presentation ? .58 : blockPresentation ? .1 : layer === 'satellite' ? .24 : .62, weight: isSelected ? 4 : 1.6, opacity: .95 });
+      polygon.bindTooltip(presentation ? `${escapeHtml(presentation.label ?? block.code)} · ${escapeHtml(presentation.detail)}` : blockLabel(block, layer, analyticsByBlock, nutrient), { sticky: true, className: 'real-map-tooltip' });
       polygon.bindPopup(popupForBlock(block, fieldById.get(block.field.id)), { className: 'real-map-popup', maxWidth: 260 });
-      polygon.on('click', () => { setSelectedField(undefined); onSelect?.(block.id); });
+      polygon.on('click', () => { setSelectedField(undefined); onSelect?.(block.id); onSelectField?.(block.field.id); });
       polygon.addTo(blockLayer);
       makePathAccessible(polygon, `Seleccionar ${block.code}`);
     });
@@ -356,7 +359,14 @@ export default function RealFarmMap({ blocks, farm, fields = [], rows = [], laye
     if (showRows) rowLayer.addTo(overlays);
     if (showRows) diseaseLayer.addTo(overlays);
     if (showPlants && visibleRows.length) overlays.addLayer(plantLayer);
-  }, [analyticsByBlock, blocks, blockFilter, disease, divisionFilter, farm, fields, layer, nutrient, nutrientRange, onSelect, plantFilter, rowFilter, rows, selected, selectedPlant, showBlocks, showFarmBoundary, showFields, showPlants, showRows, visibleBlocks, visibleDisease, visibleFields, visibleRows]);
+    infrastructurePoints?.forEach(point => {
+      const marker = L.marker([point.latitude, point.longitude], {
+        icon: irrigationPointIcon,
+        title: point.label,
+      }).bindPopup(escapeHtml(point.label)).addTo(overlays);
+      marker.getElement()?.setAttribute('aria-label', point.label);
+    });
+  }, [analyticsByBlock, blocks, blockFilter, blockPresentation, disease, divisionFilter, farm, fields, infrastructurePoints, layer, nutrient, nutrientRange, onSelect, onSelectField, plantFilter, rowFilter, rows, selected, selectedPlant, showBlocks, showFarmBoundary, showFields, showPlants, showRows, visibleBlocks, visibleDisease, visibleFields, visibleRows]);
 
   const resetView = () => {
     const map = mapRef.current;
@@ -367,14 +377,16 @@ export default function RealFarmMap({ blocks, farm, fields = [], rows = [], laye
     visibleFields.forEach(field => field.geom?.coordinates.flat().forEach(([longitude, latitude]) => points.push([latitude, longitude])));
     visibleBlocks.forEach(block => block.geom?.coordinates.flat().forEach(([longitude, latitude]) => points.push([latitude, longitude])));
     visibleRows.forEach(row => row.geom?.coordinates.forEach(([longitude, latitude]) => points.push([latitude, longitude])));
+    if (!points.length) infrastructurePoints?.forEach(point => points.push([point.latitude, point.longitude]));
     if (points.length) focusMap(map, points, true);
     else map.setView([4.5709, -74.2973], 6);
   };
 
-  const noGeometry = !validPolygon(farm?.geom) && !fields.some(field => validPolygon(field.geom)) && !blocks.some(block => validPolygon(block.geom));
+  const noGeometry = !infrastructurePoints?.length && !validPolygon(farm?.geom) && !fields.some(field => validPolygon(field.geom)) && !blocks.some(block => validPolygon(block.geom));
 
   return <div className={`farm-map real-map ${large ? 'map-large' : ''} ${expanded ? 'map-expanded' : ''} ${noGeometry ? 'real-map-empty' : ''}`}>
     <div ref={containerRef} className="real-map-canvas" aria-label="Mapa geográfico interactivo de la finca" />
+    {legend}
     <div className="real-map-actions">
       <button type="button" aria-label="Centrar mapa" title="Centrar mapa" onClick={resetView}><LocateFixed size={16} /></button>
       <button type="button" aria-label={expanded ? 'Salir de pantalla completa' : 'Ampliar mapa'} title={expanded ? 'Salir de pantalla completa' : 'Ampliar mapa'} onClick={() => setExpanded(value => !value)}>{expanded ? <X size={16} /> : <Maximize2 size={16} />}</button>

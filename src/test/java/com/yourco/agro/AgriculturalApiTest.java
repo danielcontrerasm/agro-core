@@ -4,9 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yourco.agro.auth.AuthDtos;
 import com.yourco.agro.auth.UserService;
+import com.yourco.agro.persistence.JpaSql;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -30,7 +30,7 @@ class AgriculturalApiTest {
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
   @Autowired UserService users;
-  @Autowired JdbcTemplate jdbc;
+  @Autowired JpaSql queries;
 
   @Test
   void locationsEventsObservationsAndMediaRoundTripAsUsableJson() throws Exception {
@@ -63,7 +63,7 @@ class AgriculturalApiTest {
     mvc.perform(get("/api/v1/media").param("eventId", observation.get("id").asText()).with(authentication(login)))
       .andExpect(status().isOk()).andExpect(jsonPath("$[0].s3Key").value("events/test.jpg"));
 
-    long cycleId = jdbc.queryForObject("""
+    long cycleId = queries.value("""
       INSERT INTO crop_cycle(block_id,code,crop,variety,planned_planting_from,planned_planting_to,expected_harvest_on,created_by)
       VALUES (?, 'CICLO-TEST-1', 'Banano', 'Cavendish', DATE '2026-01-01', DATE '2026-01-15', DATE '2027-01-15', ?)
       RETURNING id
@@ -119,6 +119,29 @@ class AgriculturalApiTest {
       .andExpect(jsonPath("$.harvestedAreaHa").value(2.7))
       .andExpect(jsonPath("$.qualityGrade").value("PREMIUM"))
       .andExpect(jsonPath("$.rejectedReason").value("Daño de transporte"));
+    mvc.perform(get("/api/v1/analytics/map").param("farmId", farm.get("id").asText()).with(authentication(login)))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.features[0].properties.harvestedQuantity").value(1210.0))
+      .andExpect(jsonPath("$.features[0].properties.estimatedYield").value(1250.0));
+  }
+
+  @Test
+  void listsSensorAlertsWithAndWithoutAStatusFilter() throws Exception {
+    var user = users.register(new AuthDtos.RegisterRequest("Sensor operator", UUID.randomUUID() + "@example.com", "test-password-123"));
+    var login = UsernamePasswordAuthenticationToken.authenticated(user, null, List.of());
+    long farmId = create("farms", Map.of("name", "Telemetry test farm"), login).get("id").asLong();
+    var sensor = create("sensors", Map.of("farmId", farmId, "name", "Soil sensor", "deviceKey", UUID.randomUUID().toString()), login);
+    create("alert-rules", Map.of("farmId", farmId, "metric", "SOIL_MOISTURE", "operator", "LT",
+      "threshold", 20.0, "severity", "WARNING", "message", "Check the soil reading"), login);
+    create("sensors/" + sensor.get("id").asText() + "/readings",
+      Map.of("recordedAt", "2026-10-16T12:00:00Z", "soilMoisture", 16.0), login);
+
+    mvc.perform(get("/api/v1/alerts").param("farmId", Long.toString(farmId)).with(authentication(login)))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
+      .andExpect(jsonPath("$[0].status").value("OPEN"));
+    mvc.perform(get("/api/v1/alerts").param("farmId", Long.toString(farmId))
+        .param("status", "ACKNOWLEDGED").with(authentication(login)))
+      .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
   }
 
   private JsonNode create(String resource, Map<String, ?> payload, UsernamePasswordAuthenticationToken login) throws Exception {

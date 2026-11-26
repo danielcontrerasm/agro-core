@@ -1,0 +1,143 @@
+.crop-app-shell .planting-reference-screen {
+  --planting-text: #172940;
+  --planting-muted: #4c6173;
+}
+
+.crop-app-shell .planting-reference-screen :is(.planting-breadcrumb, .planting-breadcrumb strong),
+.crop-app-shell .planting-reference-screen .planting-reference-heading p,
+.crop-app-shell .planting-reference-screen .planting-reference-panel-heading p,
+.crop-app-shell .planting-reference-screen .planting-tab-section-heading p,
+.crop-app-shell .planting-reference-screen .planting-files-panel p {
+  color: var(--planting-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.crop-app-shell .planting-reference-screen .planting-reference-heading .heading-actions { flex-wrap: wrap; }
+.crop-app-shell .planting-reference-screen .planting-reference-heading .button {
+  min-width: 0;
+  min-height: 42px;
+  padding-inline: 13px;
+  font-size: 14px;
+}
+.crop-app-shell .planting-reference-screen .planting-reference-kpis .planting-kpi-card > div > span,
+.crop-app-shell .planting-reference-screen .planting-reference-kpis .planting-kpi-card small,
+.crop-app-shell .planting-reference-screen .planting-cycle-card-copy small {
+  color: var(--planting-muted);
+  font-size: 13px;
+}
+.crop-app-shell .planting-reference-screen .planting-cycle-list-panel { min-height: 0; }
+.crop-app-shell .planting-reference-screen .planting-reference-panel-heading { flex-wrap: wrap; align-items: flex-start; }
+.crop-app-shell .planting-reference-screen .planting-reference-panel-heading h3 { color: var(--planting-text); font-size: 19px; }
+.crop-app-shell .planting-reference-screen .planting-reference-panel-heading select { width: auto; min-height: 38px; font-size: 14px; }
+.crop-app-shell .planting-reference-screen .planting-reference-cycle-card { gap: 9px; }
+.crop-app-shell .planting-reference-screen .planting-cycle-card-copy strong { font-size: 16px; }
+.crop-app-shell .planting-reference-screen .planting-cycle-card-copy > span { font-size: 14px; }
+.crop-app-shell .planting-reference-screen :is(.planting-cycle-card-copy > *, .planting-summary-meta-card strong, .planting-responsible-copy div > span, .planting-status-metrics strong, .planting-next-step strong) {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+.crop-app-shell .planting-reference-screen .planting-info-cell-copy > span {
+  color: var(--planting-muted) !important;
+  font-size: 13px !important;
+}
+.crop-app-shell .planting-reference-screen .planting-info-cell-copy strong {
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+  font-size: 15px !important;
+}
+.crop-app-shell .planting-reference-screen .badge { font-size: 12px; }
+.crop-app-shell .planting-reference-screen .planting-detail-header-actions .icon-button { width: 38px; height: 38px; }
+.crop-app-shell .planting-reference-screen .planting-action-menu button { min-height: 38px; font-size: 14px; }
+.crop-app-shell .planting-reference-screen .planting-reference-tabs {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  overflow: visible;
+}
+.crop-app-shell .planting-reference-screen .planting-reference-tabs button {
+  min-height: 42px;
+  padding: 6px;
+  font-size: 13px;
+  line-height: 1.25;
+  white-space: normal;
+}
+.crop-app-shell .planting-reference-screen .planting-reference-tabs button svg { flex-shrink: 0; }
+.crop-app-shell .planting-reference-screen :is(.planting-summary-card-heading h3, .planting-meta-card-heading h3, .planting-tab-section-heading h3) {
+  color: var(--planting-text);
+  font-size: 16px;
+}
+.crop-app-shell .planting-reference-screen .planting-stage-timeline small {
+  color: var(--planting-muted);
+  font-size: 12px;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+.crop-app-shell .planting-reference-screen .planting-stage-timeline > div.current small { color: #0b6c40; }
+.crop-app-shell .planting-reference-screen .planting-stage-timeline > div > span { font-size: 12px; }
+.crop-app-shell .planting-reference-screen .planting-progress-heading,
+.crop-app-shell .planting-reference-screen .planting-progress-heading strong:last-child { font-size: 14px; }
+.crop-app-shell .planting-reference-screen .planting-status-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.crop-app-shell .planting-reference-screen :is(.planting-status-metrics span, .planting-date-meta small, .planting-responsible-copy div > span) { color: var(--planting-muted); font-size: 13px; }
+.crop-app-shell .planting-reference-screen .planting-status-metrics strong { font-size: 16px; }
+.crop-app-shell .planting-reference-screen .planting-summary-map { height: 245px; }
+.crop-app-shell .planting-reference-screen .planting-summary-map .map-caption { font-size: 12px; }
+.crop-app-shell .planting-reference-screen .planting-summary-map .farm-map:not(.map-expanded) .map-plot-label {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(2);
+}
+.crop-app-shell .planting-reference-screen .planting-key-dates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  overflow: visible;
+}
+.crop-app-shell .planting-reference-screen .planting-date-meta {
+  min-width: 0;
+  padding: 6px;
+  background: #f4f8f5;
+  border-radius: 6px;
+}
+.crop-app-shell .planting-reference-screen :is(.planting-date-meta strong, .planting-responsible-copy strong) { font-size: 14px !important; }
+.crop-app-shell .planting-reference-screen .planting-responsible-card { align-content: start; align-items: center; }
+.crop-app-shell .planting-reference-screen .planting-next-step small,
+.crop-app-shell .planting-reference-screen .planting-section-eyebrow {
+  color: var(--planting-muted);
+  font-size: 12px;
+}
+.crop-app-shell .planting-reference-screen .planting-next-step strong { font-size: 14px; }
+.crop-app-shell .planting-reference-screen :is(.planting-next-step .text-button, .planting-record-item .text-button, .planting-responsible-card .button) { min-height: 36px; font-size: 14px; }
+.crop-app-shell .planting-reference-screen .planting-record-item-top { flex-wrap: wrap; }
+.crop-app-shell .planting-reference-screen .planting-tab-section .planting-record-item-top strong { color: var(--planting-text); font-size: 15px; overflow: visible; overflow-wrap: anywhere; }
+.crop-app-shell .planting-reference-screen .planting-tab-section .planting-record-item :is(p, small) {
+  color: var(--planting-muted);
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.crop-app-shell .planting-reference-screen .planting-followup-grid .planting-record-list { grid-template-columns: minmax(0, 1fr); }
+.crop-app-shell .planting-reference-screen .planting-files-note { color: var(--planting-muted); font-size: 13px; }
+
+@media (min-width: 1550px) {
+  .crop-app-shell .planting-reference-screen .planting-status-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 1380px) {
+  .crop-app-shell .planting-reference-screen .planting-reference-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .crop-app-shell .planting-reference-screen .planting-summary-meta-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 620px) {
+  .crop-app-shell .planting-reference-screen .planting-reference-cycle-card {
+    grid-template-columns: 48px minmax(0, 1fr);
+    align-items: flex-start;
+  }
+  .crop-app-shell .planting-reference-screen .planting-cycle-thumb { width: 48px; height: 48px; grid-row: span 2; }
+  .crop-app-shell .planting-reference-screen .planting-reference-cycle-card > .badge { grid-column: 2; justify-self: start; }
+  .crop-app-shell .planting-reference-screen .planting-reference-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .crop-app-shell .planting-reference-screen .planting-summary-map { height: 215px; }
+  .crop-app-shell .planting-reference-screen .planting-info-cell-icon { display: none !important; }
+  .crop-app-shell .planting-reference-screen .planting-date-meta-icon { display: none !important; }
+}

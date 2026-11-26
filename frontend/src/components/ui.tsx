@@ -30,7 +30,7 @@ export function Notice({ children }: { children: ReactNode }) {
 
 export function Loading() { return <div className="loading" role="status"><LoaderCircle className="spin" />Cargando tu finca…</div>; }
 
-export function Modal({ title, children, onClose, wide = false }: { title: string; children: ReactNode; onClose: () => void; wide?: boolean }) {
+export function Modal({ title, children, onClose, wide = false, className = '' }: { title: string; children: ReactNode; onClose: () => void; wide?: boolean; className?: string }) {
   const dialog = useRef<HTMLElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
@@ -53,7 +53,7 @@ export function Modal({ title, children, onClose, wide = false }: { title: strin
     return () => { root?.removeAttribute('inert'); document.body.style.overflow = overflow; document.removeEventListener('keydown', keyboard); previous?.focus(); };
   }, []);
   return createPortal(<div className="modal-backdrop" onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
-    <section className={`modal ${wide ? 'modal-wide' : ''}`} role="dialog" aria-modal="true" aria-label={title} ref={dialog}>
+    <section className={`modal ${wide ? 'modal-wide' : ''} ${className}`} role="dialog" aria-modal="true" aria-label={title} ref={dialog}>
       <header><h2>{title}</h2><button className="icon-button" aria-label="Cerrar" onClick={onClose}><X size={20} /></button></header>{children}
     </section>
   </div>, document.body);

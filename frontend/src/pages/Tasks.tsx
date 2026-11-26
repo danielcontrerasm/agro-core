@@ -3,8 +3,9 @@ import { Plus, Clock3, CheckCircle2, Play, ArrowRight, MapPin, UserRound, Calend
 import { useApp } from '../context';
 import { todayTasks, statusLabels, activityLabels, localDate } from '../lib/domain';
 import type { Task } from '../lib/types';
-import { Badge, Empty, Modal, Notice, Panel } from '../components/ui';
+import { Badge, Donut, Empty, Modal, Panel } from '../components/ui';
 import { TaskForm } from '../components/Forms';
+import FarmMap from '../components/FarmMap';
 
 const activityIcons = { fertilization: Sprout, irrigation: Droplets, scouting: Bug, planting: Leaf, harvest: Wheat };
 
@@ -12,6 +13,7 @@ export default function Tasks() {
   const { mode, data, farmId, tasks, updateTask, date, setDate, role, profile, search, notify } = useApp();
   const [filter, setFilter] = useState('all');
   const [assignee, setAssignee] = useState('all');
+  const [block, setBlock] = useState(0);
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [newTask, setNewTask] = useState(false);
   const [selected, setSelected] = useState<Task | null>(null);
@@ -19,7 +21,7 @@ export default function Tasks() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const demo = mode === 'demo';
-  useEffect(() => { setSelected(null); setNewTask(false); setAssignee('all'); setError(''); }, [farmId, mode]);
+  useEffect(() => { setSelected(null); setNewTask(false); setAssignee('all'); setBlock(0); setError(''); }, [farmId, mode]);
   const scoped = tasks.filter(task => demo ? data.blocks.some(block => block.id === task.blockId) : task.farmId === farmId);
   const dayTasks = todayTasks(scoped, date, demo && role === 'WORKER' ? profile.user.name : undefined);
   const location = (task: Task) => {
@@ -27,7 +29,7 @@ export default function Tasks() {
     return block ? `${block.field.name} · ${block.code}` : data.fields.find(field => field.id === task.fieldId)?.name ?? 'Ubicación no disponible';
   };
   const responsibleKey = (task: Task) => demo ? task.assignee : String(task.assigneeId);
-  const filtered = dayTasks.filter(task => (filter === 'all' || task.status === filter) && (assignee === 'all' || responsibleKey(task) === assignee) && `${task.title} ${task.assignee} ${location(task)}`.toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es')));
+  const filtered = dayTasks.filter(task => (!block || task.blockId === block) && (filter === 'all' || task.status === filter) && (assignee === 'all' || responsibleKey(task) === assignee) && `${task.title} ${task.assignee} ${location(task)}`.toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es')));
   const completed = dayTasks.filter(task => task.status === 'completed').length;
   const responsibleOptions = [...new Map(scoped.map(task => [responsibleKey(task), task.assignee])).entries()];
 
@@ -44,9 +46,32 @@ export default function Tasks() {
   const open = (task: Task) => { setSelected(task); setNotes(task.notes ?? ''); setError(''); };
 
   return <>
-    <div className="page-heading"><div><span className="eyebrow">TU JORNADA, ORGANIZADA</span><h1>Mi trabajo de hoy<span className="greeting-dot">.</span></h1><p>Un buen día en el campo empieza con un plan claro.</p></div>{role !== 'WORKER' && <button className="button" onClick={() => setNewTask(true)} disabled={demo ? !data.blocks.length : !data.fields.length && !data.blocks.length}><Plus size={17} />Nueva tarea</button>}</div>
-    <Notice>{demo ? 'Prototipo interactivo · Tareas locales de demostración. Los cambios no se envían al backend.' : 'Tareas de tu finca · Los cambios se guardan en el servidor. Los trabajadores ven sus asignaciones y los supervisores revisan el trabajo.'}</Notice>
-    <div className="task-summary"><div><span className="icon-tile green"><ClipboardCheck size={24} /></span><span><strong>{completed} de {dayTasks.length} tareas completadas</strong><small>Paso a paso, tu finca sigue creciendo.</small></span></div><div className="task-progress"><span style={{ width: `${dayTasks.length ? completed / dayTasks.length * 100 : 0}%` }} /></div><strong>{dayTasks.length ? Math.round(completed / dayTasks.length * 100) : 0}%</strong></div>
+    <div className="page-heading"><div><h1>Mi trabajo de hoy<span className="greeting-dot">.</span></h1><p>Consulta tus asignaciones, revisa el avance y registra novedades de las labores.</p></div>{role !== 'WORKER' && <button className="button" onClick={() => setNewTask(true)} disabled={demo ? !data.blocks.length : !data.fields.length && !data.blocks.length}><Plus size={17} />Nueva tarea</button>}</div>
+    <div className="mini-stat-grid workday-kpis">
+      <Panel><span className="icon-tile blue"><ClipboardCheck size={22} /></span><div><small>Tareas del día</small><strong>{dayTasks.length}</strong></div></Panel>
+      <Panel><span className="icon-tile green"><CheckCircle2 size={22} /></span><div><small>Completadas</small><strong>{completed}</strong></div></Panel>
+      <Panel><span className="icon-tile blue"><Play size={22} /></span><div><small>En curso</small><strong>{dayTasks.filter(task => task.status === 'progress').length}</strong></div></Panel>
+      <Panel><span className="icon-tile gold"><Clock3 size={22} /></span><div><small>Pendientes</small><strong>{dayTasks.filter(task => task.status === 'pending').length}</strong></div></Panel>
+      <Panel><span className="icon-tile orange"><AlertTriangle size={22} /></span><div><small>Bloqueadas</small><strong>{dayTasks.filter(task => task.status === 'blocked').length}</strong></div></Panel>
+    </div>
+    <div className="record-overview-grid">
+      <Panel title="Ubicación de tareas en la finca" className="record-overview-map" action={block ? <button className="text-button" onClick={() => setBlock(0)}>Todos los bloques</button> : null}>
+        <FarmMap blocks={data.blocks} fields={data.fields} farm={data.farms[0]} demo={demo} selected={block} onSelect={id => setBlock(current => current === id ? 0 : id)}
+          blockPresentation={new Map(data.blocks.map(item => {
+            const count = dayTasks.filter(task => task.blockId === item.id).length;
+            return [item.id, { color: count ? '#17934e' : '#8d9c95', detail: `${count} ${count === 1 ? 'tarea' : 'tareas'}` }];
+          }))} />
+      </Panel>
+      <Panel title="Avance y agenda del día">
+        <div className="workday-progress">
+          <Donut value={`${dayTasks.length ? Math.round(completed / dayTasks.length * 100) : 0}%`} label="Completadas" segments={[completed, dayTasks.length - completed]} colors={['#168949', '#e5ece8']} />
+          <div><strong>{completed} de {dayTasks.length} tareas completadas</strong><p className="muted">Consulta el detalle en la lista de tareas asignadas.</p></div>
+        </div>
+        <div className="workday-agenda">
+          {[...dayTasks].sort((a, b) => a.time.localeCompare(b.time)).slice(0, 6).map(task => <div key={task.id}><time>{task.time.slice(0, 5)}</time><span>{task.title}</span></div>)}
+        </div>
+      </Panel>
+    </div>
     <div className="toolbar"><div className="tabs scroll-tabs">{[['all', 'Todas'], ['pending', 'Pendientes'], ['progress', 'En curso'], ['review', 'Por revisar'], ['blocked', 'Bloqueadas'], ['completed', 'Completadas']].map(([value, label]) => <button className={filter === value ? 'active' : ''} onClick={() => setFilter(value)} key={value}>{label}<span>{value === 'all' ? dayTasks.length : dayTasks.filter(task => task.status === value).length}</span></button>)}</div><div className="toolbar-controls">{role !== 'WORKER' && <label className="filter-select"><UserRound size={15} /><select aria-label="Filtrar por responsable" value={assignee} onChange={event => setAssignee(event.target.value)}><option value="all">Todo el equipo</option>{responsibleOptions.map(([key, name]) => <option key={key} value={key}>{name}</option>)}</select></label>}<button className={`icon-button ${view === 'grid' ? 'selected' : ''}`} aria-label="Vista de tarjetas" onClick={() => setView('grid')}><LayoutGrid size={17} /></button><button className={`icon-button ${view === 'list' ? 'selected' : ''}`} aria-label="Vista de lista" onClick={() => setView('list')}><List size={18} /></button></div></div>
     <div className="date-context"><CalendarDays size={16} /><strong>{new Date(`${date}T12:00:00`).toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}</strong>{date !== localDate() && <button className="text-button" onClick={() => setDate(localDate())}>Volver a hoy</button>}<span>Incluye pendientes de días anteriores</span></div>
     {filtered.length ? <div className={`task-grid ${view === 'list' ? 'task-list-view' : ''}`}>{filtered.map(task => {
@@ -57,7 +82,7 @@ export default function Tasks() {
         <div className="task-person"><span className="avatar small-avatar">{task.assignee.split(' ').map(part => part[0]).slice(0, 2).join('')}</span><span>{task.assignee}</span><span className={task.date < date ? 'overdue' : ''}><Clock3 size={13} />{task.date < date ? 'Atrasada' : task.time.slice(0, 5)}</span></div>
         <div className="task-card-bottom"><Badge tone={task.status === 'blocked' ? 'red' : task.status === 'completed' ? 'green' : task.status === 'progress' ? 'blue' : task.status === 'review' ? 'purple' : 'neutral'}>{statusLabels[task.status]}</Badge><span>Ver tarea<ArrowRight size={15} /></span></div>
       </button>;
-    })}</div> : <Panel><Empty title="Todo despejado por aquí" description="No hay tareas con estos filtros. Prueba otra fecha, estado o responsable." action={<button className="button secondary" onClick={() => { setFilter('all'); setAssignee('all'); }}>Limpiar filtros</button>} /></Panel>}
+    })}</div> : <Panel><Empty title="Todo despejado por aquí" description="No hay tareas con estos filtros. Prueba otra fecha, estado o responsable." action={<button className="button secondary" onClick={() => { setFilter('all'); setAssignee('all'); setBlock(0); }}>Limpiar filtros</button>} /></Panel>}
     {newTask && <TaskForm key={farmId} onClose={() => setNewTask(false)} />}
     {selected && <Modal title="Detalle de la tarea" onClose={() => { if (!busy) setSelected(null); }}><div className="task-detail">
       <div className="task-detail-type"><Badge>{activityLabels[selected.activity]}</Badge><Badge tone="neutral">{statusLabels[selected.status]}</Badge></div><h2>{selected.title}</h2>

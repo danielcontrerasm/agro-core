@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import { summarizeWaterUsage } from '../src/lib/analytics';
 
 async function image(page: Page, name = 'campo.png') {
   const data = await page.evaluate(() => {
@@ -89,6 +90,9 @@ test('live photo upload sends multipart with CSRF and previews authenticated con
     if (path.endsWith('/fields')) body = [field];
     if (path.endsWith('/blocks')) body = [block];
     if (path.endsWith('/events')) body = [{ id: 1, eventType: 'IRRIGATION_EVENT', occurredAt: '2026-01-10T12:00:00Z', block, createdByUserId: 1 }];
+    if (path.endsWith('/analytics/water-usage')) {
+      body = { farmId: farm.id, from: url.searchParams.get('from'), until: url.searchParams.get('until'), sectors: [], summary: summarizeWaterUsage([]) };
+    }
     if (path.endsWith('/photos')) {
       expect(url.searchParams.get('eventId')).toBe('1');
       if (request.method() === 'POST') {

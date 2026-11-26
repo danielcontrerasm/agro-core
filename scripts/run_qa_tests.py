@@ -207,7 +207,7 @@ def available_loopback_port():
         return listener.getsockname()[1]
 
 
-def run_browser(results, run_id, api_url, web_port, step_delay, *, walkthrough):
+def run_browser(results, run_id, api_url, web_port, step_delay, *, walkthrough, watch=False, record=False):
     stage = "walkthrough" if walkthrough else "browser"
     report = FRONTEND / "playwright-report" / run_id / stage
     output = FRONTEND / "test-results" / run_id / stage
@@ -218,6 +218,8 @@ def run_browser(results, run_id, api_url, web_port, step_delay, *, walkthrough):
         "AGRO_LIVE_TEST": "0" if walkthrough else "1",
         "AGRO_MANUAL_E2E": "0",
         "AGRO_QA_WALKTHROUGH": "1" if walkthrough else "0",
+        "AGRO_QA_WATCH": "1" if watch else "0",
+        "AGRO_QA_RECORD": "1" if record else "0",
         "AGRO_E2E_ALLOW_WRITES": "SI" if walkthrough else "NO",
         "AGRO_E2E_STEP_DELAY_MS": str(step_delay),
         "AGRO_E2E_PREFIX": "E2E-QA",
@@ -238,17 +240,26 @@ def run_browser(results, run_id, api_url, web_port, step_delay, *, walkthrough):
 
     run_stage(results, title, command, cwd=FRONTEND, env=env)
     note(f"Playwright report: {report.relative_to(ROOT) / 'index.html'}")
+    if record:
+        note(f"Recordings (.webm): {output.relative_to(ROOT)}")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--step-delay-ms", type=int, default=1000,
-                        help="Time to read each QA walkthrough step (0–5000 ms, default 1000).")
+    parser.add_argument("--watch", action="store_true",
+                        help="Slow down browser actions and pause six seconds at each walkthrough step.")
+    parser.add_argument("--record", action="store_true",
+                        help="Save a WebM for each browser test, including passing tests.")
+    parser.add_argument("--step-delay-ms", type=int,
+                        help="Override the walkthrough pause (0–30000 ms).")
     parser.add_argument("--postgis-image", default=POSTGIS_IMAGE,
                         help=f"Docker image for the isolated database (default {POSTGIS_IMAGE}).")
     args = parser.parse_args()
-    if not 0 <= args.step_delay_ms <= 5000:
-        parser.error("--step-delay-ms must be between 0 and 5000.")
+    step_delay = args.step_delay_ms
+    if step_delay is None:
+        step_delay = 6000 if args.watch else 1000
+    if not 0 <= step_delay <= 30_000:
+        parser.error("--step-delay-ms must be between 0 and 30000.")
 
     env = preflight()
     run_id = f"agro-qa-{time.strftime('%Y%m%d-%H%M%S')}-{secrets.token_hex(4)}"
@@ -264,8 +275,10 @@ def main():
                       cwd=FRONTEND, env=env, timeout=180)
             web_port = available_loopback_port()
             with qa_api(test_env, output / "backend.log", web_port) as api_url:
-                run_browser(results, run_id, api_url, web_port, args.step_delay_ms, walkthrough=True)
-                run_browser(results, run_id, api_url, web_port, args.step_delay_ms, walkthrough=False)
+                run_browser(results, run_id, api_url, web_port, step_delay,
+                            walkthrough=True, watch=args.watch, record=args.record)
+                run_browser(results, run_id, api_url, web_port, step_delay,
+                            walkthrough=False, watch=args.watch, record=args.record)
     finally:
         note("\nQA run summary")
         for title, status in results.items():

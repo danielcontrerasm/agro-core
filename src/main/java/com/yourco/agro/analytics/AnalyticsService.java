@@ -7,10 +7,11 @@ import com.yourco.agro.inspections.InspectionService;
 import com.yourco.agro.fertilization.FertilizationService;
 import com.yourco.agro.irrigation.IrrigationService;
 import com.yourco.agro.farm.repo.BlockRepository;
+import com.yourco.agro.monitoring.CropMonitoringRecordRepository;
+import com.yourco.agro.persistence.JpaSql;
 import com.yourco.agro.telemetry.SensorDeviceRepository;
 import com.yourco.agro.telemetry.SensorReading;
 import com.yourco.agro.telemetry.SensorReadingRepository;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -25,16 +26,18 @@ public class AnalyticsService {
   private final BlockRepository blocks;
   private final SensorDeviceRepository devices;
   private final SensorReadingRepository readings;
+  private final CropMonitoringRecordRepository monitoring;
   private final FarmAccess access;
-  private final JdbcTemplate jdbc;
+  private final JpaSql queries;
   private final InspectionService inspections;
   private final FertilizationService fertilization;
   private final IrrigationService irrigation;
   private final ObjectMapper json;
 
-  public AnalyticsService(BlockRepository blocks, SensorDeviceRepository devices, SensorReadingRepository readings,
-                          FarmAccess access, JdbcTemplate jdbc, InspectionService inspections, FertilizationService fertilization, IrrigationService irrigation, ObjectMapper json) {
-    this.blocks = blocks; this.devices = devices; this.readings = readings; this.access = access; this.jdbc = jdbc;
+  public AnalyticsService(BlockRepository blocks, SensorDeviceRepository devices, SensorReadingRepository readings, CropMonitoringRecordRepository monitoring,
+                          FarmAccess access, JpaSql queries, InspectionService inspections, FertilizationService fertilization, IrrigationService irrigation, ObjectMapper json) {
+    this.blocks = blocks; this.devices = devices; this.readings = readings; this.access = access; this.queries = queries;
+    this.monitoring = monitoring;
     this.inspections = inspections;
     this.fertilization = fertilization;
     this.irrigation = irrigation;
@@ -45,8 +48,7 @@ public class AnalyticsService {
     if (farmId != null) access.require(farmId, false);
     var allowed = farmId == null ? access.farmIds() : List.of(farmId);
     var features = new ArrayList<Map<String, Object>>();
-    for (var block : blocks.findAll()) {
-      if (!allowed.contains(block.getField().getFarm().getId())) continue;
+    for (var block : blocks.findByField_Farm_IdInOrderByIdAsc(allowed)) {
       var latest = latestForBlock(block.getId(), block.getField().getFarm().getId());
       var values = new LinkedHashMap<String, Object>();
       values.put("blockId", block.getId()); values.put("blockCode", block.getCode()); values.put("crop", block.getCrop());
@@ -59,15 +61,10 @@ public class AnalyticsService {
       values.put("airTemperature", latest == null ? null : latest.getAirTemperature());
       values.put("soilTemperature", latest == null ? null : latest.getSoilTemperature());
       var healthStatus = inspections.healthStatus(block.getId(), java.time.LocalDate.now(java.time.ZoneOffset.UTC));
-      var yield = jdbc.queryForObject("SELECT COALESCE(SUM(harvested_quantity), 0) FROM crop_monitoring_record WHERE block_id = ? AND record_type = 'HARVEST'", Double.class, block.getId());
-      var nutrient = jdbc.queryForMap("""
-        SELECT MAX(growth_stage) AS growth_stage,
-          COALESCE(SUM(estimated_yield), 0) AS estimated_yield
-        FROM crop_monitoring_record WHERE block_id = ? AND record_type = 'HARVEST'
-        """, block.getId());
-      values.put("healthStatus", healthStatus); values.put("harvestedQuantity", yield);
-      values.put("soilAnalysis", fertilization.latestSoil(block.getId())); values.put("growthStage", nutrient.get("growth_stage"));
-      values.put("estimatedYield", nutrient.get("estimated_yield")); values.put("areaHa", block.getAreaHa());
+      var harvest = monitoring.harvestTotals(block.getId());
+      values.put("healthStatus", healthStatus); values.put("harvestedQuantity", harvest.getHarvestedQuantity());
+      values.put("soilAnalysis", fertilization.latestSoil(block.getId())); values.put("growthStage", harvest.getGrowthStage());
+      values.put("estimatedYield", harvest.getEstimatedYield()); values.put("areaHa", block.getAreaHa());
       values.put("conditionStatus", sectors.size() == 1 ? sectors.get(0).get("condition") : sectors.isEmpty() ? "NO_DATA" : "MULTIPLE_SECTORS");
       values.put("pestRisk", "NO_DATA");
       var feature = new LinkedHashMap<String, Object>(); feature.put("type", "Feature"); feature.put("geometry", block.getGeom()); feature.put("properties", values); features.add(feature);
@@ -77,7 +74,7 @@ public class AnalyticsService {
 
   public Map<String, Object> dashboard(Long farmId) {
     access.require(farmId, false);
-    var row = jdbc.queryForMap("""
+    var row = queries.row("""
       SELECT COUNT(DISTINCT b.id) AS blocks,
         COALESCE(SUM(CASE WHEN r.record_type = 'FERTILIZER_APPLICATION' THEN r.quantity ELSE 0 END), 0) AS fertilizer_quantity,
         COALESCE(SUM(CASE WHEN r.record_type = 'IRRIGATION' THEN r.water_volume ELSE 0 END), 0) AS water_volume,
@@ -88,9 +85,9 @@ public class AnalyticsService {
       WHERE f.farm_id = ?
       """, farmId);
     var result = new LinkedHashMap<String, Object>(); result.putAll(row);
-    result.put("openAlerts", jdbc.queryForObject("SELECT COUNT(*) FROM sensor_alert WHERE farm_id = ? AND status = 'OPEN'", Long.class, farmId));
-    result.put("connectedDevices", jdbc.queryForObject("SELECT COUNT(*) FROM sensor_device WHERE farm_id = ? AND active = TRUE", Long.class, farmId));
-    var water = jdbc.queryForMap("""
+    result.put("openAlerts", queries.value("SELECT COUNT(*) FROM sensor_alert WHERE farm_id = ? AND status = 'OPEN'", Long.class, farmId));
+    result.put("connectedDevices", queries.value("SELECT COUNT(*) FROM sensor_device WHERE farm_id = ? AND active = TRUE", Long.class, farmId));
+    var water = queries.row("""
       SELECT COALESCE(SUM(CASE WHEN e.volume_mode='METER' THEN e.volume_m3 ELSE 0 END),0) AS measured,
         COALESCE(SUM(CASE WHEN e.volume_mode='FLOW' THEN e.volume_m3 ELSE 0 END),0) AS estimated
       FROM irrigation_execution e JOIN irrigation_plan p ON p.id=e.plan_id
@@ -110,7 +107,7 @@ public class AnalyticsService {
     if (start.plusDays(366).isBefore(end)) throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "El periodo no puede superar 366 días");
 
     var sectors = new LinkedHashMap<Long, Map<String, Object>>();
-    for (var row : jdbc.queryForList("""
+    for (var row : queries.rows("""
       SELECT s.id AS sector_id,s.details,b.id AS block_id,b.code AS block_code,b.area_ha
       FROM irrigation_sector s JOIN block b ON b.id=s.block_id JOIN field f ON f.id=b.field_id
       WHERE f.farm_id=? ORDER BY b.code,s.id
@@ -127,7 +124,7 @@ public class AnalyticsService {
       value.put("moistureAverage", null); value.put("moistureReadingCount", 0L); sectors.put(sectorId, value);
     }
 
-    for (var plan : jdbc.queryForList("""
+    for (var plan : queries.rows("""
       SELECT p.id,p.sector_id,p.details,p.status
       FROM irrigation_plan p JOIN irrigation_sector s ON s.id=p.sector_id JOIN block b ON b.id=s.block_id JOIN field f ON f.id=b.field_id
       WHERE f.farm_id=?
@@ -141,7 +138,7 @@ public class AnalyticsService {
     }
 
     var executedPlans = new HashMap<Long, Set<Long>>();
-    for (var execution : jdbc.queryForList("""
+    for (var execution : queries.rows("""
       SELECT e.plan_id,e.started_at,e.volume_m3,e.volume_mode,p.sector_id
       FROM irrigation_execution e JOIN irrigation_plan p ON p.id=e.plan_id JOIN irrigation_sector s ON s.id=p.sector_id
       JOIN block b ON b.id=s.block_id JOIN field f ON f.id=b.field_id WHERE f.farm_id=?
@@ -157,7 +154,7 @@ public class AnalyticsService {
     }
     executedPlans.forEach((sectorId, planIds) -> { var value = sectors.get(sectorId); if (value != null) value.put("executedPlanCount", (long) planIds.size()); });
 
-    for (var balance : jdbc.queryForList("""
+    for (var balance : queries.rows("""
       SELECT b.sector_id,b.rainfall_mm,b.required_volume_m3,b.applied_volume_m3,b.deficit_mm
       FROM irrigation_water_balance b JOIN irrigation_sector s ON s.id=b.sector_id JOIN block bl ON bl.id=s.block_id JOIN field f ON f.id=bl.field_id
       WHERE f.farm_id=? AND b.balance_date BETWEEN ? AND ?
@@ -170,9 +167,9 @@ public class AnalyticsService {
 
     var moistureSums = new HashMap<Long, BigDecimal>();
     var moistureCounts = new HashMap<Long, Long>();
-    var periodStart = Timestamp.from(start.atStartOfDay(ZoneOffset.UTC).toInstant());
-    var periodEnd = Timestamp.from(end.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant());
-    for (var reading : jdbc.queryForList("""
+    var periodStart = start.atStartOfDay(ZoneOffset.UTC).toInstant();
+    var periodEnd = end.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+    for (var reading : queries.rows("""
       SELECT m.sector_id,m.details FROM irrigation_measurement m JOIN irrigation_sector s ON s.id=m.sector_id JOIN block b ON b.id=s.block_id
       JOIN field f ON f.id=b.field_id WHERE f.farm_id=? AND m.recorded_at>=? AND m.recorded_at<?
       """, farmId, periodStart, periodEnd)) {
@@ -183,7 +180,7 @@ public class AnalyticsService {
       long sectorId = ((Number) reading.get("sector_id")).longValue();
       moistureSums.merge(sectorId, decimal(details.get("value")), BigDecimal::add); moistureCounts.merge(sectorId, 1L, Long::sum);
     }
-    for (var reading : jdbc.queryForList("""
+    for (var reading : queries.rows("""
       SELECT s.id AS sector_id,r.soil_moisture FROM irrigation_sector s JOIN sensor_device d ON d.id=s.sensor_device_id
       JOIN sensor_reading r ON r.device_id=d.id JOIN block b ON b.id=s.block_id JOIN field f ON f.id=b.field_id
       WHERE f.farm_id=? AND r.recorded_at>=? AND r.recorded_at<? AND r.soil_moisture IS NOT NULL
