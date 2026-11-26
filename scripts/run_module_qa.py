@@ -8,9 +8,11 @@ import os
 from pathlib import Path
 from secrets import token_hex
 from shutil import copy2
+import signal
 import subprocess
+import sys
 
-from run_qa_tests import available_loopback_port
+from run_qa_tests import GRADLE, POSTGIS_IMAGE, available_loopback_port, interrupt, postgis, preflight, qa_api
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
@@ -72,7 +74,7 @@ def test_results(report, file=None):
         yield from test_results(suite, file)
 
 
-def archive_results(output, selected, pause):
+def archive_results(output, selected, pause, *, connected=False):
     json_report = output / "resultados.json"
     report = json.loads(json_report.read_text()) if json_report.exists() else {}
     results = dict(test_results(report))
@@ -80,7 +82,8 @@ def archive_results(output, selected, pause):
     complete = True
     for key in selected:
         name = MODULES[key]
-        result = results.get(key, {})
+        spec_name = "fertilization" if connected else key
+        result = results.get(spec_name, {})
         attachments = result.get("attachments", [])
         video = next(
             (Path(item["path"]) for item in attachments if item["name"] == "video" and item.get("path")),
@@ -115,9 +118,11 @@ def archive_results(output, selected, pause):
         cards.append(f'<article><h2>{escape(name)}</h2><p>{state} · {len(captures)} capturas</p>'
                      f'<a href="modulos/{key}.html">Ver recorrido</a></article>')
 
+    dataset = ('El recorrido usa una finca y una base PostGIS desechables.' if connected
+               else 'Los recorridos usan datos de prueba en sesiones independientes.')
     write_page(output / "index.html", "AgroVision · Pruebas por módulo",
                f'<p>Un video por módulo, con pausas de {pause / 1000:g} segundos por paso. '
-               'Los recorridos usan datos de prueba en sesiones independientes.</p>'
+               f'{dataset}</p>'
                '<nav><a href="playwright/index.html">Informe de Playwright</a></nav>'
                f'<div class="grid">{"".join(cards)}</div>')
     return complete
@@ -137,19 +142,26 @@ def main():
     parser.add_argument("--action-ms", type=nonnegative, default=350, help="Demora por acción de Chrome")
     parser.add_argument("--headless", action="store_true", help="Grabar Chrome en segundo plano")
     parser.add_argument("--workers", type=nonnegative, default=1, help="Procesos de prueba")
+    parser.add_argument("--postgis", action="store_true", help="Ejecutar Fertilización contra una base PostGIS desechable")
+    parser.add_argument("--offline", action="store_true", help="Arrancar la API de pruebas usando la caché de Gradle")
     args = parser.parse_args()
     if args.workers < 1:
         parser.error("--workers debe ser mayor o igual que 1")
+    if args.postgis and args.modulo != "fertilizacion":
+        parser.error("--postgis está disponible para el módulo fertilizacion")
 
     selected = list(MODULES) if args.modulo == "all" else [args.modulo]
+    web_port = available_loopback_port()
+    runtime_env = preflight() if args.postgis else os.environ
     run_id = f'qa-modulos-{datetime.now():%Y%m%d-%H%M%S}-{token_hex(3)}'
     output = FRONTEND / "playwright-report" / run_id
     output.mkdir(parents=True, exist_ok=False)
     for folder in ("videos", "capturas", "modulos"):
         (output / folder).mkdir()
     env = {
-        **os.environ,
-        "AGRO_MODULE_PORT": str(available_loopback_port()),
+        **runtime_env,
+        "AGRO_MODULE_PORT": str(web_port),
+        "AGRO_MODULE_CONNECTED": "1" if args.postgis else "0",
         "AGRO_MODULE_PAUSE_MS": str(args.pause_ms),
         "AGRO_MODULE_ACTION_MS": str(args.action_ms),
         "AGRO_MODULE_HEADLESS": "1" if args.headless else "0",
@@ -159,14 +171,30 @@ def main():
     }
     command = [
         "npm", "run", "test:e2e", "--", "--config", "playwright.modules.config.ts",
-        "--workers", str(args.workers), *[f"qa/modules/{name}.spec.ts" for name in selected],
+        "--workers", str(args.workers),
     ]
     print(f'Pruebas de Chrome en {output.relative_to(ROOT)}', flush=True)
-    result = subprocess.run(command, env=env, cwd=FRONTEND, check=False)
-    complete = archive_results(output, selected, args.pause_ms)
+    if args.postgis:
+        if args.offline:
+            GRADLE.append("--offline")
+        command.extend(["tests/fertilization.spec.ts", "--grep", " connected recurring fertilization"])
+        with postgis(f"agro-{run_id}", POSTGIS_IMAGE, runtime_env) as database_env:
+            with qa_api(database_env, output / "backend.log", web_port) as api_url:
+                env.update({"AGRO_LIVE_TEST": "1", "AGRO_API_URL": api_url, "AGRO_QA_WEB_PORT": str(web_port)})
+                result = subprocess.run(command, env=env, cwd=FRONTEND, check=False)
+    else:
+        command.extend(f"qa/modules/{name}.spec.ts" for name in selected)
+        result = subprocess.run(command, env=env, cwd=FRONTEND, check=False)
+    complete = archive_results(output, selected, args.pause_ms, connected=args.postgis)
     print(f'Informe y videos en {output.relative_to(ROOT) / "index.html"}', flush=True)
     return result.returncode or int(not complete)
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    signal.signal(signal.SIGTERM, interrupt)
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit("Recorrido interrumpido.")
+    except (OSError, RuntimeError, subprocess.CalledProcessError) as error:
+        sys.exit(f"El recorrido falló. {error}")

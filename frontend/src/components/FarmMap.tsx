@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { Plus, Minus, LocateFixed, Layers, Maximize, Navigation, X, ArrowUpRight, SquareStack, Rows3, Leaf, Droplets, FlaskConical, CircleCheck, TriangleAlert } from 'lucide-react';
 import { blockHealth } from '../lib/demo';
 import { moistureLabels } from '../lib/irrigation';
-import { interpretNutrient, units } from '../lib/fertilization';
+import { interpretAnalysis, units } from '../lib/fertilization';
 import { mapNutrientCodes, mapMoistureReading, moistureMapBands, moistureMapColor, moistureMapUnits, nutrientMapBand, nutrientMapColors, summarizeNutrientMap } from '../lib/map-analytics';
 import type { AnalyticsLayer, Block, DiseaseLayer, Farm, Field, PolygonGeometry, Row } from '../lib/types';
 import { healthLabels } from '../lib/inspections';
@@ -26,6 +26,7 @@ export interface FarmMapProps {
   onSelectField?: (id: number) => void;
   onInspectBlock?: () => void;
   blockPresentation?: ReadonlyMap<number, BlockPresentation>;
+  fitWholeGeometry?: boolean;
   irrigationNetwork?: boolean;
   infrastructurePoints?: MapPoint[];
   legend?: ReactNode;
@@ -134,7 +135,7 @@ function IllustratedFarmMap({ blocks, fields = [], layer = 'satellite', comparis
     if (!properties) return `${block.code}: sin datos`;
     if (activeLayer === 'moisture') return `${block.code}: ${moistureLabel(properties)}`;
     if (activeLayer === 'health') return `${block.code}: ${healthLabels[properties.healthStatus ?? 'NO_RECENT_INSPECTION']}`;
-    if (activeLayer === 'nutrients') { const result = nutrientResult(properties); const interpretation = result ? interpretNutrient(result, properties.crop, properties.soilAnalysis?.sampleType ?? 'SOIL') : undefined; return `${block.code}: ${nutrient} ${result?.value ?? 'sin dato'} ${result ? units[result.unit] : ''} · ${interpretation?.label ?? 'Sin interpretar'} · ${properties.soilAnalysis?.sampledOn ?? 'Sin muestra'}`; }
+    if (activeLayer === 'nutrients') { const result = nutrientResult(properties); const interpretation = properties.soilAnalysis && interpretAnalysis(properties.soilAnalysis, properties.crop, demo).interpretations.find(item => item.nutrient === result?.nutrient); return `${block.code}: ${nutrient} ${result?.value ?? 'sin dato'} ${result ? units[result.unit] : ''} · ${interpretation?.label ?? 'Sin interpretar'} · ${properties.soilAnalysis?.sampledOn ?? 'Sin muestra'}`; }
     return `${block.code}: ${properties.areaHa ?? block.areaHa ?? 'sin dato'} ha`;
   };
   const moistureLegend = <div className="map-layer-inline-legend">

@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Plus, Leaf, Sprout, MapPin, ArrowUpRight, Trash2, Rows3, Grid2X2, LayoutList, ChevronRight, ChevronDown, Download, Wrench, Map as MapIcon, Warehouse, Layers, Eye, CalendarDays } from 'lucide-react';
 import { useApp } from '../context';
+import { api } from '../lib/api';
+import { readDemo } from '../lib/demo';
 import { csvCell, number, farmMetrics, eventLabels } from '../lib/domain';
+import { demoInspections, inspectionDemoKey, inspectionHealth, type HealthStatus } from '../lib/inspections';
+import { readProductionDemo, type ProductionRecord } from '../lib/production';
 import { Badge, Donut, Empty, Modal, Panel } from '../components/ui';
 import { ResourceForm } from '../components/Forms';
 import FieldOverviewMap, { fieldMapColors } from '../components/FieldOverviewMap';
 import FarmMap from '../components/FarmMap';
 import { EventIcon } from './Dashboard';
-import type { FieldEvent, Row } from '../lib/types';
+import type { Field, FieldEvent, Row } from '../lib/types';
 
 export default function Records({ page }: { page: 'fields' | 'plants' }) {
   return page === 'fields' ? <FieldsOverview /> : <PlantsOverview />;
@@ -196,17 +200,15 @@ function FieldsOverview() {
   const activeBlocks = activeField ? data.blocks.filter(block => block.field.id === activeField.id) : [];
   const varieties = visibleBlocks.map(block => block.variety || block.crop).filter(Boolean);
   const mainVariety = varieties.length ? Object.entries(varieties.reduce<Record<string, number>>((counts, variety) => { counts[variety] = (counts[variety] ?? 0) + 1; return counts; }, {})).sort(([, first], [, second]) => second - first)[0][0] : 'Sin registrar';
-  const fieldStats = (field: typeof data.fields[number], index: number) => {
+  const fieldStats = (field: Field) => {
     const fieldBlocks = data.blocks.filter(block => block.field.id === field.id);
     const fieldRows = data.rows.filter(row => row.block.field.id === field.id);
     const plants = fieldRows.reduce((total, row) => total + (row.plantsEstimated ?? 0), 0);
-    const health = mode === 'demo' ? [78, 65, 82, 58][index] ?? 70 : undefined;
-    const production = mode === 'demo' ? [210, 160, 85, 130][index] ?? 0 : undefined;
-    return { fieldBlocks, fieldRows, plants, health, production };
+    return { fieldBlocks, fieldRows, plants };
   };
   const fieldIndex = (id: number) => Math.max(0, data.fields.findIndex(field => field.id === id));
-  const stats = visibleFields.map(field => fieldStats(field, fieldIndex(field.id)));
-  const selectedStats = activeField ? fieldStats(activeField, fieldIndex(activeField.id)) : undefined;
+  const stats = visibleFields.map(fieldStats);
+  const selectedStats = activeField ? fieldStats(activeField) : undefined;
   const areaTotal = visibleFields.reduce((total, field) => total + (field.areaHa ?? 0), 0) || visibleBlocks.reduce((total, block) => total + (block.areaHa ?? 0), 0);
   const latestEvent = (type: string) => data.events.filter(event => event.eventType === type && (event.block?.field.id === activeField?.id || event.row?.block.field.id === activeField?.id)).sort((first, second) => second.occurredAt.localeCompare(first.occurredAt))[0];
   const eventDate = (type: string) => { const event = latestEvent(type); return event ? new Date(event.occurredAt).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Sin registrar'; };
@@ -227,7 +229,7 @@ function FieldsOverview() {
 
   function exportFields() {
     const rows = [['Campo', 'Área (ha)', 'Bloques', 'Surcos', 'Plantas estimadas', 'Variedad']];
-    visibleFields.forEach((field, index) => { const detail = fieldStats(field, index); rows.push([field.name, String(field.areaHa ?? ''), String(detail.fieldBlocks.length), String(detail.fieldRows.length), String(detail.plants), [...new Set(detail.fieldBlocks.map(block => block.variety || block.crop))].join(' · ') || 'Sin registrar']); });
+    visibleFields.forEach((field, index) => { const detail = stats[index]; rows.push([field.name, String(field.areaHa ?? ''), String(detail.fieldBlocks.length), String(detail.fieldRows.length), String(detail.plants), [...new Set(detail.fieldBlocks.map(block => block.variety || block.crop))].join(' · ') || 'Sin registrar']); });
     const blob = new Blob([rows.map(row => row.map(csvCell).join(',')).join('\n')], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'campos-agrovision.csv'; anchor.click(); URL.revokeObjectURL(url); notify('Exportación de campos descargada.');
   }
@@ -290,22 +292,7 @@ function FieldsOverview() {
                 </div>)}</div>
               </div> : <p className="fields-data-note">Sin áreas registradas para los campos visibles.</p>}
             </Panel>
-            <Panel title="Salud del cultivo por campo" action={mode === 'demo' ? <Badge tone="neutral">Ejemplo</Badge> : undefined}>
-              {mode === 'demo' && visibleFields.length > 0 ? <div className="fields-health-list">{visibleFields.map((field, index) => {
-                const health = stats[index].health ?? 0;
-                const color = health < 60 ? '#ef8b2d' : health < 70 ? '#f5be2b' : '#55ad5a';
-                return <div key={field.id}><span>{field.name}</span><div><i style={{ width: health + '%', background: color }} /></div><strong>{health}%</strong></div>;
-              })}</div> : <p className="fields-data-note">Consulta las evaluaciones sanitarias por bloque en Mapas.</p>}
-            </Panel>
-            <Panel title="Producción estimada" action={mode === 'demo' ? <Badge tone="neutral">Ejemplo</Badge> : undefined}>
-              {mode === 'demo' && visibleFields.length > 0 ? <div className="fields-production-chart">{visibleFields.map((field, index) => {
-                const production = stats[index].production ?? 0;
-                return <div className="fields-production-bar" key={field.id}>
-                  <strong>{production} t</strong><div><i style={{ height: (production / Math.max(...stats.map(item => item.production ?? 0), 1) * 100) + '%', background: colorFor(field.id) }} /></div>
-                  <span>{field.name}</span>
-                </div>;
-              })}</div> : <p className="fields-data-note">Sin estimaciones de producción por campo.</p>}
-            </Panel>
+            <FieldDataPanels fields={visibleFields} />
           </div>
         </> : <Panel className="fields-list-panel">
           <div className="fields-list-heading">
@@ -371,4 +358,51 @@ function FieldsOverview() {
     {form && <ResourceForm resource={form} onClose={() => setForm(null)} />}
     {deleting && <Modal title="Eliminar campo" onClose={() => !busy && setDeleting(null)}><div className="form-stack"><p>¿Eliminar <strong>{deleting.label}</strong>? Esta acción es permanente y puede afectar sus bloques y registros dependientes.</p>{error && <p className="form-error" role="alert">{error}</p>}<div className="form-actions"><button className="button secondary" disabled={busy} onClick={() => setDeleting(null)}>Cancelar</button><button className="button danger" disabled={busy} onClick={() => void confirmDelete()}><Trash2 size={16} />{busy ? 'Eliminando…' : 'Eliminar campo'}</button></div></div></Modal>}
   </div>;
+}
+
+function FieldDataPanels({ fields }: { fields: Field[] }) {
+  const { data, mode, farmId } = useApp();
+  const [health, setHealth] = useState<Map<number, HealthStatus | undefined> | null>();
+  const [production, setProduction] = useState<ProductionRecord[] | null | undefined>(() => mode === 'demo' ? readProductionDemo() : undefined);
+
+  useEffect(() => {
+    if (mode === 'demo') return;
+    let active = true;
+    api.analyticsMap(farmId, 'health').then(layer => {
+      if (active) setHealth(new Map(layer.features.map(({ properties }) => [properties.blockId, properties.healthStatus])));
+    }).catch(() => { if (active) setHealth(null); });
+    api.productionRecords(farmId).then(records => { if (active) setProduction(records); })
+      .catch(() => { if (active) setProduction(null); });
+    return () => { active = false; };
+  }, [farmId, mode]);
+
+  const inspections = mode === 'demo' ? readDemo(inspectionDemoKey, demoInspections()) : null;
+  const healthByBlock = inspections ? new Map(data.blocks.map(block => [block.id, inspectionHealth(inspections, block.id)])) : health;
+  const estimates = new Map<number, Map<string, number>>();
+  for (const record of production ?? []) {
+    if (record.estimatedYield == null || !record.yieldUnit) continue;
+    const fieldId = record.fieldId ?? data.blocks.find(block => block.id === record.blockId)?.field.id ??
+      data.rows.find(row => row.id === record.rowId)?.block.field.id;
+    if (fieldId == null) continue;
+    const totals = estimates.get(fieldId) ?? new Map<string, number>();
+    totals.set(record.yieldUnit, (totals.get(record.yieldUnit) ?? 0) + record.estimatedYield);
+    estimates.set(fieldId, totals);
+  }
+
+  return <>
+    <Panel title="Salud del cultivo por campo">
+      {healthByBlock && fields.length ? <dl className="fields-detail-list">{fields.map(field => {
+        const statuses = data.blocks.filter(block => block.field.id === field.id).map(block => healthByBlock.get(block.id));
+        const assessed = statuses.filter(status => status === 'ACTIVE_FINDINGS' || status === 'NO_ACTIVE_FINDINGS').length;
+        const findings = statuses.filter(status => status === 'ACTIVE_FINDINGS').length;
+        return <div key={field.id}><dt>{field.name}</dt><dd>{assessed ? `${findings} con hallazgos · ${assessed}/${statuses.length} bloques evaluados` : 'Sin evaluaciones recientes'}</dd></div>;
+      })}</dl> : <p className="fields-data-note">{healthByBlock === null ? 'No se pudo consultar la salud del cultivo.' : healthByBlock === undefined ? 'Consultando evaluaciones…' : 'Sin campos en la selección.'}</p>}
+    </Panel>
+    <Panel title="Producción estimada">
+      {production && fields.length ? <dl className="fields-detail-list">{fields.map(field => {
+        const totals = estimates.get(field.id);
+        return <div key={field.id}><dt>{field.name}</dt><dd>{totals ? [...totals].map(([unit, quantity]) => `${number(quantity, 2)} ${unit}`).join(' · ') : 'Sin estimación registrada'}</dd></div>;
+      })}</dl> : <p className="fields-data-note">{production === null ? 'No se pudo consultar la producción estimada.' : production === undefined ? 'Consultando cosechas…' : 'Sin campos en la selección.'}</p>}
+    </Panel>
+  </>;
 }

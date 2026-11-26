@@ -11,7 +11,12 @@ export interface Field { id: number; name: string; farm: Farm; areaHa?: number; 
 export interface Block { id: number; code: string; field: Field; crop: string; cropId?: number; variety?: string; varietyId?: number; areaHa?: number; geom?: PolygonGeometry }
 export interface Row { id: number; rowCode: string; block: Block; geom?: LineStringGeometry; lengthM?: number; plantSpacingM?: number; plantsEstimated?: number }
 export type EventType = 'SCOUTING_OBSERVATION' | 'TREATMENT_APPLICATION' | 'FERTILIZER_APPLICATION' | 'IRRIGATION_EVENT' | 'HANDLING_EVENT' | 'SOIL_SAMPLE' | 'HARVEST_EVENT';
-export interface FieldEvent { id: number; eventType: EventType; occurredAt: string; notes?: string; block?: Block; row?: Row; createdByUserId: number; plantIndexStart?: number; plantIndexEnd?: number }
+export interface FieldEvent {
+  id: number; eventType: EventType; occurredAt: string; notes?: string; block?: Block; row?: Row;
+  createdByUserId: number; plantIndexStart?: number; plantIndexEnd?: number;
+  observation?: { severity?: number; symptoms?: string; suspectedCatalogId?: number };
+  legacyObservation?: import('./legacy-observation').LegacyObservation;
+}
 export interface Member { userId: number; name: string; email: string; role: Role }
 export interface DiseaseFeature { type: 'Feature'; geometry: { type: 'LineString'; coordinates: number[][] }; properties: { rowId: number; rowCode: string; maxSeverity: number | null; countObservations: number; lastObservedAt: string | null } }
 export interface DiseaseLayer { type: 'FeatureCollection'; features: DiseaseFeature[] }

@@ -84,8 +84,9 @@ export function ResourceForm({ resource, onClose }: { resource: 'farms' | 'field
 }
 
 export function EventForm({ onClose, initialType = 'SCOUTING_OBSERVATION' }: { onClose: () => void; initialType?: string }) {
-  const { data, create, mode, notify } = useApp();
-  const [type, setType] = useState(initialType);
+  const { data, create, mode, navigate, notify } = useApp();
+  const types = Object.entries(eventLabels).filter(([value]) => mode === 'demo' || (value !== 'FERTILIZER_APPLICATION' && value !== 'TREATMENT_APPLICATION'));
+  const [type, setType] = useState(types.some(([value]) => value === initialType) ? initialType : 'SCOUTING_OBSERVATION');
   const [blockId, setBlockId] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -104,8 +105,9 @@ export function EventForm({ onClose, initialType = 'SCOUTING_OBSERVATION' }: { o
   return <Modal title="Registrar actividad" onClose={() => !busy && onClose()} wide><form className="form-stack" onSubmit={submit}>
     <p className="muted">Después de guardar, abre el detalle de la actividad para adjuntar fotos desde archivos o cámara.</p>
     {mode === 'demo' && <Notice>Este registro es de demostración y no se enviará al servidor.</Notice>}
+    {mode === 'live' && <Notice>Para registrar aplicaciones y descontar sus insumos, abre <button className="text-button" type="button" onClick={() => { onClose(); navigate('fertilization'); }}>Fertilización</button> o <button className="text-button" type="button" onClick={() => { onClose(); navigate('disease'); }}>Plagas y Enfermedades</button>.</Notice>}
     <fieldset className="record-form-section form-grid"><legend>Actividad y ubicación</legend>
-    <label>Tipo de actividad<select value={type} onChange={event => setType(event.target.value)}>{Object.entries(eventLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+    <label>Tipo de actividad<select value={type} onChange={event => setType(event.target.value)}>{types.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
     <label>Bloque<select required value={blockId} onChange={event => setBlockId(event.target.value)}><option value="">Seleccionar bloque</option>{data.blocks.map(block => <option key={block.id} value={block.id}>{block.code}</option>)}</select></label><label>Fecha y hora<input required name="occurredAt" type="datetime-local" defaultValue={localTime} /></label>
     <label>Surco (opcional)<select name="rowId" key={blockId}><option value="">Todo el bloque</option>{data.rows.filter(row => row.block.id === Number(blockId)).map(row => <option key={row.id} value={row.id}>{row.rowCode}</option>)}</select></label>
     <label>Desde planta (opcional)<input type="number" min="1" step="1" name="plantStart" /></label><label>Hasta planta (opcional)<input type="number" min="1" step="1" name="plantEnd" /></label>

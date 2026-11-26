@@ -1,0 +1,97 @@
+.fertilization-plan-coverage {
+  min-width: 0;
+}
+
+.fertilization-coverage-toolbar,
+.fertilization-coverage-toolbar > div,
+.fertilization-coverage-plans li,
+.fertilization-field-statuses {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.fertilization-coverage-toolbar {
+  justify-content: space-between;
+  margin: 0 0 12px;
+}
+
+.fertilization-coverage-toolbar label {
+  max-width: 100%;
+}
+
+.fertilization-coverage-toolbar select {
+  width: auto;
+  max-width: 100%;
+}
+
+.fertilization-coverage-values {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 125px), 1fr));
+  margin: 0 0 14px;
+  gap: 8px;
+}
+
+.fertilization-coverage-values > div {
+  background: #f4f8f5;
+  border: 1px solid #e2ebe5;
+  padding: 9px 10px;
+  border-radius: 8px;
+}
+
+.fertilization-coverage-values dt {
+  color: #465e4c;
+  font-size: .8rem;
+}
+
+.fertilization-coverage-values dd {
+  margin: 4px 0 0;
+  color: #17482e;
+  font-weight: 700;
+}
+
+.fertilization-plan-coverage .farm-map:not(.map-expanded) {
+  height: clamp(235px, 36vw, 390px);
+}
+
+.fertilization-coverage-legend,
+.fertilization-coverage-plans {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.fertilization-coverage-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.fertilization-coverage-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .82rem;
+}
+
+.fertilization-coverage-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.fertilization-coverage-plans li {
+  padding: 9px 0;
+  border-top: 1px solid #e2ebe5;
+}
+
+.fertilization-field-statuses {
+  gap: 4px 6px;
+}
+
+.fertilization-coverage-caption {
+  margin: 10px 0 0;
+  font-size: .85rem;
+  color: #465e4c;
+}

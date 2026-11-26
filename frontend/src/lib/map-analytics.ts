@@ -2,8 +2,17 @@ import type { MoistureCondition, MoistureUnit } from './irrigation';
 import type { AnalyticsLayer } from './types';
 import { nutrientNames } from './fertilization';
 import type { Nutrient, SoilResult } from './fertilization';
+import { healthLabels, type HealthStatus } from './inspections';
 
 export const mapNutrientCodes = Object.fromEntries(Object.entries(nutrientNames).map(([code, label]) => [label, code])) as Record<string, Nutrient>;
+
+export const healthMapColors: Record<HealthStatus, string> = {
+  ACTIVE_FINDINGS: '#e95e51',
+  NO_ACTIVE_FINDINGS: '#62b66b',
+  NO_RECENT_INSPECTION: '#9eaea0',
+};
+
+export const healthMapBands = (Object.keys(healthMapColors) as HealthStatus[]).map(status => ({ label: healthLabels[status], color: healthMapColors[status] }));
 
 export const moistureMapBands: { status: MoistureCondition; label: string; color: string }[] = [
   { status: 'BELOW_RANGE', label: 'Por debajo del rango', color: '#ef8135' },

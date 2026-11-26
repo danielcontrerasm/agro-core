@@ -1,0 +1,2 @@
+ALTER TABLE field ADD name VARCHAR(100);
+ALTER TABLE block ADD code VARCHAR(100);

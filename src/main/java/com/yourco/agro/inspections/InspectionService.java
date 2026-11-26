@@ -1,15 +1,23 @@
 package com.yourco.agro.inspections;
 
 import com.yourco.agro.auth.FarmAccess;
+import com.yourco.agro.farm.FarmBusinessDate;
+import com.yourco.agro.finances.FinanceDtos.Category;
+import com.yourco.agro.finances.FinanceService;
+import com.yourco.agro.inventory.InventoryDtos.ApplicationConsumption;
+import com.yourco.agro.inventory.InventoryService;
 import com.yourco.agro.persistence.JpaSql;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.function.Function;
 
@@ -17,6 +25,15 @@ import java.util.function.Function;
 public class InspectionService {
   private final JpaSql queries;
   private final FarmAccess access;
+  private final ApplicationEventPublisher events;
+  private final InventoryService inventory;
+  private final FinanceService finance;
+  private static final String TREATMENTS = """
+    SELECT t.*, u.name AS author_name, m.quantity AS inventory_quantity, fu.id AS followup_id
+    FROM inspection_treatment t JOIN app_user u ON u.id = t.created_by_user_id
+    LEFT JOIN inventory_movement m ON m.id = t.inventory_movement_id
+    LEFT JOIN inspection_treatment_followup fu ON fu.treatment_id = t.id
+    """;
   private static final String SELECT = """
     SELECT i.*, f.farm_id, p.name AS problem_name, u.name AS inspector_name
     FROM phytosanitary_inspection i JOIN block b ON b.id = i.block_id
@@ -42,7 +59,16 @@ public class InspectionService {
       result.text("cancellation_reason"), result.value("parent_inspection_id", Long.class));
   };
 
-  public InspectionService(JpaSql queries, FarmAccess access) { this.queries = queries; this.access = access; }
+  public InspectionService(JpaSql queries, FarmAccess access, ApplicationEventPublisher events,
+                           InventoryService inventory, FinanceService finance) {
+    this.queries = queries;
+    this.access = access;
+    this.events = events;
+    this.inventory = inventory;
+    this.finance = finance;
+  }
+
+  record Recorded(InspectionDtos.Inspection inspection) {}
 
   public List<InspectionDtos.Problem> problems(Long farmId, boolean includeInactive) {
     if (farmId == null) throw badRequest("La finca es obligatoria");
@@ -130,7 +156,9 @@ public class InspectionService {
       """, request.blockId(), request.rowId(), problemCode, request.inspectedAt(), request.inspectedPlants(),
       request.affectedPlants(), request.affectedAreaHa(), request.symptoms(), request.severityPercent(),
       request.severityMethod(), request.nextVisit(), access.userId(), request.parentInspectionId());
-    return get(id);
+    var inspection = get(id);
+    events.publishEvent(new Recorded(inspection));
+    return inspection;
   }
 
   public InspectionDtos.Inspection get(Long id) {
@@ -189,11 +217,11 @@ public class InspectionService {
     return "NO_ACTIVE_FINDINGS";
   }
 
-  private ResponseStatusException badRequest(String message) { return new ResponseStatusException(HttpStatus.BAD_REQUEST, message); }
+  private static ResponseStatusException badRequest(String message) { return new ResponseStatusException(HttpStatus.BAD_REQUEST, message); }
 
   private ResponseStatusException conflict(String message) { return new ResponseStatusException(HttpStatus.CONFLICT, message); }
 
-  private String normalizeCode(String value) {
+  static String normalizeCode(String value) {
     String normalized = value.trim().toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]+", "_");
     if (normalized.isBlank() || normalized.length() > 40) throw badRequest("El código no es válido");
     return normalized;
@@ -205,11 +233,19 @@ public class InspectionService {
     return normalized;
   }
 
-  private InspectionDtos.Inspection writable(Long id) {
+  InspectionDtos.Inspection lockedInspection(Long id) {
     get(id);
     queries.value("SELECT id FROM phytosanitary_inspection WHERE id = ? FOR UPDATE", Long.class, id);
-    var inspection = get(id);
+    return get(id);
+  }
+
+  void requireWritable(InspectionDtos.Inspection inspection) {
     if (inspection.canceledAt() != null) throw new ResponseStatusException(HttpStatus.CONFLICT, "La inspección está anulada");
+  }
+
+  InspectionDtos.Inspection writable(Long id) {
+    var inspection = lockedInspection(id);
+    requireWritable(inspection);
     return inspection;
   }
 
@@ -227,25 +263,87 @@ public class InspectionService {
 
   public List<InspectionDtos.Treatment> treatments(Long id) {
     get(id);
-    return queries.select("""
-      SELECT t.*, u.name AS author_name FROM inspection_treatment t JOIN app_user u ON u.id = t.created_by_user_id
-      WHERE t.inspection_id = ? ORDER BY t.occurred_at DESC, t.id DESC
-      """, result -> new InspectionDtos.Treatment(result.longValue("id"), result.longValue("inspection_id"),
-      result.instant("occurred_at"), result.text("description"), result.text("product"),
-      result.value("quantity", Double.class), result.text("unit"), result.longValue("created_by_user_id"), result.text("author_name")), id);
+    return queries.select(TREATMENTS + " WHERE t.inspection_id = ? ORDER BY t.occurred_at DESC, t.id DESC",
+      InspectionService::treatment, id);
   }
 
   @Transactional
   public InspectionDtos.Treatment addTreatment(Long id, InspectionDtos.TreatmentRequest request) {
-    var inspection = writable(id);
+    var inspection = lockedInspection(id);
+    var previous = replayedTreatment(id, request, null);
+    return previous != null ? previous : createTreatment(inspection, request, null, null);
+  }
+
+  InspectionDtos.Treatment replayedTreatment(long inspectionId, InspectionDtos.TreatmentRequest request, Long followupId) {
+    if (request.operationId() == null) return null;
+    var result = queries.select(TREATMENTS + " WHERE t.inspection_id = ? AND t.operation_id = ?", row -> row,
+      inspectionId, request.operationId()).stream().findFirst();
+    if (result.isEmpty()) return null;
+    var row = result.get();
+    var saved = treatment(row);
+    if (!Objects.equals(row.value("followup_id", Long.class), followupId) || saved.createdByUserId() != access.userId().longValue()
+        || !saved.occurredAt().equals(request.occurredAt().truncatedTo(ChronoUnit.MICROS))
+        || !saved.description().equals(request.description().strip()) || !Objects.equals(saved.inventoryLotId(), request.inventoryLotId())
+        || !sameQuantity(saved.quantity(), request.quantity()) || hasText(request.product()) || hasText(request.unit())) {
+      throw conflict("El identificador de operación ya corresponde a otro tratamiento");
+    }
+    return saved;
+  }
+
+  InspectionDtos.Treatment createTreatment(InspectionDtos.Inspection inspection, InspectionDtos.TreatmentRequest request,
+                                          Long followupId, Long expectedProductId) {
+    requireWritable(inspection);
+    Instant occurredAt = request.occurredAt().truncatedTo(ChronoUnit.MICROS);
     if (request.occurredAt().isBefore(inspection.inspectedAt())) throw badRequest("El tratamiento no puede ser anterior a la inspección");
-    if ((request.quantity() == null) != (request.unit() == null || request.unit().isBlank())) throw badRequest("Indica cantidad y unidad juntas");
+    if (request.inventoryLotId() == null && (hasText(request.product()) || hasText(request.unit()) || request.quantity() != null)) {
+      throw badRequest("Selecciona un lote de inventario para registrar un producto aplicado");
+    }
+    if (hasText(request.product()) || hasText(request.unit())) throw badRequest("El producto y la unidad se obtienen del lote de inventario");
+    LocalDate appliedOn = FarmBusinessDate.from(occurredAt);
+    ApplicationConsumption consumption = null;
+    if (request.inventoryLotId() != null) {
+      if (request.quantity() == null || request.operationId() == null) throw badRequest("Indica la cantidad aplicada y el identificador de operación");
+      String reference = "Tratamiento de inspección #" + inspection.id();
+      if (followupId != null) reference += " · Orden #" + followupId;
+      consumption = inventory.consumeForApplication(inspection.farmId(), request.inventoryLotId(), request.operationId(),
+        request.quantity(), expectedProductId, appliedOn, reference);
+      if (consumption.costCop() == null) throw badRequest("Registra el costo unitario del lote antes de aplicar el producto");
+    }
     long treatmentId = queries.insert("""
-      INSERT INTO inspection_treatment (inspection_id, occurred_at, description, product, quantity, unit, created_by_user_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-      """, id, request.occurredAt(), request.description().trim(), request.product(), request.quantity(),
-      request.quantity() == null ? null : request.unit().trim(), access.userId());
-    return treatments(id).stream().filter(treatment -> treatment.id().equals(treatmentId)).findFirst().orElseThrow();
+      INSERT INTO inspection_treatment (inspection_id, occurred_at, description, product, quantity, unit, created_by_user_id, operation_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      """, inspection.id(), occurredAt, request.description().strip(), consumption == null ? null : consumption.productName(),
+      request.quantity(), consumption == null ? null : consumption.unit(), access.userId(), request.operationId());
+    if (consumption != null) {
+      long expenseId = finance.recordApplicationExpense(inspection.farmId(), inspection.blockId(), request.operationId(), appliedOn,
+        Category.PHYTOSANITARY, consumption.costCop(), "Tratamiento #" + treatmentId + " · " + consumption.productName(),
+        "PHYTOSANITARY_TREATMENT", treatmentId);
+      queries.execute("""
+        UPDATE inspection_treatment SET inventory_lot_id = ?, inventory_lot_code = ?, inventory_movement_id = ?, financial_entry_id = ?
+        WHERE id = ?
+        """, request.inventoryLotId(), consumption.lotCode(), consumption.movementId(), expenseId, treatmentId);
+    }
+    return queries.selectOne(TREATMENTS + " WHERE t.id = ?", InspectionService::treatment, treatmentId);
+  }
+
+  static BigDecimal treatmentQuantity(JpaSql.Row row) {
+    BigDecimal consumed = row.value("inventory_quantity", BigDecimal.class);
+    return consumed == null ? row.value("quantity", BigDecimal.class) : consumed;
+  }
+
+  private static InspectionDtos.Treatment treatment(JpaSql.Row row) {
+    return new InspectionDtos.Treatment(row.longValue("id"), row.longValue("inspection_id"), row.instant("occurred_at"),
+      row.text("description"), row.text("product"), treatmentQuantity(row), row.text("unit"), row.longValue("created_by_user_id"),
+      row.text("author_name"), row.value("inventory_lot_id", Long.class), row.text("inventory_lot_code"),
+      row.value("inventory_movement_id", Long.class));
+  }
+
+  private static boolean sameQuantity(BigDecimal saved, BigDecimal request) {
+    return saved == null ? request == null : request != null && saved.compareTo(request) == 0;
+  }
+
+  private static boolean hasText(String value) {
+    return value != null && !value.isBlank();
   }
 
   public List<InspectionDtos.Evidence> evidence(Long id) {

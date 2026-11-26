@@ -40,7 +40,7 @@
 .crop-app-shell .notification-button svg{width:21px;height:21px;color:#40574a}
 .crop-app-shell .notification-button i{width:18px;height:18px;top:-3px;right:-3px;font-size:9px}
 .crop-app-shell .profile-button{width:42px;height:42px;font-size:12px;background:#dff1e8;color:#087b50}
-.crop-app-shell .environment-bar,.crop-app-shell main .breadcrumbs,.crop-app-shell main .mobile-context,.crop-app-shell main>.footer{display:none}
+.crop-app-shell main .breadcrumbs,.crop-app-shell main .mobile-context,.crop-app-shell main>.footer{display:none}
 .crop-app-shell main{padding:0 16px 24px 8px;max-width:1600px;margin:0;background:#f8fbfa;min-height:calc(100vh - 78px)}
 .crop-app-shell main h1,.crop-app-shell main h2,.crop-app-shell main h3,.crop-app-shell main h4,.crop-app-shell main strong{font-family:Manrope,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 .crop-app-shell main button,.crop-app-shell main p,.crop-app-shell main span,.crop-app-shell main small,.crop-app-shell main select,.crop-app-shell main input,.crop-app-shell main textarea{font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}

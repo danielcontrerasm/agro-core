@@ -1,5 +1,7 @@
 import type { AnalyticsLayer } from './types.ts';
 import { csvCell } from './domain.ts';
+import type { TreatmentFollowup } from './treatment-followups.ts';
+import type { LaboratoryResult } from './laboratory-results.ts';
 
 export interface SanitaryProblem { code: string; name: string; category: 'DISEASE' | 'PEST'; active: boolean }
 export type AssessmentStatus = 'SUSPECTED' | 'CONFIRMED' | 'DISCARDED';
@@ -14,11 +16,16 @@ export interface Inspection {
   reviewNotes?: string | null; reviewedAt?: string | null; version: number;
   canceledAt?: string | null; canceledByUserId?: number | null; cancellationReason?: string | null;
   parentInspectionId?: number | null;
-  treatments?: InspectionTreatment[]; evidence?: InspectionEvidence[];
+  treatments?: InspectionTreatment[]; evidence?: InspectionEvidence[]; treatmentFollowups?: TreatmentFollowup[];
+  laboratoryResults?: LaboratoryResult[];
 }
-export interface InspectionTreatment { id: number; inspectionId: number; occurredAt: string; description: string; product?: string | null; quantity?: number | null; unit?: string | null; createdByUserId: number; authorName: string }
+export interface InspectionTreatment {
+  id: number; inspectionId: number; occurredAt: string; description: string; product?: string | null;
+  quantity?: number | null; unit?: string | null; createdByUserId: number; authorName: string;
+  inventoryLotId?: number | null; inventoryLotCode?: string | null; inventoryMovementId?: number | null;
+}
 export interface InspectionEvidence { id: number; inspectionId: number; treatmentId?: number | null; kind: 'IMAGE' | 'DOCUMENT' | 'VIDEO'; s3Key: string; contentType?: string | null; createdByUserId: number; authorName: string; createdAt: string }
-export type NewTreatment = Pick<InspectionTreatment, 'occurredAt' | 'description' | 'product' | 'quantity' | 'unit'>;
+export type NewTreatment = Pick<InspectionTreatment, 'occurredAt' | 'description' | 'product' | 'quantity' | 'unit' | 'inventoryLotId'> & { operationId?: string };
 export type NewEvidence = Pick<InspectionEvidence, 'treatmentId' | 'kind' | 's3Key' | 'contentType'>;
 export type NewInspection = Pick<Inspection, 'blockId' | 'rowId' | 'problemCode' | 'inspectedAt' | 'inspectedPlants' | 'affectedPlants' | 'affectedAreaHa' | 'symptoms' | 'severityPercent' | 'severityMethod' | 'nextVisit' | 'parentInspectionId'>;
 export type InspectionReview = Pick<Inspection, 'assessmentStatus' | 'resolved' | 'reviewNotes' | 'version'>;

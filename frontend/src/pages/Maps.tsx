@@ -10,9 +10,9 @@ import FarmMap from '../components/FarmMap';
 import type { MapLayer } from '../components/FarmMap';
 import { Badge, Donut, LineChart, LinkButton, Notice, Panel } from '../components/ui';
 import { EventList } from './Dashboard';
-import { nutrientNames, readFertilizationDemo, units, withSoilAnalyses, interpretNutrient, nutrientStatusTones } from '../lib/fertilization';
+import { nutrientNames, readFertilizationDemo, units, withSoilAnalyses, interpretAnalysis, nutrientStatusTones } from '../lib/fertilization';
 import { moistureLabels, moistureUnits, readIrrigationDemo, withIrrigation, type MoistureUnit } from '../lib/irrigation';
-import { mapNutrientCodes, mapMoistureReading, moistureMapBands, moistureMapColor, moistureMapUnits, nutrientMapBand, nutrientMapColors, summarizeNutrientMap } from '../lib/map-analytics';
+import { healthMapBands, mapNutrientCodes, mapMoistureReading, moistureMapBands, moistureMapColor, moistureMapUnits, nutrientMapBand, nutrientMapColors, summarizeNutrientMap } from '../lib/map-analytics';
 
 type MapFeature = AnalyticsLayer['features'][number];
 type MoistureReading = { value?: number; unit?: MoistureUnit; sectorCount?: number };
@@ -24,7 +24,7 @@ const layers: { id: MapLayer; label: string; icon: typeof Leaf }[] = [
   { id: 'moisture', label: 'Humedad del suelo', icon: Droplets },
   { id: 'nutrients', label: 'Nutrientes', icon: FlaskConical },
 ];
-const healthLegend = [
+const demoHealthLegend = [
   ['Saludable', '70–100%', '#4eaf5c'],
   ['Estrés leve', '50–70%', '#9dc355'],
   ['Estrés moderado', '30–50%', '#f4c335'],
@@ -35,7 +35,7 @@ const moistureViews: { id: MoistureView; label: string }[] = [
   { id: 'soil', label: 'Humedad del suelo' },
   { id: 'sensors', label: 'Sensores' },
   { id: 'zones', label: 'Zonas de riego' },
-  { id: 'history', label: 'Histórico' },
+  { id: 'history', label: 'Últimas lecturas' },
   { id: 'recommendations', label: 'Revisiones' },
 ];
 
@@ -43,14 +43,14 @@ function nutrientResult(feature: MapFeature | undefined, selectedNutrient: strin
   return feature?.properties.soilAnalysis?.results.find(result => result.nutrient === mapNutrientCodes[selectedNutrient]);
 }
 
-function nutrientInterpretation(feature: MapFeature | undefined, selectedNutrient: string) {
-  const result = nutrientResult(feature, selectedNutrient);
-  return result ? interpretNutrient(result, feature?.properties.crop, feature?.properties.soilAnalysis?.sampleType ?? 'SOIL') : undefined;
+function nutrientInterpretation(feature: MapFeature | undefined, selectedNutrient: string, demo: boolean) {
+  const properties = feature?.properties;
+  return properties?.soilAnalysis ? interpretAnalysis(properties.soilAnalysis, properties.crop, demo).interpretations.find(item => item.nutrient === mapNutrientCodes[selectedNutrient]) : undefined;
 }
 
 function shortMoistureValue(reading: MoistureReading) {
   if (reading.sectorCount && reading.sectorCount > 1) return reading.sectorCount + ' sectores';
-  return reading.value == null ? 'Sin dato' : `${number(reading.value, 1)} ${reading.unit ? moistureMapUnits[reading.unit] : '%'}`;
+  return reading.value == null || !reading.unit ? 'Sin dato' : `${number(reading.value, 1)} ${moistureMapUnits[reading.unit]}`;
 }
 
 function LayerTrend({ samples, unit }: { samples: { date: string; value: number }[]; unit: string }) {
@@ -91,19 +91,22 @@ export default function Maps() {
   const [compare, setCompare] = useState(false);
   const [moistureView, setMoistureView] = useState<MoistureView>('soil');
   const [nutrient, setNutrient] = useState('Nitrógeno (N)');
-  const [disease, setDisease] = useState<DiseaseLayer>();
-  const [analytics, setAnalytics] = useState<AnalyticsLayer>();
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [sources, setSources] = useState<{ farmId: number; disease?: DiseaseLayer; analytics?: AnalyticsLayer; error?: string }>();
   const metrics = farmMetrics(data);
   const demo = mode === 'demo';
+  const currentSources = !demo && sources?.farmId === farmId ? sources : undefined;
+  const loading = !demo && Boolean(farmId) && !currentSources;
   const currentBlock = data.blocks.find(block => block.id === selected);
+  const hasArea = data.fields.some(field => field.areaHa != null) || data.blocks.some(block => block.areaHa != null);
+  const area = currentBlock ? currentBlock.areaHa : hasArea ? metrics.area : undefined;
+  const hasPlantEstimates = data.rows.some(row => row.plantsEstimated != null);
   const demoIrrigation = demo ? readIrrigationDemo() : undefined;
   const demoFertilization = demo ? readFertilizationDemo() : undefined;
-  const visibleAnalytics = demoIrrigation && demoFertilization ? withIrrigation(withSoilAnalyses(withInspectionHealth(demoAnalytics, readDemo(inspectionDemoKey, demoInspections())), demoFertilization.analyses), demoIrrigation.sectors) : analytics;
+  const visibleAnalytics = demoIrrigation && demoFertilization ? withIrrigation(withSoilAnalyses(withInspectionHealth(demoAnalytics, readDemo(inspectionDemoKey, demoInspections())), demoFertilization.analyses), demoIrrigation.sectors) : currentSources?.analytics;
   const analyticsFeatures = visibleAnalytics?.features ?? [];
   const featureForBlock = (blockId: number) => analyticsFeatures.find(feature => feature.properties.blockId === blockId);
   const currentAnalytics = currentBlock ? featureForBlock(currentBlock.id) : undefined;
+  const currentMoisture = mapMoistureReading(currentAnalytics?.properties);
   const focusBlock = currentBlock ?? data.blocks.find(block => block.field.id === mapFieldId) ?? data.blocks[0];
   const focusFeature = focusBlock ? featureForBlock(focusBlock.id) : undefined;
   const moistureSectors = analyticsFeatures.flatMap(feature => feature.properties.irrigationSectors ?? [])
@@ -121,7 +124,7 @@ export default function Maps() {
   const nutrientAverage = nutrientNumbers.length ? nutrientNumbers.reduce((sum, value) => sum + value, 0) / nutrientNumbers.length : undefined;
   const focusMoisture = mapMoistureReading(focusFeature?.properties);
   const focusNutrient = nutrientResult(focusFeature, nutrient);
-  const focusInterpretation = nutrientInterpretation(focusFeature, nutrient);
+  const focusInterpretation = nutrientInterpretation(focusFeature, nutrient, demo);
   const comparisonLayer: MapLayer | undefined = compare && (layer === 'moisture' || layer === 'nutrients') ? layer === 'moisture' ? 'nutrients' : 'moisture' : undefined;
   const thematic = layer === 'moisture' || layer === 'nutrients';
   const title = layer === 'moisture' ? 'Mapa de humedad del suelo' : layer === 'nutrients' ? 'Mapa de nutrientes del suelo' : layer === 'health' ? 'Salud de tu cultivo' : demo ? 'Mapa de la Finca' : 'Plano de la finca';
@@ -154,13 +157,18 @@ export default function Maps() {
   const sampledArea = nutrientAreas.reduce((sum, area) => sum + area, 0);
 
   useEffect(() => {
-    setError(''); setDisease(undefined); setAnalytics(undefined);
-    if (!demo && farmId) {
-      let active = true; setLoading(true);
-      Promise.all([api.disease(farmId), api.analyticsMap(farmId)]).then(([diseaseResult, analyticsResult]) => { if (active) { setDisease(diseaseResult); setAnalytics(analyticsResult); } }).catch(failure => { if (active) setError(failure.message); }).finally(() => { if (active) setLoading(false); });
-      return () => { active = false; };
-    }
-    setLoading(false);
+    if (demo || !farmId) return;
+    let active = true;
+    void Promise.allSettled([api.disease(farmId), api.analyticsMap(farmId)]).then(([disease, analytics]) => {
+      if (!active) return;
+      setSources({
+        farmId,
+        disease: disease.status === 'fulfilled' ? disease.value : undefined,
+        analytics: analytics.status === 'fulfilled' ? analytics.value : undefined,
+        error: disease.status === 'rejected' || analytics.status === 'rejected' ? 'Algunas capas del mapa no están disponibles. Actualiza para volver a consultarlas.' : undefined,
+      });
+    });
+    return () => { active = false; };
   }, [farmId, demo]);
 
   const activateLayer = (nextLayer: MapLayer) => {
@@ -178,7 +186,7 @@ export default function Maps() {
   const renderLegend = (activeLayer: MapLayer) => {
     if (activeLayer === 'nutrients' && !nutrientBands.length) return <p className="map-data-note">Sin muestras para este nutriente.</p>;
     const items = activeLayer === 'moisture' ? moistureMapBands.map(band => [band.label, '', band.color] as const)
-      : activeLayer === 'health' ? healthLegend
+      : activeLayer === 'health' ? demo ? demoHealthLegend : healthMapBands.map(band => [band.label, '', band.color] as const)
       : activeLayer === 'nutrients' ? nutrientBands.map(([index, range]) => [`${range} ${nutrientUnit}`, sampledArea > 0 ? `${number(nutrientAreas[index], 1)} ha` : '', nutrientMapColors[index]] as const)
       : [['Vista general', 'Límites y cobertura', '#579359']] as const;
     return <div className="legend-list map-legend-list">{items.map(([label, value, color]) => <div key={color}><i style={{ background: color }} /><span>{label}</span>{value && <strong>{value}</strong>}</div>)}</div>;
@@ -188,7 +196,7 @@ export default function Maps() {
     const latestSector = moistureSectors.filter(sector => sector.latest).sort((first, second) => Date.parse(second.latest!.recordedAt) - Date.parse(first.latest!.recordedAt))[0];
     if (moistureView === 'sensors') return <><div className="layer-metric"><span className="stat-icon blue"><Droplets size={28} /></span><strong>{sensorSectors.length}<span> sensores</span></strong><Badge>Seguimiento</Badge></div><p className="muted">Sectores con sensor asignado o lectura identificada como sensor.</p><div className="map-selected-reading"><span>Lecturas disponibles</span><strong>{sensorSectors.filter(sector => sector.latest).length}</strong><small>Consulta cada sensor desde la tabla de trazabilidad.</small></div></>;
     if (moistureView === 'zones') return <><div className="layer-metric"><span className="stat-icon blue"><Droplets size={28} /></span><strong>{moistureSectors.length}<span> zonas</span></strong><Badge>Configuradas</Badge></div><p className="muted">Sectores hidráulicos asociados a los bloques del mapa.</p><div className="map-selected-reading"><span>Con límites técnicos</span><strong>{configuredSectors.length}</strong><small>{moistureSectors.length - configuredSectors.length} sin límites configurados.</small></div></>;
-    if (moistureView === 'history') return <><div className="layer-metric"><span className="stat-icon blue"><Droplets size={28} /></span><strong>{moistureSectors.filter(sector => sector.latest).length}<span> lecturas</span></strong><Badge>Histórico</Badge></div><p className="muted">Última lectura registrada por sector, conservando unidad y fecha.</p><div className="map-selected-reading"><span>{latestSector?.name ?? 'Última lectura'}</span><strong>{latestSector?.latest ? `${latestSector.latest.value} ${moistureMapUnits[latestSector.latest.unit]}` : 'Sin dato'}</strong><small>{latestSector?.latest ? new Date(latestSector.latest.recordedAt).toLocaleString('es-CO') : 'No hay lecturas disponibles.'}</small></div></>;
+    if (moistureView === 'history') return <><div className="layer-metric"><span className="stat-icon blue"><Droplets size={28} /></span><strong>{latestReadings.length}<span> lecturas</span></strong></div><p className="muted">Última lectura registrada por sector, conservando unidad y fecha.</p><div className="map-selected-reading"><span>{latestSector?.name ?? 'Última lectura'}</span><strong>{latestSector?.latest ? `${latestSector.latest.value} ${moistureMapUnits[latestSector.latest.unit]}` : 'Sin dato'}</strong><small>{latestSector?.latest ? new Date(latestSector.latest.recordedAt).toLocaleString('es-CO') : 'No hay lecturas disponibles.'}</small></div></>;
     if (moistureView === 'recommendations') return <><div className="layer-metric"><span className="stat-icon blue"><Droplets size={28} /></span><strong>{belowRangeSectors.length + aboveRangeSectors.length}<span> revisiones</span></strong><Badge>Por verificar</Badge></div><p className="muted">Prioriza la revisión de lecturas fuera del rango configurado antes de ajustar un riego.</p><div className="map-selected-reading"><span>Por debajo / por encima</span><strong>{belowRangeSectors.length} / {aboveRangeSectors.length}</strong><small>La interfaz no convierte estos estados en una recomendación automática.</small></div></>;
     return <><div className="layer-metric"><span className="stat-icon blue"><Droplets size={28} /></span><strong>{moistureAverage == null ? '—' : number(moistureAverage, 1)}<span>{moistureAverage == null ? '' : ` ${moistureMapUnits[referenceMoistureUnit]}`}</span></strong><Badge>Valor visible</Badge></div><p className="muted">Promedio calculado con lecturas que comparten la unidad {moistureUnits[referenceMoistureUnit]}.</p><div className="map-selected-reading"><span>{focusBlock?.code ?? 'Bloque seleccionado'}</span><strong>{shortMoistureValue(focusMoisture)}</strong><small>{focusMoisture.condition ? moistureLabels[focusMoisture.condition as keyof typeof moistureLabels] ?? focusMoisture.condition : 'Sin condición registrada'}</small></div><div className="moisture-spectrum"><i /><i /><i /><i /><i /></div><div className="spectrum-labels"><span>Muy seco</span><span>Óptimo</span><span>Exceso</span></div></>;
   };
@@ -215,11 +223,11 @@ export default function Maps() {
     {layer === 'nutrients' && <div className="nutrient-tabs maps-nutrient-tabs">{Object.values(nutrientNames).map(label => <button key={label} type="button" aria-pressed={nutrient === label} className={nutrient === label ? 'active' : ''} onClick={() => setNutrient(label)}>{label}</button>)}</div>}
     {!demo && <Notice>El plano muestra límites, observaciones de salud y la última telemetría disponible por bloque. Las capas se actualizan al consultar el servidor.</Notice>}
     {!demo && data.fields.some(field => field.name.includes('[PRUEBA]')) && <Notice>Plano de prueba: las divisiones marcadas [PRUEBA] tienen ubicación y linderos ficticios. No representan un levantamiento de la finca.</Notice>}
-    {error && <div className="error-banner" role="alert">{error}</div>}
+    {currentSources?.error && <div className="error-banner" role="alert">{currentSources.error}</div>}
     {loading && <div className="notice"><RefreshCw className="spin" size={17} />Cargando observaciones geográficas…</div>}
     {layer === 'health' && <Notice>Rojo: hallazgos activos. Verde: muestra reciente sin hallazgos activos. Gris: sin evaluación reciente. La vigencia vence en la próxima visita o a los 30 días; no es un diagnóstico de todo el bloque.</Notice>}
     <div className="map-page-grid">
-      <Panel className="map-stage"><FarmMap large farm={data.farms[0]} fields={data.fields} blocks={data.blocks} rows={data.rows} layer={layer} comparisonLayer={comparisonLayer} nutrient={nutrient} selected={selected} onSelect={setSelected} onInspectBlock={thematic ? goToTraceability : undefined} onLayerChange={activateLayer} toolsOpen={toolsOpen} onToolsChange={setToolsOpen} expandSignal={expandSignal} demo={demo} disease={disease} analytics={visibleAnalytics} baseLayer={viewMode}
+      <Panel className="map-stage"><FarmMap key={farmId} large farm={data.farms[0]} fields={data.fields} blocks={data.blocks} rows={data.rows} layer={layer} comparisonLayer={comparisonLayer} nutrient={nutrient} selected={selected} onSelect={setSelected} onInspectBlock={thematic ? goToTraceability : undefined} onLayerChange={activateLayer} toolsOpen={toolsOpen} onToolsChange={setToolsOpen} expandSignal={expandSignal} demo={demo} disease={currentSources?.disease} analytics={visibleAnalytics} baseLayer={viewMode}
         legend={demo && layer === 'satellite' && <div className="maps-mini-map map-stage-mini-map">
           <img src="/images/farm-aerial.png" alt="Vista general de la finca" /><span>N</span>
         </div>} /></Panel>
@@ -262,7 +270,7 @@ export default function Maps() {
         </Panel>}
         {!thematic && <Panel className="map-farm-summary">
           <div className="map-farm-heading">
-            <div className="farm-thumbnail" aria-hidden="true" />
+            {demo && <div className="farm-thumbnail" aria-hidden="true" />}
             <div>
               <h3 className="farm-info-name">{currentBlock?.code ?? data.farms[0]?.name ?? 'Información de la finca'}</h3>
               {currentBlock && <p>{currentBlock.field.name}</p>}
@@ -270,15 +278,15 @@ export default function Maps() {
             </div>
           </div>
           <dl className="detail-list map-farm-facts">
-            <div><dt>Área {currentBlock ? 'del bloque' : 'total'}</dt><dd>{number(currentBlock?.areaHa ?? metrics.area, 1)} ha</dd></div>
+            <div><dt>Área {currentBlock ? 'del bloque' : 'total'}</dt><dd>{area == null ? 'Sin registrar' : `${number(area, 1)} ha`}</dd></div>
             <div><dt>Campos</dt><dd>{data.fields.length}</dd></div>
             <div><dt>Bloques</dt><dd>{data.blocks.length}</dd></div>
             <div><dt>Filas</dt><dd>{data.rows.length}</dd></div>
-            <div><dt>Plantas estimadas</dt><dd>{number(metrics.plants)}</dd></div>
-            <div><dt>Variedad</dt><dd>{currentBlock?.variety ?? data.blocks[0]?.variety ?? 'Sin registrar'}</dd></div>
+            <div><dt>Plantas estimadas</dt><dd>{hasPlantEstimates ? number(metrics.plants) : 'Sin registrar'}</dd></div>
+            {currentBlock && <div><dt>Variedad</dt><dd>{currentBlock.variety ?? 'Sin registrar'}</dd></div>}
             {!demo && currentAnalytics && <>
-              <div><dt>Humedad del suelo</dt><dd>{currentAnalytics.properties.soilMoisture ?? 'Sin dato'}{currentAnalytics.properties.soilMoisture != null ? '%' : ''}</dd></div>
-              <div><dt>Condición</dt><dd>{currentAnalytics.properties.conditionStatus}</dd></div>
+              <div><dt>Humedad del suelo</dt><dd>{shortMoistureValue(currentMoisture)}</dd></div>
+              <div><dt>Condición</dt><dd>{currentMoisture.condition ? moistureLabels[currentMoisture.condition] : 'Sin condición por bloque'}</dd></div>
               <div><dt>Evaluación sanitaria</dt><dd>{healthLabels[currentAnalytics.properties.healthStatus ?? 'NO_RECENT_INSPECTION']}</dd></div>
             </>}
           </dl>
@@ -299,7 +307,7 @@ export default function Maps() {
       </aside>
     </div>
     {thematic && <div className="map-bottom-grid">
-      <Panel title={layer === 'moisture' ? 'Evolución de la humedad del suelo' : `Evolución de ${nutrient}`}>
+      <Panel title={demo ? layer === 'moisture' ? 'Evolución de la humedad del suelo' : `Evolución de ${nutrient}` : layer === 'moisture' ? 'Últimas lecturas por sector' : `Últimas muestras por bloque · ${nutrient}`}>
         <LayerTrend samples={layer === 'moisture' ? moistureHistory : nutrientHistory} unit={layer === 'moisture' ? moistureMapUnits[referenceMoistureUnit] : nutrientUnit} />
       </Panel>
       {layer === 'moisture' ? <Panel title="Perfil de humedad del suelo" action={focusBlock ? <Badge tone="neutral">{focusBlock.code}</Badge> : undefined}>
@@ -344,12 +352,12 @@ export default function Maps() {
       <Panel title="Últimas actividades" action={<LinkButton onClick={() => navigate('reports')}>Ver todo</LinkButton>}><EventList limit={4} /></Panel>
     </div>}
     {!demo && layer === 'health' && <Panel title="Detalle de las observaciones" className="map-observations"><div className="table-wrap">
-      <table><thead><tr><th>Surco</th><th>Severidad máxima</th><th>Observaciones</th><th>Último registro</th></tr></thead><tbody>{disease?.features.map(feature => <tr key={feature.properties.rowId}><td>{feature.properties.rowCode}</td><td>{feature.properties.maxSeverity ?? 'Sin dato'}</td><td>{feature.properties.countObservations}</td><td>{feature.properties.lastObservedAt ? new Date(feature.properties.lastObservedAt).toLocaleString('es-CO') : 'Sin fecha'}</td></tr>)}</tbody></table>
+      <table><thead><tr><th>Surco</th><th>Severidad máxima</th><th>Observaciones</th><th>Último registro</th></tr></thead><tbody>{currentSources?.disease?.features.map(feature => <tr key={feature.properties.rowId}><td>{feature.properties.rowCode}</td><td>{feature.properties.maxSeverity ?? 'Sin dato'}</td><td>{feature.properties.countObservations}</td><td>{feature.properties.lastObservedAt ? new Date(feature.properties.lastObservedAt).toLocaleString('es-CO') : 'Sin fecha'}</td></tr>)}</tbody></table>
     </div></Panel>}
     <div id="map-traceability" className="map-traceability-stack">
     {layer === 'moisture' && <Panel title="Humedad por sector y trazabilidad" className="map-traceability"><div className="table-wrap"><table><thead><tr><th>Bloque / sector</th><th>Medición / unidad</th><th>Profundidad / origen</th><th>Fecha / vigencia</th><th>Rango configurado</th><th>Estado</th></tr></thead><tbody>{data.blocks.flatMap(block => { const matches = moistureSectors.filter(sector => sector.blockId === block.id); return matches.length ? matches.map(sector => <tr key={sector.id}><td><button className="text-button" onClick={() => setSelected(block.id)}>{block.code} · {sector.name}</button></td><td>{sector.latest?.value ?? 'Sin dato'} {moistureUnits[sector.unit]}</td><td>{sector.depthCm} cm · {sector.latest?.source === 'SENSOR' ? 'Sensor' : sector.latest ? 'Manual' : 'Sin lectura'}</td><td>{sector.latest ? new Date(sector.latest.recordedAt).toLocaleString('es-CO') : 'Sin fecha'} · {sector.maxAgeHours} h</td><td>{sector.lowerBound != null ? `${sector.lowerBound}–${sector.upperBound} ${moistureUnits[sector.unit]}` : 'Sin límites técnicos'}</td><td>{moistureLabels[sector.condition]}</td></tr>) : [<tr key={`block-${block.id}`}><td>{block.code}</td><td colSpan={5}>Sin sector configurado; no se clasifican datos sin unidad.</td></tr>]; })}</tbody></table></div></Panel>}
     {layer === 'nutrients' && <Panel title={`${nutrient}: trazabilidad del muestreo`} className="map-traceability"><div className="table-wrap"><table><thead><tr><th>Bloque</th><th>Valor</th><th>Unidad</th><th>Fecha / muestra</th><th>Método / laboratorio</th></tr></thead><tbody>{data.blocks.map(block => { const sample = featureForBlock(block.id)?.properties.soilAnalysis; const result = nutrientResult(featureForBlock(block.id), nutrient); return <tr key={block.id}><td><button className="text-button" onClick={() => setSelected(block.id)}>{block.code}</button></td><td>{result?.value ?? 'Sin dato'}</td><td>{result ? units[result.unit] : '—'}</td><td>{sample ? `${sample.sampledOn} · ${sample.reference}` : 'Sin muestra'}</td><td>{result?.method ?? '—'}<br />{sample?.laboratory ?? 'Sin laboratorio'}</td></tr>; })}</tbody></table></div></Panel>}
-    {layer === 'nutrients' && <Panel title={`${nutrient}: interpretación por bloque`} className="map-traceability"><div className="table-wrap"><table><thead><tr><th>Bloque</th><th>Estado</th><th>Fundamento</th></tr></thead><tbody>{data.blocks.map(block => { const interpretation = nutrientInterpretation(featureForBlock(block.id), nutrient); return <tr key={block.id}><td><button className="text-button" onClick={() => setSelected(block.id)}>{block.code}</button></td><td>{interpretation ? <Badge tone={nutrientStatusTones[interpretation.status]}>{interpretation.label}</Badge> : 'Sin muestra'}</td><td>{interpretation?.reason ?? 'No hay un resultado compatible.'}</td></tr>; })}</tbody></table></div><p className="muted">El estado es preliminar, depende del perfil base y requiere revisión técnica. No representa una recomendación de fertilización.</p></Panel>}
+    {layer === 'nutrients' && <Panel title={`${nutrient}: interpretación por bloque`} className="map-traceability"><div className="table-wrap"><table><thead><tr><th>Bloque</th><th>Estado</th><th>Fundamento</th></tr></thead><tbody>{data.blocks.map(block => { const feature = featureForBlock(block.id); const interpretation = nutrientInterpretation(feature, nutrient, demo); return <tr key={block.id}><td><button className="text-button" onClick={() => setSelected(block.id)}>{block.code}</button></td><td>{interpretation ? <Badge tone={nutrientStatusTones[interpretation.status]}>{interpretation.label}</Badge> : nutrientResult(feature, nutrient) ? 'Sin interpretar' : 'Sin muestra'}</td><td>{interpretation?.reason ?? 'Sin interpretación disponible.'}</td></tr>; })}</tbody></table></div><p className="muted">El estado depende del perfil de referencia de la muestra y requiere revisión técnica.</p></Panel>}
     </div>
   </div>;
 }

@@ -19,8 +19,8 @@ export interface InterpretationSummary { interpretations: NutrientInterpretation
 export interface Followup { id: number; analysisId?: number; observations: string; reviewedBy: number; reviewedAt: string }
 export interface FertilizerProduct { id: number; farmId: number; code: string; name: string; composition: string; defaultDoseUnit: keyof typeof doseUnits; notes?: string; active: boolean; createdBy: number; createdAt: string }
 export interface FertilizationTask { taskId: number; occurrenceOn: string }
-export interface FertilizationPlan { id: number; blockId: number; analysisId: number; inspectionId?: number; growthStage: string; diagnosis: string; objective: string; product: string; composition: string; dose: number; doseUnit: keyof typeof doseUnits; coverage: number; method: string; scheduledOn: string; scheduledTime: string; assigneeId: number; followUpOn: string; totalQuantity: number; appliedQuantity: number; status: 'DRAFT' | 'APPROVED' | 'CANCELED'; version: number; taskId?: number; productId?: number; recurrence?: FertilizerRecurrence; recurrenceUntil?: string; tasks?: FertilizationTask[]; createdBy: number; approvedBy?: number; approvedAt?: string; decisionReason?: string; followups: Followup[] }
-export interface FertilizationApplication { id: number; planId: number; eventId: number; taskId?: number; occurredAt: string; quantity: number; coverage: number; method: string; lot: string; notes?: string; createdBy: number }
+export interface FertilizationPlan { id: number; blockId: number; analysisId: number; inspectionId?: number; growthStage: string; diagnosis: string; objective: string; product: string; composition: string; dose: number; doseUnit: keyof typeof doseUnits; coverage: number; method: string; scheduledOn: string; scheduledTime: string; assigneeId: number; followUpOn: string; totalQuantity: number; appliedQuantity: number; status: 'DRAFT' | 'APPROVED' | 'CANCELED'; version: number; taskId?: number; productId?: number; inventoryProductId?: number | null; recurrence?: FertilizerRecurrence; recurrenceUntil?: string; tasks?: FertilizationTask[]; createdBy: number; approvedBy?: number; approvedAt?: string; decisionReason?: string; followups: Followup[] }
+export interface FertilizationApplication { id: number; planId: number; eventId: number; taskId?: number; occurredAt: string; quantity: number; coverage: number; method: string; lot: string; notes?: string; createdBy: number; operationId?: string; inventoryLotId?: number; inventoryMovementId?: number; financialEntryId?: number; costCop?: number }
 export interface FertilizationData { analyses: Analysis[]; plans: FertilizationPlan[]; applications: FertilizationApplication[] }
 export const quantityUnit = (unit: keyof typeof doseUnits) => unit === 'L_HA' || unit === 'ML_PLANT' ? 'L' : 'kg';
 export const coverageUnit = (unit: keyof typeof doseUnits) => unit === 'G_PLANT' || unit === 'ML_PLANT' ? 'plantas' : 'ha';
@@ -73,8 +73,18 @@ export function interpretNutrient(result: SoilResult, crop?: string, sampleType:
   return { ...base, status, label: interpretationLabel(result.nutrient, status), reason: `Rango de referencia: ${range.lower}–${range.upper} ${units[range.unit]}. El resultado debe ser revisado con el método y el contexto del cultivo.`, profileId: profile.id, profileName: profile.name, profileVersion: profile.version, source: profile.source };
 }
 
-export function interpretAnalysis(analysis: Analysis, crop?: string): InterpretationSummary {
-  const interpretations = analysis.interpretations?.length ? analysis.interpretations : analysis.results.map(result => interpretNutrient(result, crop, analysis.sampleType));
+export function interpretAnalysis(analysis: Analysis, crop?: string, demo = false): InterpretationSummary {
+  const recorded = new Map(analysis.interpretations?.map(item => [item.nutrient, item]));
+  const interpretations = analysis.results.map((result): NutrientInterpretation => {
+    const interpretation = recorded.get(result.nutrient);
+    if (interpretation) return interpretation;
+    if (demo) return interpretNutrient(result, crop, analysis.sampleType);
+    return {
+      nutrient: result.nutrient, value: result.value, unit: result.unit,
+      status: 'UNKNOWN', label: nutrientStatusLabels.UNKNOWN,
+      reason: 'La muestra no tiene una interpretación disponible para este resultado.', requiresTechnicalReview: true,
+    };
+  });
   return {
     interpretations,
     low: interpretations.filter(item => item.status === 'LOW').length,

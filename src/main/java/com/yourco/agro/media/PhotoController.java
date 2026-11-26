@@ -18,12 +18,15 @@ public class PhotoController {
   @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   public PhotoService.Photo upload(@RequestParam(required = false) Long eventId,
     @RequestParam(required = false) Long inspectionId, @RequestParam(required = false) Long treatmentId,
-    @RequestParam MultipartFile file) { return service.upload(eventId, inspectionId, treatmentId, file); }
+    @RequestParam(required = false) Long analysisId, @RequestParam MultipartFile file) {
+    return service.upload(new PhotoService.Target(eventId, inspectionId, treatmentId, analysisId), file);
+  }
 
   @GetMapping
   public List<PhotoService.Photo> list(@RequestParam(required = false) Long eventId,
-    @RequestParam(required = false) Long inspectionId, @RequestParam(required = false) Long treatmentId) {
-    return service.list(eventId, inspectionId, treatmentId);
+    @RequestParam(required = false) Long inspectionId, @RequestParam(required = false) Long treatmentId,
+    @RequestParam(required = false) Long analysisId) {
+    return service.list(new PhotoService.Target(eventId, inspectionId, treatmentId, analysisId));
   }
 
   @GetMapping("/{id}/content")

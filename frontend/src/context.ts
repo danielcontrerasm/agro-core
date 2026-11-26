@@ -12,6 +12,7 @@ export interface AppState {
   createTask: (payload: Record<string, unknown>) => Promise<void>;
   updateTask: (task: Task, status: Task['status'], notes: string) => Promise<Task>;
   create: (resource: string, payload: Record<string, unknown>) => Promise<number>;
+  replaceEvent: (event: FarmData['events'][number]) => void;
   remove: (resource: string, id: number) => Promise<void>;
   refresh: (quiet?: boolean) => Promise<void>; connect: () => void; setDemoRole: (role: Role) => void; resetDemo: () => void;
 }

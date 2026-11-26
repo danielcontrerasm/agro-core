@@ -4,35 +4,64 @@ import { Download, FileText, Plus } from 'lucide-react';
 import { useApp } from '../context';
 import { api } from '../lib/api';
 import { csvCell, localDate, number } from '../lib/domain';
+import { farmBusinessTimeZone, farmDateTimeInput, farmInputInstant } from '../lib/farm-business-date';
 import type { Inspection, InspectionEvidence, InspectionTreatment, NewEvidence, NewTreatment } from '../lib/inspections';
+import type { TreatmentFollowup } from '../lib/treatment-followups';
+import ApplicationLotSelect, { useApplicationLots } from './ApplicationLotSelect';
+import InspectionLaboratoryResults from './InspectionLaboratoryResults';
 import PhotoGallery from './PhotoGallery';
+import TreatmentFollowups from './TreatmentFollowups';
 
 export default function InspectionActions({ inspection, related, onOpen, onUpdate, onFollowUp, onBusyChange }: { inspection: Inspection; related: Inspection[]; onOpen: (id: number) => void; onUpdate: (record: Inspection) => void; onFollowUp: () => void; onBusyChange: (busy: boolean) => void }) {
   const { mode, role, profile } = useApp();
   const [treatments, setTreatments] = useState<InspectionTreatment[]>([]);
   const [evidence, setEvidence] = useState<InspectionEvidence[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [action, setAction] = useState<'treatment' | 'evidence' | 'cancel' | null>(null);
+  const [inventoryTreatment, setInventoryTreatment] = useState(false);
+  const [inventoryLotId, setInventoryLotId] = useState<number>();
+  const [operationId, setOperationId] = useState<string>();
+  const [treatmentTime, setTreatmentTime] = useState('');
+  const liveTreatment = mode === 'live' && action === 'treatment';
+  const lots = useApplicationLots(liveTreatment && inventoryTreatment ? inspection.farmId : undefined,
+    { appliedOn: treatmentTime.slice(0, 10) });
+  const selectedLot = lots.lots.find(lot => lot.id === inventoryLotId);
   const formRef = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (action) formRef.current?.querySelector<HTMLElement>('input, select, textarea')?.focus();
   }, [action]);
   useEffect(() => {
-    let active = true; setError(''); setLoading(true);
+    let active = true; setLoadError(''); setError(''); setLoading(true);
     if (mode === 'demo') { setTreatments(inspection.treatments ?? []); setEvidence(inspection.evidence ?? []); setLoading(false); return; }
     Promise.all([api.inspectionTreatments(inspection.id), api.inspectionEvidence(inspection.id)])
       .then(([savedTreatments, savedEvidence]) => { if (active) { setTreatments(savedTreatments); setEvidence(savedEvidence); } })
-      .catch(failure => { if (active) setError(failure.message); }).finally(() => { if (active) setLoading(false); });
+      .catch(failure => { if (active) setLoadError(failure instanceof Error ? failure.message : 'No se pudieron cargar los tratamientos y las evidencias.'); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [inspection.id, mode]);
   const now = new Date();
   const localTime = `${localDate(now)}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
+  function saveFollowups(records: TreatmentFollowup[], executed?: TreatmentFollowup) {
+    let nextTreatments = treatments;
+    if (executed?.treatmentId && executed.executedAt && executed.executedByUserId != null) {
+      const treatment: InspectionTreatment = {
+        id: executed.treatmentId, inspectionId: inspection.id, occurredAt: executed.executedAt,
+        description: executed.description, product: executed.appliedProduct ?? executed.product, quantity: executed.quantity,
+        unit: executed.unit, createdByUserId: executed.executedByUserId, authorName: executed.executedByName ?? '',
+        inventoryLotId: executed.inventoryLotId, inventoryLotCode: executed.productLot, inventoryMovementId: executed.inventoryMovementId,
+      };
+      nextTreatments = [treatment, ...treatments.filter(item => item.id !== treatment.id)];
+    }
+    if (mode === 'demo') onUpdate({ ...inspection, treatments: nextTreatments, evidence, treatmentFollowups: records });
+    if (executed) setTreatments(nextTreatments);
+  }
+
   function exportTreatments() {
-    const rows = [['Inspección ID', 'Tratamiento ID', 'Fecha UTC', 'Descripción', 'Producto', 'Cantidad', 'Unidad', 'Responsable', 'Referencias de evidencia', 'Motivo de anulación de inspección'],
-      ...treatments.map(item => [inspection.id, item.id, item.occurredAt, item.description, item.product, item.quantity, item.unit, item.authorName, evidence.filter(file => file.treatmentId === item.id).map(file => file.s3Key).join('; '), inspection.cancellationReason])];
+    const rows = [['Inspección ID', 'Tratamiento ID', 'Fecha UTC', 'Descripción', 'Producto', 'Cantidad', 'Unidad', 'Lote', 'Movimiento de inventario ID', 'Responsable', 'Referencias de evidencia', 'Motivo de anulación de inspección'],
+      ...treatments.map(item => [inspection.id, item.id, item.occurredAt, item.description, item.product, item.quantity, item.unit, item.inventoryLotCode, item.inventoryMovementId, item.authorName, evidence.filter(file => file.treatmentId === item.id).map(file => file.s3Key).join('; '), inspection.cancellationReason])];
     const content = '\uFEFF' + rows.map(row => row.map(csvCell).join(',')).join('\r\n');
     const url = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8;' }));
     const anchor = document.createElement('a'); anchor.href = url; anchor.download = `tratamientos-inspeccion-${inspection.id}-${mode}.csv`;
@@ -47,11 +76,24 @@ export default function InspectionActions({ inspection, related, onOpen, onUpdat
       if (action === 'treatment') {
         const quantityText = String(fields.get('quantity') ?? '').trim();
         const unit = String(fields.get('unit') ?? '').trim();
-        if (Boolean(quantityText) !== Boolean(unit)) throw new Error('Indica cantidad y unidad juntas.');
-        const payload: NewTreatment = { occurredAt: new Date(String(fields.get('occurredAt'))).toISOString(), description: String(fields.get('description')).trim(), product: String(fields.get('product')).trim() || null, quantity: quantityText ? Number(quantityText) : null, unit: unit || null };
-        if (payload.occurredAt < inspection.inspectedAt) throw new Error('El tratamiento no puede ser anterior a la inspección.');
+        const occurredAt = String(fields.get('occurredAt'));
+        const payload: NewTreatment = { occurredAt: liveTreatment ? farmInputInstant(occurredAt) : new Date(occurredAt).toISOString(), description: String(fields.get('description')).trim() };
+        if (mode === 'live') {
+          payload.operationId = operationId;
+          if (inventoryTreatment) {
+            if (!selectedLot || !quantityText) throw new Error('Indica el lote de inventario y la cantidad aplicada.');
+            payload.inventoryLotId = selectedLot.id;
+            payload.quantity = Number(quantityText);
+          }
+        } else {
+          if (Boolean(quantityText) !== Boolean(unit)) throw new Error('Indica cantidad y unidad juntas.');
+          payload.product = String(fields.get('product') ?? '').trim() || null;
+          payload.quantity = quantityText ? Number(quantityText) : null;
+          payload.unit = unit || null;
+        }
+        if (Date.parse(payload.occurredAt) < Date.parse(inspection.inspectedAt)) throw new Error('El tratamiento no puede ser anterior a la inspección.');
         const saved = mode === 'live' ? await api.addInspectionTreatment(inspection.id, payload) : { ...payload, id: Date.now(), inspectionId: inspection.id, createdByUserId: profile.user.id, authorName: profile.user.name };
-        const next = [saved, ...treatments];
+        const next = [saved, ...treatments.filter(item => item.id !== saved.id)];
         if (mode === 'demo') onUpdate({ ...inspection, treatments: next, evidence });
         setTreatments(next);
       } else if (action === 'evidence') {
@@ -71,8 +113,15 @@ export default function InspectionActions({ inspection, related, onOpen, onUpdat
   }
 
   const followUps = related.filter(item => item.parentInspectionId === inspection.id);
-  const writable = !inspection.canceledAt && !loading;
-  const chooseAction = (next: typeof action) => { setError(''); setAction(next); };
+  const writable = !inspection.canceledAt && !loading && !loadError;
+  const chooseAction = (next: typeof action) => {
+    setError(''); setAction(next);
+    if (next === 'treatment') {
+      setInventoryTreatment(false); setInventoryLotId(undefined);
+      setOperationId(mode === 'live' ? crypto.randomUUID() : undefined);
+      setTreatmentTime(mode === 'live' ? farmDateTimeInput() : localTime);
+    }
+  };
   const actionFooter = (label: string) => <>
     {error && <p className="form-error inspection-full-row" role="alert">{error}</p>}
     <div className="form-actions inspection-full-row">
@@ -82,27 +131,47 @@ export default function InspectionActions({ inspection, related, onOpen, onUpdat
   </>;
   return <>
     {inspection.canceledAt && <p className="inspection-cancellation" role="status"><strong>Anulada: {inspection.cancellationReason}</strong><span>{new Date(inspection.canceledAt).toLocaleString('es-CO')} · Usuario #{inspection.canceledByUserId}</span></p>}
+    <InspectionLaboratoryResults inspection={inspection} disabled={busy} onSaved={onUpdate}
+      onBusyChange={value => { setBusy(value); onBusyChange(value); }} />
     <section className="inspection-detail-section">
       <div className="inspection-section-heading">
         <h3>Tratamientos realizados</h3>
         {writable && <button className="button secondary" disabled={busy} onClick={() => chooseAction('treatment')}><Plus size={16} />Registrar tratamiento</button>}
       </div>
       {action === 'treatment' && writable && <form ref={formRef} className="inspection-form-grid inspection-action-form" onSubmit={submit}>
-        <label>Fecha del tratamiento<input name="occurredAt" type="datetime-local" required defaultValue={localTime} max={localTime} /></label>
-        <label>Producto utilizado (opcional)<input name="product" maxLength={250} /></label>
-        <label>Cantidad aplicada (opcional)<input name="quantity" type="number" min="0.000001" step="any" /></label>
-        <label>Unidad de cantidad<input name="unit" maxLength={40} placeholder="kg, L…" /></label>
+        <label>Fecha del tratamiento<input name="occurredAt" type="datetime-local" required value={treatmentTime}
+          max={liveTreatment ? farmDateTimeInput() : localTime} onChange={event => setTreatmentTime(event.target.value)}
+          aria-describedby={liveTreatment ? 'inspection-treatment-time-zone' : undefined} /></label>
+        {liveTreatment && <small id="inspection-treatment-time-zone" className="muted">Hora de Colombia (UTC−05:00).</small>}
+        {liveTreatment ? <>
+          <label>Insumos utilizados<select value={inventoryTreatment ? 'inventory' : 'none'} onChange={event => {
+            setInventoryTreatment(event.target.value === 'inventory'); setInventoryLotId(undefined);
+          }}><option value="none">Tratamiento sin producto</option><option value="inventory">Producto de inventario</option></select></label>
+          {inventoryTreatment && <>
+            <ApplicationLotSelect {...lots} value={inventoryLotId} onChange={lot => setInventoryLotId(lot?.id)} />
+            <label>Cantidad aplicada{selectedLot ? ` (${selectedLot.unit})` : ''}<input name="quantity" type="number" min="0.000001" step="0.000001" max={selectedLot?.balance} required /></label>
+          </>}
+        </> : <>
+          <label>Producto utilizado (opcional)<input name="product" maxLength={250} /></label>
+          <label>Cantidad aplicada (opcional)<input name="quantity" type="number" min="0.000001" step="any" /></label>
+          <label>Unidad de cantidad<input name="unit" maxLength={40} placeholder="kg, L…" /></label>
+        </>}
         <label className="inspection-full-row">Descripción del tratamiento<textarea name="description" required maxLength={4000} /></label>
         {actionFooter('Guardar tratamiento')}
       </form>}
-      {loading ? <p role="status">Cargando tratamientos y evidencias…</p> : !treatments.length && <p className="inspection-empty-copy">Sin tratamientos registrados.</p>}
+      {loading ? <p role="status">Cargando tratamientos y evidencias…</p> : loadError ? <p className="form-error" role="alert">{loadError}</p> : !treatments.length && <p className="inspection-empty-copy">Sin tratamientos registrados.</p>}
       {treatments.map(item => <article className="inspection-treatment" key={item.id}>
-        <div><strong>{item.product || 'Tratamiento aplicado'}</strong>{item.quantity != null && <span>{number(item.quantity, 2)} {item.unit}</span>}</div>
+        <div><strong>{item.product || 'Tratamiento aplicado'}</strong>{item.quantity != null && <span>{number(item.quantity, 6)} {item.unit}</span>}</div>
         <p>{item.description}</p>
-        <small>{new Date(item.occurredAt).toLocaleString('es-CO')} · {item.authorName}</small>
+        {item.inventoryLotCode && <p>Lote de inventario · {item.inventoryLotCode}</p>}
+        <small>{new Date(item.occurredAt).toLocaleString('es-CO', { timeZone: mode === 'live' ? farmBusinessTimeZone : undefined })} · {item.authorName}</small>
       </article>)}
       {treatments.length > 0 && <button className="text-button" onClick={exportTreatments}><Download size={15} />Exportar tratamientos CSV</button>}
     </section>
+    <TreatmentFollowups inspection={inspection} disabled={busy || loading} onSaved={saveFollowups} onBusyChange={value => {
+      setBusy(value);
+      onBusyChange(value);
+    }} />
     <section className="inspection-detail-section">
       <PhotoGallery target={{ inspectionId: inspection.id }} treatments={treatments} readOnly={!!inspection.canceledAt} onBusyChange={value => { setBusy(value); onBusyChange(value); }} />
     </section>
@@ -118,7 +187,7 @@ export default function InspectionActions({ inspection, related, onOpen, onUpdat
         <label>Tipo de contenido<input name="contentType" maxLength={150} placeholder="image/jpeg" /></label>
         {actionFooter('Guardar evidencia')}
       </form>}
-      {!loading && !evidence.length && <p className="inspection-empty-copy">Sin evidencias registradas.</p>}
+      {!loading && !loadError && !evidence.length && <p className="inspection-empty-copy">Sin evidencias registradas.</p>}
       {evidence.map(item => <div className="inspection-evidence" key={item.id}><FileText size={20} /><div><strong>{item.s3Key}</strong><small>{item.contentType || item.kind} · {item.treatmentId ? `Tratamiento #${item.treatmentId}` : 'Inspección'} · {item.authorName}</small></div></div>)}
     </section>
     {(writable || inspection.parentInspectionId || followUps.length > 0) && <section className="inspection-detail-section">

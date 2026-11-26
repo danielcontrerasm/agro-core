@@ -30,7 +30,7 @@ AGRO_API_URL=http://localhost:8081 npm run dev
 
 | Pantalla | Funciones |
 | --- | --- |
-| Dashboard | Resumen de área, campos, bloques, plantas estimadas, actividades y acceso al mapa. Indicadores de salud, clima y producción solo en demo. |
+| Dashboard | Área, campos, bloques, plantas estimadas, actividades, hallazgos sanitarios, alertas, agua aplicada y cosecha registrada. El clima de ejemplo se muestra en la demostración. |
 | Mi trabajo de hoy | Tareas persistentes por campo o bloque, fecha, miembro responsable, prioridad, instrucciones, notas, bloqueo, ejecución, revisión y aprobación. Vista de tarjetas/lista y filtros. |
 | Campos y bloques | **Vista mapa** y **Vista lista**, estructura de la finca, detalle del campo y lista de sus bloques. Formularios con coordenadas JSON, filtros y eliminación con confirmación. En modo real se dibujan las geometrías registradas. |
 | Surcos y plantas | Inventario por bloque, longitud, espaciado, plantas estimadas, creación, eliminación y carga incremental de filas en pantalla. |
@@ -40,6 +40,9 @@ AGRO_API_URL=http://localhost:8081 npm run dev
 | Fertilización | **Resumen** con mapa de la última muestra de suelo por bloque, alertas nutricionales, avance de planes y aplicaciones recientes. **Análisis**, **Planes** y **Aplicaciones** incluyen indicadores por bloque y acceso a perfiles, productos, aprobación, tareas por ocurrencia, aplicaciones parciales, seguimientos y evidencia. |
 | Plagas y enfermedades | Registro de observaciones con síntomas y severidad, historial de eventos y tratamientos. |
 | Cosecha | Historial estructurado por campo, bloque o fila y ciclo de cultivo; captura de fecha, área, rendimiento estimado, cantidad cosechada, unidad, calidad, rechazo y motivo; filtros por ciclo y unidad; acciones para ver el detalle y editar registros. |
+| Trabajadores | Cuadrillas con integrantes de la finca y asistencia por persona y fecha. Administradores y supervisores gestionan los registros. Los demás miembros consultan su propia asistencia y cuadrilla. |
+| Inventario | Productos por unidad, lotes, movimientos de entrada y salida, saldos y alertas por stock bajo o vencimiento. Administradores y supervisores registran movimientos. Los miembros de la finca pueden consultar. |
+| Costos | Gastos e ingresos en COP, presupuesto mensual y margen por bloque. La vista y el resumen financiero del Dashboard están disponibles para administradores. |
 | Reportes y actividad | Filtros por tipo, bloque y fechas, detalle de evento, exportación CSV, referencias de archivos y eliminación autorizada. |
 | Centro agronómico | Orientación de uso y accesos a los registros; sin servicio de IA ni recomendaciones automáticas. |
 | Configuración | Perfil, información de finca, creación de otra finca, equipo y asignación/cambio de roles. |
@@ -55,10 +58,9 @@ cancelar reglas recurrentes.
 **Infraestructura** reúne fuentes, calidad, activos, balances, mantenimiento y
 verificaciones de sensores. [Guía de Riego](../docs/water-management.md#user-interface)
 
-En modo real, el detalle de Análisis usa el perfil activo configurado para la
-finca; la capa **Mapas → Nutrientes** todavía usa un perfil provisional incluido
-en el frontend y puede mostrar otra interpretación. La guía de fertilización
-explica este límite.
+En modo real, Análisis y **Mapas → Nutrientes** muestran la interpretación del
+servidor según el perfil activo de la finca. Sin un perfil o rango compatible,
+el resultado figura como «Sin interpretar».
 
 La búsqueda superior filtra el contenido de la vista que la admite: registros,
 tareas, comparaciones por bloque y miembros. No es un buscador global del servidor.
@@ -69,16 +71,30 @@ para los indicadores diarios del resumen de Riego.
 
 ## Demostración y datos reales
 
-**Demostración:** tiene una franja visible de identificación. Los datos incluyen
+**Demostración:** tiene una franja de identificación visible en todas las pantallas. Los datos incluyen
 una finca, tres campos, cinco bloques, 328 surcos y actividades/tareas de ejemplo.
 Las modificaciones se guardan en `localStorage` bajo claves `agrovision.*.v1`.
 El rol se puede simular desde Configuración; no altera permisos del servidor.
 El flujo de tareas no genera eventos reales ni sincroniza datos.
 
-**Modo real:** usa los endpoints existentes del backend. Los permisos se verifican
-en el servidor y la UI oculta las acciones de administración a trabajadores.
-Las tareas, sensores, clima, nutrientes, producción estimada e IA no se sustituyen
-por valores ficticios en este modo. Los errores del servidor se muestran en pantalla.
+**Modo real:** usa los endpoints del backend. Los permisos se verifican en el
+servidor y la UI oculta las acciones de administración a trabajadores. La campana
+muestra las tareas bloqueadas de la jornada. Las pantallas indican si faltan
+registros o si falló la consulta al servidor.
+
+En **Inventario**, crea un producto y su lote antes de registrar la primera
+entrada. Registra el **Costo unitario (COP)** del lote para usarlo en una
+aplicación. Puedes completar el costo de un lote existente desde **Lotes**.
+En fertilización, usa el mismo nombre de producto del plan y la unidad de la
+cantidad aplicada (kg o L). En tratamientos con insumos, la selección del lote
+determina el producto y la unidad.
+
+Guardar una aplicación con insumos descuenta la cantidad exacta y registra el
+gasto en **Costos**, en el bloque y la fecha de la aplicación. El gasto es la
+cantidad usada por el costo unitario del lote, redondeada a dos decimales de
+COP. Los administradores pueden consultar el gasto vinculado a la aplicación.
+El saldo disponible de Inventario excluye los lotes vencidos. En **Trabajadores
+→ Asistencia**, usa la fecha de trabajo para consultar o registrar la jornada.
 
 En **Mi trabajo de hoy → Nueva tarea**, administradores, supervisores y agrónomos
 pueden elegir un campo o bloque y asignar un miembro real de la finca. No es necesario

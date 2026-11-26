@@ -4,9 +4,10 @@ import { closeFarmMenu, openFarmLogin } from './support/qa-account';
 
 test('all dashboard views render without script errors or horizontal page overflow', async ({ page }, testInfo) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
-  for (const route of ['dashboard', 'maps', 'tasks', 'fields', 'plants', 'irrigation', 'fertilization', 'disease', 'harvest', 'reports', 'insights', 'settings']) {
+  for (const route of ['dashboard', 'maps', 'tasks', 'fields', 'plants', 'irrigation', 'fertilization', 'disease', 'harvest', 'workers', 'inventory', 'costs', 'reports', 'insights', 'settings']) {
     await page.goto(`/#${route}`);
     await expect(page.getByRole('main').getByRole('heading').first()).toBeVisible();
+    await expect(page.locator('.environment-bar')).toBeVisible();
     await expect(page.locator('.environment-bar')).toContainText('Espacio de demostración');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
   }
@@ -158,4 +159,34 @@ test('real login refreshes CSRF, loads API data and never substitutes demo tasks
   await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Qué bueno verte de nuevo.' })).toBeVisible();
   expect(writes).toEqual([{ path: '/api/v1/auth/login', csrf: 'csrf-1' }, { path: '/api/v1/auth/logout', csrf: 'csrf-2' }]);
+});
+
+test('restoring a connected session shows only backend data and counts blocked tasks', async ({ page }) => {
+  await page.addInitScript(() => sessionStorage.setItem('agrovision.live', 'true'));
+  let finishRestoring!: () => void;
+  const restoration = new Promise<void>(resolve => { finishRestoring = resolve; });
+  await page.route('**/api/v1/**', async route => {
+    const path = new URL(route.request().url()).pathname;
+    let response: unknown = [];
+    if (path.endsWith('/auth/me')) {
+      await restoration;
+      response = { user: { id: 42, name: 'Persona Real', email: 'real@example.com' }, memberships: [{ farmId: 91, farmName: 'Finca Real', role: 'ADMIN' }] };
+    } else if (path.endsWith('/farms')) response = [{ id: 91, name: 'Finca Real' }];
+    else if (path.endsWith('/tasks')) response = [{ id: 'real-task', farmId: 91, title: 'Revisar bomba del campo', activity: 'irrigation', date: '2025-01-01', time: '07:00', assignee: 'Persona Real', assigneeId: 42, priority: 'Alta', status: 'blocked', instructions: 'Registrar el motivo del bloqueo.' }];
+    await route.fulfill({ json: response });
+  });
+
+  try {
+    await page.goto('/#tasks');
+    await expect(page.getByRole('status')).toHaveText('Cargando tu finca…');
+    await expect(page.locator('.environment-bar')).toContainText('Conectado a tu finca');
+    await expect(page.getByText('Daniel Contreras', { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Inspección de síntomas foliares/ })).toHaveCount(0);
+  } finally {
+    finishRestoring();
+  }
+
+  await expect(page.getByRole('button', { name: /Revisar bomba del campo/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Ver notificaciones' }).click();
+  await expect(page.getByText('Hay 1 tarea bloqueada pendiente de seguimiento.')).toBeVisible();
 });

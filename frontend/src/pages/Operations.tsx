@@ -11,12 +11,13 @@ import { EventForm } from '../components/Forms';
 import { EventIcon } from './Dashboard';
 import Inspections from './Inspections';
 import PhotoGallery from '../components/PhotoGallery';
+import LegacyObservationEditor from '../components/LegacyObservationEditor';
 import FarmMap from '../components/FarmMap';
 import Fertilization from './Fertilization';
 import Irrigation from './Irrigation';
 import PreventiveMeasures from './PreventiveMeasures';
 import { readPlantingDemo, type Cycle } from '../lib/planting';
-import { demoProduction, productionKey, productionUnits, qualityGrades, readProductionDemo, saveProductionDemo, type ProductionRecord } from '../lib/production';
+import { productionUnits, qualityGrades, readProductionDemo, saveProductionDemo, type ProductionRecord } from '../lib/production';
 import { readIrrigationDemo, withIrrigation } from '../lib/irrigation';
 import { readFertilizationDemo, withSoilAnalyses } from '../lib/fertilization';
 import { demoInspections, healthLabels, inspectionDemoKey, withInspectionHealth } from '../lib/inspections';
@@ -62,6 +63,7 @@ function WaterUsageAnalyticsPanel() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    setReport(undefined);
     if (!from || !until || from > until) { setError('Selecciona un periodo válido.'); setLoading(false); return; }
     let active = true;
     setLoading(true); setError('');
@@ -91,11 +93,11 @@ function WaterUsageAnalyticsPanel() {
     notify(`Exportados ${sectors.length} sectores${mode === 'demo' ? ' de demostración' : ''}.`);
   }
 
-  return <Panel title="Consumo y balance de agua" action={<div className="water-report-actions"><Badge tone="blue">{from} → {until}</Badge><button className="button secondary small" onClick={exportCsv} disabled={loading || !sectors.length}><Download size={14} />Exportar consumo</button></div>} className="water-analytics-panel">
+  return <Panel title="Consumo y balance de agua" action={<div className="water-report-actions"><Badge tone="blue">{from} → {until}</Badge><button className="button secondary small" onClick={exportCsv} disabled={loading || !report || !sectors.length}><Download size={14} />Exportar consumo</button></div>} className="water-analytics-panel">
     <Notice>Compara el volumen planificado con la ejecución real y separa consumos medidos por contador de estimaciones por caudal. La lluvia y el déficit provienen de los balances registrados; no son una recomendación automática.</Notice>
     <div className="record-filters water-report-filters"><label>Desde<input aria-label="Consumo desde" type="date" value={from} onChange={event => setFrom(event.target.value)} max={until || undefined} /></label><label>Hasta<input aria-label="Consumo hasta" type="date" value={until} onChange={event => setUntil(event.target.value)} min={from || undefined} /></label><label>Sector o bloque<select aria-label="Filtrar sector o bloque" value={sectorFilter} onChange={event => setSectorFilter(event.target.value)}><option value="all">Todos</option><optgroup label="Bloques">{blockOptions.map(([blockId, blockCode]) => <option key={`block:${blockId}`} value={`block:${blockId}`}>{blockCode}</option>)}</optgroup><optgroup label="Sectores">{(report?.sectors ?? []).map(sector => <option key={`sector:${sector.sectorId}`} value={`sector:${sector.sectorId}`}>{sector.sectorName} · {sector.blockCode}</option>)}</optgroup></select></label>{(sectorFilter !== 'all' || from !== reportStartDate() || until !== localDate()) && <button className="text-button" onClick={clearFilters}>Limpiar</button>}</div>
     {error && <p className="form-error" role="alert">{error}</p>}
-    {loading ? <Loading /> : <><div className="water-analytics-kpis"><div><span>Planificado</span><strong>{number(summary.plannedVolumeM3, 2)} m³</strong><small>{summary.plannedPlanCount} planes</small></div><div><span>Aplicado</span><strong>{number(summary.actualVolumeM3, 2)} m³</strong><small>{summary.executedPlanCount} planes ejecutados</small></div><div><span>Medido</span><strong>{number(summary.measuredVolumeM3, 2)} m³</strong><small>{summary.meteredExecutionCount} ejecuciones</small></div><div><span>Estimado</span><strong>{number(summary.estimatedVolumeM3, 2)} m³</strong><small>{summary.estimatedExecutionCount} ejecuciones</small></div><div><span>Lluvia acumulada</span><strong>{number(summary.rainfallMm, 1)} mm</strong><small>{summary.moistureReadingCount} lecturas de humedad</small></div><div><span>Déficit registrado</span><strong>{number(summary.deficitMm, 1)} mm</strong><small>{reportPercent(summary.balanceCoveragePercent)} del requerido aplicado en balance</small></div></div><div className="table-wrap water-report-table"><table><thead><tr><th>Sector / bloque</th><th>Planificado</th><th>Aplicado</th><th>Medido / estimado</th><th>Lluvia / requerido</th><th>Déficit</th><th>Humedad</th><th>Cumplimiento</th></tr></thead><tbody>{sectors.map(sector => <tr key={sector.sectorId}><td><strong>{sector.sectorName}</strong><small className="table-subtitle">{sector.blockCode} · {sector.areaHa == null ? 'Área sin dato' : `${number(sector.areaHa, 2)} ha`}</small></td><td>{number(sector.plannedVolumeM3, 2)} m³<small className="table-subtitle">{sector.plannedPlanCount} planes</small></td><td>{number(sector.actualVolumeM3, 2)} m³<small className="table-subtitle">{sector.executedPlanCount} planes ejecutados</small></td><td>{number(sector.measuredVolumeM3, 2)} / {number(sector.estimatedVolumeM3, 2)} m³<small className="table-subtitle">{sector.meteredExecutionCount} medido · {sector.estimatedExecutionCount} estimado</small></td><td>{number(sector.rainfallMm, 1)} mm<small className="table-subtitle">Requerido: {number(sector.requiredVolumeM3, 2)} m³</small></td><td>{number(sector.deficitMm, 1)} mm<small className="table-subtitle">{reportPercent(sector.balanceCoveragePercent)} del balance</small></td><td>{sector.moistureAverage == null ? 'Sin dato' : `${number(sector.moistureAverage, 2)} ${sector.moistureUnit ?? ''}`}<small className="table-subtitle">{sector.moistureReadingCount} lecturas</small></td><td>{reportPercent(sector.coveragePercent)}<small className="table-subtitle">Varianza: {sector.varianceM3 >= 0 ? '+' : ''}{number(sector.varianceM3, 2)} m³</small></td></tr>)}</tbody></table>{!sectors.length && <Empty title="Sin datos de consumo" description="No hay planes, ejecuciones o sectores para este periodo y filtro." />}</div><div className="table-pagination"><span>{sectors.length} sectores analizados</span><span>Aplicado = ejecuciones registradas; medido y estimado conservan el origen del volumen.</span></div></>}
+    {loading ? <Loading /> : report && <><div className="water-analytics-kpis"><div><span>Planificado</span><strong>{number(summary.plannedVolumeM3, 2)} m³</strong><small>{summary.plannedPlanCount} planes</small></div><div><span>Aplicado</span><strong>{number(summary.actualVolumeM3, 2)} m³</strong><small>{summary.executedPlanCount} planes ejecutados</small></div><div><span>Medido</span><strong>{number(summary.measuredVolumeM3, 2)} m³</strong><small>{summary.meteredExecutionCount} ejecuciones</small></div><div><span>Estimado</span><strong>{number(summary.estimatedVolumeM3, 2)} m³</strong><small>{summary.estimatedExecutionCount} ejecuciones</small></div><div><span>Lluvia acumulada</span><strong>{number(summary.rainfallMm, 1)} mm</strong><small>{summary.moistureReadingCount} lecturas de humedad</small></div><div><span>Déficit registrado</span><strong>{number(summary.deficitMm, 1)} mm</strong><small>{reportPercent(summary.balanceCoveragePercent)} del requerido aplicado en balance</small></div></div><div className="table-wrap water-report-table"><table><thead><tr><th>Sector / bloque</th><th>Planificado</th><th>Aplicado</th><th>Medido / estimado</th><th>Lluvia / requerido</th><th>Déficit</th><th>Humedad</th><th>Cumplimiento</th></tr></thead><tbody>{sectors.map(sector => <tr key={sector.sectorId}><td><strong>{sector.sectorName}</strong><small className="table-subtitle">{sector.blockCode} · {sector.areaHa == null ? 'Área sin dato' : `${number(sector.areaHa, 2)} ha`}</small></td><td>{number(sector.plannedVolumeM3, 2)} m³<small className="table-subtitle">{sector.plannedPlanCount} planes</small></td><td>{number(sector.actualVolumeM3, 2)} m³<small className="table-subtitle">{sector.executedPlanCount} planes ejecutados</small></td><td>{number(sector.measuredVolumeM3, 2)} / {number(sector.estimatedVolumeM3, 2)} m³<small className="table-subtitle">{sector.meteredExecutionCount} medido · {sector.estimatedExecutionCount} estimado</small></td><td>{number(sector.rainfallMm, 1)} mm<small className="table-subtitle">Requerido: {number(sector.requiredVolumeM3, 2)} m³</small></td><td>{number(sector.deficitMm, 1)} mm<small className="table-subtitle">{reportPercent(sector.balanceCoveragePercent)} del balance</small></td><td>{sector.moistureAverage == null ? 'Sin dato' : `${number(sector.moistureAverage, 2)} ${sector.moistureUnit ?? ''}`}<small className="table-subtitle">{sector.moistureReadingCount} lecturas</small></td><td>{reportPercent(sector.coveragePercent)}<small className="table-subtitle">Varianza: {sector.varianceM3 >= 0 ? '+' : ''}{number(sector.varianceM3, 2)} m³</small></td></tr>)}</tbody></table>{!sectors.length && <Empty title="Sin datos de consumo" description="No hay planes, ejecuciones o sectores para este periodo y filtro." />}</div><div className="table-pagination"><span>{sectors.length} sectores analizados</span><span>Aplicado = ejecuciones registradas; medido y estimado conservan el origen del volumen.</span></div></>}
   </Panel>;
 }
 
@@ -103,6 +105,7 @@ function HealthWorkspace() {
   const [tab, setTab] = useState('inspections');
   const sections = [
     { id: 'inspections', label: 'Inspecciones' },
+    { id: 'monitoring', label: 'Monitoreo' },
     { id: 'prevention', label: 'Prevención' },
     { id: 'history', label: 'Historial anterior y tratamientos' },
   ];
@@ -110,7 +113,7 @@ function HealthWorkspace() {
     {sections.map(section => <button key={section.id} aria-pressed={tab === section.id} onClick={() => setTab(section.id)}>{section.label}</button>)}
   </div>;
   return <div className="inspection-workspace">
-    {tab === 'inspections' ? <Inspections navigation={navigation} /> : <>
+    {tab === 'inspections' || tab === 'monitoring' ? <Inspections navigation={navigation} monitoring={tab === 'monitoring'} /> : <>
       {navigation}
       {tab === 'prevention' ? <PreventiveMeasures /> : <OperationsHistory page="disease" />}
     </>}
@@ -122,9 +125,12 @@ type HarvestEditor = 'new' | ProductionRecord;
 
 function HarvestWorkspace() {
   const { data, mode, farmId, search, notify, tasks, date, navigate } = useApp();
-  const [records, setRecords] = useState<ProductionRecord[]>(() => readProductionDemo());
-  const [cycles, setCycles] = useState<Cycle[]>(() => readPlantingDemo().cycles);
+  const [records, setRecords] = useState<ProductionRecord[]>(() => mode === 'demo' ? readProductionDemo() : []);
+  const [cycles, setCycles] = useState<Cycle[]>(() => mode === 'demo' ? readPlantingDemo().cycles : []);
   const [loading, setLoading] = useState(mode === 'live');
+  const [recordsError, setRecordsError] = useState('');
+  const [cyclesError, setCyclesError] = useState('');
+  const [reload, setReload] = useState(0);
   const [form, setForm] = useState<HarvestEditor | null>(null);
   const [selected, setSelected] = useState<ProductionRecord | null>(null);
   const [blockFilter, setBlockFilter] = useState(0);
@@ -134,30 +140,23 @@ function HarvestWorkspace() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (mode === 'demo') return;
     let active = true;
     setLoading(true);
-    setError('');
-    setSelected(null);
-    setForm(null);
-    setBlockFilter(0);
-    setCycleFilter('all');
-    setUnitFilter('all');
+    setRecordsError('');
+    setCyclesError('');
     const load = async () => {
-      try {
-        if (mode === 'live') {
-          const [savedRecords, savedPlanting] = await Promise.all([api.productionRecords(farmId), api.planting(farmId)]);
-          if (active) { setRecords(savedRecords); setCycles(savedPlanting.cycles); }
-        } else if (active) {
-          setRecords(readProductionDemo());
-          setCycles(readPlantingDemo().cycles);
-        }
-      } catch (failure) {
-        if (active) setError(failure instanceof Error ? failure.message : 'No se pudieron cargar los registros de cosecha.');
-      } finally { if (active) setLoading(false); }
+      const [savedRecords, savedPlanting] = await Promise.allSettled([api.productionRecords(farmId), api.planting(farmId)]);
+      if (!active) return;
+      if (savedRecords.status === 'fulfilled') setRecords(savedRecords.value);
+      else { setRecords([]); setRecordsError('No se pudieron cargar los registros de cosecha.'); }
+      if (savedPlanting.status === 'fulfilled') setCycles(savedPlanting.value.cycles);
+      else { setCycles([]); setCyclesError('No se pudieron cargar los ciclos de siembra.'); }
+      setLoading(false);
     };
     void load();
     return () => { active = false; };
-  }, [farmId, mode]);
+  }, [farmId, mode, reload]);
 
   const cycleById = useMemo(() => new Map(cycles.map(cycle => [cycle.id, cycle])), [cycles]);
   const matchingRecords = useMemo(() => records.filter(record => {
@@ -209,7 +208,8 @@ function HarvestWorkspace() {
     return [field?.name, block?.code, row?.rowCode].filter(Boolean).join(' · ') || 'Ubicación registrada';
   };
 
-  const activities = tasks.filter(task => task.activity === 'harvest' && task.date >= date && task.status !== 'completed')
+  const activities = tasks.filter(task => task.activity === 'harvest' && task.date >= date && task.status !== 'completed' &&
+    (mode === 'live' ? task.farmId === farmId : data.blocks.some(block => block.id === task.blockId)))
     .sort((first, second) => `${first.date}T${first.time}`.localeCompare(`${second.date}T${second.time}`)).slice(0, 4);
   const quality = qualityGrades.map(grade => ({ ...grade, count: filtered.filter(record => record.qualityGrade === grade.value).length }));
   const qualityColors = ['#188c4f', '#64ac58', '#e4b632', '#ed934b', '#d6443c'];
@@ -222,21 +222,22 @@ function HarvestWorkspace() {
   if (loading) return <Loading />;
 
   return <>
-    <div className="page-heading"><div><h1>Cosecha y producción</h1><p>Registra cada corte con su ubicación, ciclo, rendimiento, calidad y merma.</p></div><div className="heading-buttons"><button className="button" onClick={openNew} disabled={!data.fields.length || busy}><Plus size={17} />Registrar cosecha</button></div></div>
+    <div className="page-heading"><div><h1>Cosecha y producción</h1><p>Registra cada corte con su ubicación, ciclo, rendimiento, calidad y merma.</p></div><div className="heading-buttons"><button className="button" onClick={openNew} disabled={!data.fields.length || busy || Boolean(cyclesError) || Boolean(recordsError)}><Plus size={17} />Registrar cosecha</button></div></div>
+    {(recordsError || cyclesError) && <div className="error-banner" role="alert"><p>{[recordsError, cyclesError].filter(Boolean).join(' ')}</p><button className="button secondary small" onClick={() => setReload(value => value + 1)}>Reintentar</button></div>}
     {error && <p className="form-error" role="alert">{error}</p>}
 
-    <div className="mini-stat-grid production-stat-grid">
+    {!recordsError && <div className="mini-stat-grid production-stat-grid">
       <Panel><div><small>Registros de cosecha</small><strong>{filtered.length}</strong></div></Panel>
       <Panel><div><small>Estimado</small><strong>{number(total(record => Number(record.estimatedYield ?? 0)))}</strong><em>{summaryUnit ? unitLabel : 'Sin registros'}</em></div></Panel>
       <Panel><div><small>Cosechado</small><strong>{number(total(record => Number(record.harvestedQuantity ?? 0)))}</strong><em>{summaryUnit ? unitLabel : 'Sin registros'}</em></div></Panel>
       <Panel><div><small>Rechazado</small><strong>{number(total(record => Number(record.rejectedQuantity ?? 0)))}</strong><em>{summaryUnit ? unitLabel : 'Sin registros'}</em></div></Panel>
-    </div>
+    </div>}
     <div className="record-overview-grid">
       <Panel title="Mapa de producción de la finca" className="record-overview-map" action={blockFilter ? <button className="text-button" onClick={() => setBlockFilter(0)}>Todos los bloques</button> : null}>
         <FarmMap farm={data.farms[0]} fields={data.fields} blocks={data.blocks} demo={mode === 'demo'} selected={blockFilter} onSelect={id => setBlockFilter(current => current === id ? 0 : id)}
           blockPresentation={new Map(data.blocks.map(block => [block.id, {
             color: byBlock.has(block.id) ? '#2f985b' : '#8b9992',
-            detail: byBlock.has(block.id) ? `${number(byBlock.get(block.id) ?? 0)} ${summaryUnit}` : 'Sin registro',
+            detail: recordsError ? 'Cosechas sin consultar' : byBlock.has(block.id) ? `${number(byBlock.get(block.id) ?? 0)} ${summaryUnit}` : 'Sin registro',
           }]))} />
       </Panel>
       <div className="record-side-panels">
@@ -247,11 +248,11 @@ function HarvestWorkspace() {
           {filtered.length ? <div className="record-ring-summary">
             <Donut value={number(filtered.length)} label="Cosechas" segments={quality.map(grade => grade.count)} colors={qualityColors} />
             <ul className="record-summary-list">{quality.map((grade, index) => grade.count ? <li key={grade.value}><i style={{ backgroundColor: qualityColors[index] }} /><span>{grade.label}</span><strong>{grade.count}</strong></li> : null)}</ul>
-          </div> : <p className="muted">Sin cosechas para la selección actual.</p>}
+          </div> : <p className="muted">{recordsError || 'Sin cosechas para la selección actual.'}</p>}
         </Panel>
       </div>
     </div>
-    <div className="record-filters"><label>Ciclo<select value={cycleFilter} onChange={event => setCycleFilter(event.target.value)}><option value="all">Todos los ciclos</option>{cycles.map(cycle => <option key={cycle.id} value={cycle.id}>{cycle.code} · {cycle.crop}</option>)}</select></label><label>Unidad<select value={unitFilter} onChange={event => setUnitFilter(event.target.value)}><option value="all">Todas las unidades</option>{productionUnits.map(unit => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select></label>{(cycleFilter !== 'all' || unitFilter !== 'all') && <button className="text-button" onClick={() => { setCycleFilter('all'); setUnitFilter('all'); }}>Limpiar</button>}</div>
+    {!recordsError && <><div className="record-filters"><label>Ciclo<select value={cycleFilter} onChange={event => setCycleFilter(event.target.value)}><option value="all">Todos los ciclos</option>{cycles.map(cycle => <option key={cycle.id} value={cycle.id}>{cycle.code} · {cycle.crop}</option>)}</select></label><label>Unidad<select value={unitFilter} onChange={event => setUnitFilter(event.target.value)}><option value="all">Todas las unidades</option>{productionUnits.map(unit => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select></label>{(cycleFilter !== 'all' || unitFilter !== 'all') && <button className="text-button" onClick={() => { setCycleFilter('all'); setUnitFilter('all'); }}>Limpiar</button>}</div>
     <Panel title="Historial estructurado de cosechas">
       {filtered.length ? <div className="table-wrap">
         <table className="responsive-record-table">
@@ -264,7 +265,7 @@ function HarvestWorkspace() {
               return <tr key={record.id}>
                 <td data-label="Ubicación"><strong>{locationLabel(record)}</strong><small className="table-subtitle">{record.crop ?? 'Cultivo sin especificar'}{record.variety ? ` · ${record.variety}` : ''}</small></td>
                 <td data-label="Fecha">{new Date(record.actualHarvestDate ? `${record.actualHarvestDate}T12:00:00` : record.recordedAt).toLocaleDateString('es-CO')}</td>
-                <td data-label="Ciclo">{cycle?.code ?? 'Sin ciclo'}</td>
+                <td data-label="Ciclo">{cycle?.code ?? (record.cropCycleId ? `Ciclo #${record.cropCycleId}` : 'Sin ciclo')}</td>
                 <td data-label="Área">{record.harvestedAreaHa != null ? `${number(record.harvestedAreaHa, 2)} ha` : '—'}</td>
                 <td data-label="Estimado">{record.estimatedYield != null ? `${number(record.estimatedYield)} ${record.yieldUnit}` : '—'}</td>
                 <td data-label="Cosechado">{number(record.harvestedQuantity)} {record.yieldUnit}</td>
@@ -273,7 +274,7 @@ function HarvestWorkspace() {
                 <td data-label="Variación">{variance == null ? '—' : `${variance >= 0 ? '+' : ''}${number(variance)} ${record.yieldUnit}`}</td>
                 <td data-label="Acciones"><div className="production-actions">
                   <button className="text-button" aria-label={`Ver cosecha ${record.id}`} onClick={() => openView(record)}><Eye size={15} />Ver</button>
-                  <button className="text-button" aria-label={`Editar cosecha ${record.id}`} onClick={() => openEdit(record)}><Pencil size={15} />Editar</button>
+                  <button className="text-button" aria-label={`Editar cosecha ${record.id}`} disabled={Boolean(cyclesError)} onClick={() => openEdit(record)}><Pencil size={15} />Editar</button>
                 </div></td>
               </tr>;
             })}
@@ -281,13 +282,13 @@ function HarvestWorkspace() {
         </table>
       </div> : <Empty title="Sin cosechas para esta selección" description="Registra una cosecha o ajusta los filtros." />}
       <div className="table-pagination"><span>{filtered.length} registros</span><span>Variación respecto al estimado, con la cantidad rechazada incluida.</span></div>
-    </Panel>
-    {selected && <HarvestDetail record={selected} cycle={selected.cropCycleId ? cycleById.get(selected.cropCycleId) : undefined} location={locationLabel(selected)} onClose={() => setSelected(null)} onEdit={() => openEdit(selected)} />}
+    </Panel></>}
+    {selected && <HarvestDetail record={selected} cycle={selected.cropCycleId ? cycleById.get(selected.cropCycleId) : undefined} location={locationLabel(selected)} onClose={() => setSelected(null)} onEdit={cyclesError ? undefined : () => openEdit(selected)} />}
     {form && <HarvestForm record={form === 'new' ? undefined : form} data={data} cycles={cycles} busy={busy} onClose={() => !busy && setForm(null)} onSave={saveRecord} />}
   </>;
 }
 
-function HarvestDetail({ record, cycle, location, onClose, onEdit }: { record: ProductionRecord; cycle?: Cycle; location: string; onClose: () => void; onEdit: () => void }) {
+function HarvestDetail({ record, cycle, location, onClose, onEdit }: { record: ProductionRecord; cycle?: Cycle; location: string; onClose: () => void; onEdit?: () => void }) {
   const unitLabel = productionUnits.find(unit => unit.value === record.yieldUnit)?.label ?? record.yieldUnit;
   const qualityLabel = qualityGrades.find(grade => grade.value === record.qualityGrade)?.label ?? record.qualityGrade;
   const cycleLabel = cycle?.code ?? (record.cropCycleId ? `Ciclo #${record.cropCycleId}` : 'Sin ciclo');
@@ -318,7 +319,7 @@ function HarvestDetail({ record, cycle, location, onClose, onEdit }: { record: P
       <section className="activity-detail-section"><div className="panel-heading"><h3>Notas de cosecha</h3></div><p className="activity-detail-note">{record.notes || 'No se registraron notas.'}</p></section>
       <div className="form-actions">
         <button type="button" className="button secondary" onClick={onClose}>Cerrar</button>
-        <button type="button" className="button" onClick={onEdit}><Pencil size={15} />Editar cosecha</button>
+        {onEdit && <button type="button" className="button" onClick={onEdit}><Pencil size={15} />Editar cosecha</button>}
       </div>
     </div>
   </Modal>;
@@ -441,7 +442,6 @@ function AgronomicCenter() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [version, setVersion] = useState(0);
-  useEffect(() => { setSelected(0); }, [farmId, mode]);
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -541,7 +541,7 @@ function ReportOverview() {
 }
 
 function OperationsHistory({ page }: { page: Page }) {
-  const { data, mode, role, search, tasks, navigate, notify } = useApp();
+  const { data, mode, farmId, search, tasks, setDate, navigate, notify, replaceEvent } = useApp();
   const [form, setForm] = useState(false);
   const [selected, setSelected] = useState<FieldEvent | null>(null);
   const [type, setType] = useState('all');
@@ -550,6 +550,8 @@ function OperationsHistory({ page }: { page: Page }) {
   const [to, setTo] = useState('');
   const [tab, setTab] = useState('history');
   const module = modules[page as keyof typeof modules];
+  const scheduledTasks = tasks.filter(task => task.activity === module?.activity &&
+    (mode === 'live' ? task.farmId === farmId : data.blocks.some(item => item.id === task.blockId)));
   const filtered = data.events.filter(event => (!module || (page === 'disease' ? ['SCOUTING_OBSERVATION', 'TREATMENT_APPLICATION'].includes(event.eventType) : event.eventType === module.type)) &&
     (type === 'all' || event.eventType === type) && (block === 'all' || (event.block?.id ?? event.row?.block.id) === Number(block)) &&
     (!from || event.occurredAt >= new Date(`${from}T00:00:00`).toISOString()) && (!to || event.occurredAt <= new Date(`${to}T23:59:59.999`).toISOString()) &&
@@ -569,23 +571,34 @@ function OperationsHistory({ page }: { page: Page }) {
     {module && <div className={`operation-banner operation-${page}`}><span className={`stat-icon ${module.color}`}><module.icon size={31} /></span><div><span>HISTORIAL DE {module.title.toLocaleUpperCase('es')}</span><strong>{filtered.length} {filtered.length === 1 ? 'actividad registrada' : 'actividades registradas'}</strong><p>Conoce lo que se ha hecho y conserva cada detalle.</p></div><button className="button secondary small" onClick={() => navigate('maps')}>Explorar mapas<ArrowUpRight size={15} /></button></div>}
     {page === 'reports' && <><ReportOverview /><WaterUsageAnalyticsPanel /></>}
     <div className="toolbar"><div className="tabs"><button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}><ClipboardList size={16} />Historial<span>{filtered.length}</span></button>{module && <button className={tab === 'plans' ? 'active' : ''} onClick={() => setTab('plans')}><CalendarDays size={16} />Trabajo programado{mode === 'demo' && <Badge tone="neutral">Demo</Badge>}</button>}</div></div>
-    {tab === 'plans' && module ? mode === 'demo' ? <><Notice>Planificación de demostración local. Los planes agronómicos y las tareas aún no están disponibles en el backend.</Notice><div className="planned-work">{tasks.filter(task => task.activity === module.activity && data.blocks.some(item => item.id === task.blockId)).map(task => <Panel key={task.id}><div className="planned-work-top"><span className={`icon-tile ${module.color}`}><module.icon size={22} /></span><Badge tone={task.status === 'blocked' ? 'red' : 'neutral'}>{statusLabels[task.status]}</Badge></div><h3>{task.title}</h3><p>{task.assignee} · {data.blocks.find(item => item.id === task.blockId)?.code}</p><span className="detail-date"><CalendarDays size={14} />{task.date} · {task.time}</span><button className="text-button" onClick={() => navigate('tasks')}>Abrir trabajo del día<ArrowRight size={15} /></button></Panel>)}</div></> : <Panel><Empty title="El siguiente paso: planificar" description="Los planes y las tareas por trabajador se integrarán en la siguiente etapa. Mientras tanto, puedes registrar lo que ya se realizó." /></Panel> : <>
+    {tab === 'plans' && module ? scheduledTasks.length ? <div className="planned-work">{scheduledTasks.map(task => {
+      const location = data.blocks.find(item => item.id === task.blockId)?.code ?? data.fields.find(item => item.id === task.fieldId)?.name;
+      return <Panel key={task.id}>
+        <div className="planned-work-top"><span className={`icon-tile ${module.color}`}><module.icon size={22} /></span><Badge tone={task.status === 'blocked' ? 'red' : 'neutral'}>{statusLabels[task.status]}</Badge></div>
+        <h3>{task.title}</h3><p>{[task.assignee, location].filter(Boolean).join(' · ')}</p><span className="detail-date"><CalendarDays size={14} />{task.date} · {task.time.slice(0, 5)}</span>
+        <button className="text-button" onClick={() => { setDate(task.date); navigate('tasks'); }}>Abrir trabajo del día<ArrowRight size={15} /></button>
+      </Panel>;
+    })}</div> : <Panel><Empty title="Sin trabajo programado" description="Aquí aparecen las tareas de esta actividad asignadas en la finca." /></Panel> : <>
     <div className="record-filters">{!module && <label>Actividad<select value={type} onChange={event => setType(event.target.value)}><option value="all">Todas las actividades</option>{Object.entries(eventLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>}<label>Bloque<select value={block} onChange={event => setBlock(event.target.value)}><option value="all">Todos los bloques</option>{data.blocks.map(item => <option key={item.id} value={item.id}>{item.code}</option>)}</select></label><label>Desde<input type="date" value={from} onChange={event => setFrom(event.target.value)} max={to || undefined} /></label><label>Hasta<input type="date" value={to} onChange={event => setTo(event.target.value)} min={from || undefined} /></label>{(type !== 'all' || block !== 'all' || from || to) && <button className="text-button" onClick={() => { setType('all'); setBlock('all'); setFrom(''); setTo(''); }}>Limpiar</button>}</div>
     <Panel><div className="table-wrap"><table><thead><tr><th>Actividad</th><th>Ubicación</th><th>Fecha y hora</th><th>Notas</th><th>Detalle</th></tr></thead><tbody>{filtered.map(event => <tr key={event.id}><td><span className="table-title"><EventIcon event={event} />{eventLabels[event.eventType]}</span></td><td>{event.block?.code ?? event.row?.block.code ?? 'Sin bloque'}<small className="table-subtitle">{event.row?.rowCode ?? 'Todo el bloque'}</small></td><td className="nowrap">{new Date(event.occurredAt).toLocaleDateString('es-CO')}<small className="table-subtitle">{new Date(event.occurredAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</small></td><td className="notes-cell">{event.notes || 'Sin notas'}</td><td><button className="icon-button" aria-label={`Ver actividad ${event.id}`} onClick={() => setSelected(event)}><Eye size={18} /></button></td></tr>)}</tbody></table>{!filtered.length && <Empty title="Cada registro es una semilla" description="No hay actividades con estos filtros. Registra la primera o cambia la búsqueda." />}</div><div className="table-pagination"><span>{filtered.length} registros{mode === 'demo' ? ' de demostración' : ''}</span><span>Fechas en la zona horaria de tu dispositivo</span></div></Panel>
-    {module && <p className="page-note">{page === 'fertilization' ? 'El registro actual almacena la actividad y sus notas. Productos, dosis y planes estructurados están pendientes.' : page === 'irrigation' ? 'Los sensores y las mediciones automáticas de humedad no están conectados. Este historial contiene eventos registrados por el equipo.' : page === 'disease' ? 'Las observaciones requieren revisión profesional y no constituyen diagnósticos confirmados. Los detalles de síntomas se guardan al crear el evento; el API aún no los devuelve para su consulta.' : 'El registro actual conserva la jornada y sus notas. Rendimiento, calidad y cantidades estructuradas están pendientes.'}</p>}
+    {module && <p className="page-note">Este historial muestra los eventos de campo y sus notas. Consulta los registros estructurados en el módulo de la actividad.</p>}
     </>}
     {form && <EventForm key={page} initialType={module?.type} onClose={() => setForm(false)} />}
-    {selected && <EventDetail event={selected} onClose={() => setSelected(null)} />}
+    {selected && <EventDetail key={selected.id} event={selected} historicalObservation={page === 'disease' && selected.eventType === 'SCOUTING_OBSERVATION'}
+      onChange={event => { replaceEvent(event); setSelected(event); }} onClose={() => setSelected(null)} />}
   </>;
 }
 
-function EventDetail({ event, onClose }: { event: FieldEvent; onClose: () => void }) {
+function EventDetail({ event, historicalObservation, onChange, onClose }: {
+  event: FieldEvent; historicalObservation: boolean; onChange: (event: FieldEvent) => void; onClose: () => void;
+}) {
   const { mode, role, remove, notify } = useApp();
   const [media, setMedia] = useState<{ id: number; kind: string; s3Key: string; contentType?: string }[]>([]);
   const [error, setError] = useState('');
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
+  const [hasRevision, setHasRevision] = useState(mode === 'live' && historicalObservation || Boolean(event.legacyObservation?.version));
   useEffect(() => {
     if (mode === 'demo') { setMedia(readDemo(`media.${event.id}`, [])); return; }
     let active = true;
@@ -628,10 +641,10 @@ function EventDetail({ event, onClose }: { event: FieldEvent; onClose: () => voi
         <div><dt>Autor</dt><dd>Usuario #{event.createdByUserId}</dd></div>
         {event.plantIndexStart != null && <div><dt>Rango de plantas</dt><dd>{event.plantIndexStart}–{event.plantIndexEnd}</dd></div>}
       </dl>
-      <section className="activity-detail-section">
+      {historicalObservation ? <LegacyObservationEditor event={event} disabled={busy} onBusy={setBusy} onSaved={onChange} onAuditStatus={setHasRevision} /> : <section className="activity-detail-section">
         <div className="panel-heading"><h3>Notas de la actividad</h3></div>
         <p className="activity-detail-note">{event.notes || 'No se registraron notas.'}</p>
-      </section>
+      </section>}
       <div className="activity-detail-section">
         <PhotoGallery target={{ eventId: event.id }} onBusyChange={setBusy} />
       </div>
@@ -653,7 +666,7 @@ function EventDetail({ event, onClose }: { event: FieldEvent; onClose: () => voi
       </section>
       {error && <p role="alert" className="form-error">{error}</p>}
       <div className="form-actions">
-        {role !== 'WORKER' && (confirm ? <>
+        {role !== 'WORKER' && !hasRevision && (confirm ? <>
           <p>¿Eliminar esta actividad y sus referencias asociadas? Esta acción es permanente.</p>
           <button className="button secondary" onClick={() => setConfirm(false)} disabled={busy}>Cancelar</button>
           <button className="button danger" disabled={busy} onClick={() => void deleteEvent()}>Confirmar eliminación</button>

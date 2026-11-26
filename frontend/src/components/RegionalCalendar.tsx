@@ -14,12 +14,13 @@ const days = Array.from({ length: 31 }, (_, index) => index + 1);
 
 export default function RegionalCalendar() {
   const { mode, role, farmId, data, notify } = useApp();
-  const [rules, setRules] = useState<CalendarRule[]>(() => readCalendarsForFarm(farmId));
+  const [rules, setRules] = useState<CalendarRule[]>([]);
   const [catalog, setCatalog] = useState<CropCatalog[]>([]);
-  const [loading, setLoading] = useState(mode === 'live');
+  const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
   const [cropId, setCropId] = useState('');
   const [varietyId, setVarietyId] = useState('');
   const [perennial, setPerennial] = useState(false);
@@ -27,21 +28,30 @@ export default function RegionalCalendar() {
   const crop = catalog.find(item => String(item.id) === cropId);
   const varieties = useMemo(() => crop?.varieties ?? [], [crop]);
 
-  async function reload() {
-    setLoading(true); setError('');
+  async function reload(isActive = () => true) {
+    setLoading(true); setError(''); setLoadError('');
     try {
       if (mode === 'live') {
         const [savedRules, savedCatalog] = await Promise.all([api.plantingCalendars(farmId), api.cropCatalog(farmId)]);
-        setRules(savedRules); setCatalog(savedCatalog);
+        if (isActive()) { setRules(savedRules); setCatalog(savedCatalog); }
       } else {
         const savedCatalog = readCatalogForFarm(farmId);
         setRules(readCalendarsForFarm(farmId)); setCatalog(savedCatalog);
       }
-    } catch (failure) { setError(failure instanceof Error ? failure.message : 'No se pudo cargar el calendario regional.'); }
-    finally { setLoading(false); }
+    } catch (failure) {
+      if (isActive()) {
+        setRules([]); setCatalog([]);
+        setLoadError(failure instanceof Error ? failure.message : 'No se pudo cargar el calendario regional.');
+      }
+    } finally { if (isActive()) setLoading(false); }
   }
 
-  useEffect(() => { void reload(); }, [farmId, mode]);
+  useEffect(() => {
+    let active = true;
+    setModal(false);
+    void reload(() => active);
+    return () => { active = false; };
+  }, [farmId, mode]);
   useEffect(() => {
     if (!catalog.length) { setCropId(''); setVarietyId(''); return; }
     setCropId(previous => catalog.some(item => String(item.id) === previous) ? previous : String(catalog[0].id));
@@ -92,8 +102,9 @@ export default function RegionalCalendar() {
 
   const activeRules = useMemo(() => rules.filter(rule => rule.active), [rules]);
   if (loading) return <Loading />;
+  if (loadError) return <Panel title="Calendario regional de siembra" action={<button className="button secondary small" onClick={() => void reload()}>Reintentar</button>}><p className="form-error" role="alert">{loadError}</p></Panel>;
   return <>
-    <Panel title="Calendario regional de siembra" action={role !== 'WORKER' && <button className="button small" onClick={openCreate}><Plus size={15} />Nueva regla</button>}>
+    <Panel title="Calendario regional de siembra" action={role !== 'WORKER' && <button className="button small" disabled={!catalog.length} onClick={openCreate}><Plus size={15} />Nueva regla</button>}>
       <Notice>{farm?.region ? `La finca está en ${farm.region}. Las ventanas se aplican a ciclos que coincidan con la región, cultivo y variedad.` : 'Registra la región de la finca para recibir sugerencias automáticas de siembra.'}</Notice>
       {error && <p className="form-error" role="alert">{error}</p>}
       {!rules.length ? <div className="empty"><span className="icon-tile green"><CalendarDays size={26} /></span><h3>Aún no hay ventanas configuradas</h3><p>Agrega una regla anual o marca el cultivo como perenne para permitir producción continua.</p></div> : <div className="stack-list">{rules.map(rule => <div className="list-card" key={rule.id}><span className="icon-tile green"><CalendarDays size={20} /></span><span><strong>{rule.seasonName}</strong><small>{rule.region} · {rule.crop}{rule.variety ? ` · ${rule.variety}` : ' · Todas las variedades'}</small></span><span className="list-card-actions"><Badge tone={rule.active ? 'green' : 'neutral'}>{rule.active ? 'Activa' : 'Inactiva'}</Badge>{rule.active && role !== 'WORKER' && <button className="button secondary small" onClick={() => void deactivate(rule)}><PauseCircle size={14} />Desactivar</button>}</span><div className="catalog-varieties"><Badge tone="blue">{rule.perennial ? 'Todo el año' : formatWindow(rule)}</Badge><Badge tone="gold">Preparación: {rule.preparationLeadDays} días</Badge></div></div>)}</div>}

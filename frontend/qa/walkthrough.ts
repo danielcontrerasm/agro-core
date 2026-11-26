@@ -13,9 +13,9 @@ export interface Walkthrough {
 
 const pause = Number(process.env.AGRO_MODULE_PAUSE_MS ?? '12000');
 
-export function walkthrough(run: (ui: Walkthrough) => Promise<void>) {
+export function walkthrough(run: (ui: Walkthrough) => Promise<void>, moduleName?: string) {
   return async ({ page }: { page: Page }, info: TestInfo) => {
-    const module = info.title;
+    const module = moduleName ?? info.title;
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
     const dialog = page.getByRole('dialog');
