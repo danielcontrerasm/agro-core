@@ -3,6 +3,7 @@ package com.yourco.agro.farm.controller;
 import com.yourco.agro.farm.dto.BlockDtos;
 import com.yourco.agro.farm.repo.BlockRepository;
 import com.yourco.agro.farm.service.BlockService;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import com.yourco.agro.auth.FarmAccess;
 import org.springframework.web.bind.annotation.*;
@@ -41,6 +42,8 @@ public class BlockController {
   }
 
   @DeleteMapping("/{id}")
+  @ApiResponse(responseCode = "200", description = "Bloque eliminado.")
+  @ApiResponse(responseCode = "409", description = "El bloque contiene tratamientos contabilizados.")
   public void delete(@PathVariable Long id) {
     access.require(access.blockFarm(id), true);
     repo.deleteById(id);

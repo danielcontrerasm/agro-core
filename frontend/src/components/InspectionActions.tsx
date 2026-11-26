@@ -4,6 +4,7 @@ import { Download, FileText, Plus } from 'lucide-react';
 import { useApp } from '../context';
 import { api } from '../lib/api';
 import { csvCell, localDate, number } from '../lib/domain';
+import { farmBusinessTimeZone, farmDateTimeInput, farmInputInstant } from '../lib/farm-business-date';
 import type { Inspection, InspectionEvidence, InspectionTreatment, NewEvidence, NewTreatment } from '../lib/inspections';
 import type { TreatmentFollowup } from '../lib/treatment-followups';
 import ApplicationLotSelect, { useApplicationLots } from './ApplicationLotSelect';
@@ -23,8 +24,10 @@ export default function InspectionActions({ inspection, related, onOpen, onUpdat
   const [inventoryTreatment, setInventoryTreatment] = useState(false);
   const [inventoryLotId, setInventoryLotId] = useState<number>();
   const [operationId, setOperationId] = useState<string>();
+  const [treatmentTime, setTreatmentTime] = useState('');
   const liveTreatment = mode === 'live' && action === 'treatment';
-  const lots = useApplicationLots(liveTreatment && inventoryTreatment ? inspection.farmId : undefined);
+  const lots = useApplicationLots(liveTreatment && inventoryTreatment ? inspection.farmId : undefined,
+    { appliedOn: treatmentTime.slice(0, 10) });
   const selectedLot = lots.lots.find(lot => lot.id === inventoryLotId);
   const formRef = useRef<HTMLFormElement>(null);
   useEffect(() => {
@@ -73,7 +76,8 @@ export default function InspectionActions({ inspection, related, onOpen, onUpdat
       if (action === 'treatment') {
         const quantityText = String(fields.get('quantity') ?? '').trim();
         const unit = String(fields.get('unit') ?? '').trim();
-        const payload: NewTreatment = { occurredAt: new Date(String(fields.get('occurredAt'))).toISOString(), description: String(fields.get('description')).trim() };
+        const occurredAt = String(fields.get('occurredAt'));
+        const payload: NewTreatment = { occurredAt: liveTreatment ? farmInputInstant(occurredAt) : new Date(occurredAt).toISOString(), description: String(fields.get('description')).trim() };
         if (mode === 'live') {
           payload.operationId = operationId;
           if (inventoryTreatment) {
@@ -115,6 +119,7 @@ export default function InspectionActions({ inspection, related, onOpen, onUpdat
     if (next === 'treatment') {
       setInventoryTreatment(false); setInventoryLotId(undefined);
       setOperationId(mode === 'live' ? crypto.randomUUID() : undefined);
+      setTreatmentTime(mode === 'live' ? farmDateTimeInput() : localTime);
     }
   };
   const actionFooter = (label: string) => <>
@@ -134,7 +139,10 @@ export default function InspectionActions({ inspection, related, onOpen, onUpdat
         {writable && <button className="button secondary" disabled={busy} onClick={() => chooseAction('treatment')}><Plus size={16} />Registrar tratamiento</button>}
       </div>
       {action === 'treatment' && writable && <form ref={formRef} className="inspection-form-grid inspection-action-form" onSubmit={submit}>
-        <label>Fecha del tratamiento<input name="occurredAt" type="datetime-local" required defaultValue={localTime} max={localTime} /></label>
+        <label>Fecha del tratamiento<input name="occurredAt" type="datetime-local" required value={treatmentTime}
+          max={liveTreatment ? farmDateTimeInput() : localTime} onChange={event => setTreatmentTime(event.target.value)}
+          aria-describedby={liveTreatment ? 'inspection-treatment-time-zone' : undefined} /></label>
+        {liveTreatment && <small id="inspection-treatment-time-zone" className="muted">Hora de Colombia (UTC−05:00).</small>}
         {liveTreatment ? <>
           <label>Insumos utilizados<select value={inventoryTreatment ? 'inventory' : 'none'} onChange={event => {
             setInventoryTreatment(event.target.value === 'inventory'); setInventoryLotId(undefined);
@@ -156,7 +164,7 @@ export default function InspectionActions({ inspection, related, onOpen, onUpdat
         <div><strong>{item.product || 'Tratamiento aplicado'}</strong>{item.quantity != null && <span>{number(item.quantity, 6)} {item.unit}</span>}</div>
         <p>{item.description}</p>
         {item.inventoryLotCode && <p>Lote de inventario · {item.inventoryLotCode}</p>}
-        <small>{new Date(item.occurredAt).toLocaleString('es-CO')} · {item.authorName}</small>
+        <small>{new Date(item.occurredAt).toLocaleString('es-CO', { timeZone: mode === 'live' ? farmBusinessTimeZone : undefined })} · {item.authorName}</small>
       </article>)}
       {treatments.length > 0 && <button className="text-button" onClick={exportTreatments}><Download size={15} />Exportar tratamientos CSV</button>}
     </section>

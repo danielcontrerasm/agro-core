@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
+import { farmDateTimeInput } from '../src/lib/farm-business-date';
 import { createQaFarm, signInAsNewQaUser } from './support/qa-account';
 
 const description = 'Intervención de verificación QA';
@@ -11,11 +12,13 @@ async function openFollowups(page: Page, inspectionId: number) {
   return page.getByRole('region', { name: 'Seguimiento de tratamientos', exact: true });
 }
 
-async function authorize(region: Locator) {
+async function authorize(region: Locator, inventoryProductId?: number) {
   await region.getByRole('button', { name: 'Autorizar tratamiento', exact: true }).click();
   const form = region.getByRole('form', { name: 'Autorizar tratamiento', exact: true });
   await form.getByLabel('Descripción de la autorización').fill(description);
-  await form.getByLabel('Producto autorizado (opcional)').fill('Producto de prueba QA');
+  const product = form.getByLabel('Producto autorizado (opcional)');
+  if (inventoryProductId == null) await product.fill('Producto de prueba QA');
+  else await product.selectOption(String(inventoryProductId));
   await form.getByRole('button', { name: 'Autorizar tratamiento', exact: true }).click();
   await expect(region.getByText('Autorizado', { exact: true })).toBeVisible();
 }
@@ -92,15 +95,20 @@ test('connected treatment follow-up records execution against the original inspe
     nextVisit: new Date(Date.now() + 86_400_000).toISOString().slice(0, 10),
   });
   const product = await create('inventory/products', { farmId: farm.id, code: 'FIT-QA', name: 'Producto de prueba QA', category: 'Fitosanitario', unit: 'kg', minimum: 0 });
+  const homonym = await create('inventory/products', { farmId: farm.id, code: 'FIT-HOMONIMO-QA', name: 'Producto de prueba QA', category: 'Fitosanitario', unit: 'L', minimum: 0 });
+  const homonymLot = await create('inventory/lots', { farmId: farm.id, productId: homonym.id, code: 'LOTE-HOMONIMO-QA', unitCostCop: 12500 });
+  await create('inventory/movements', { farmId: farm.id, lotId: homonymLot.id, requestId: randomUUID(), direction: 'IN', quantity: 10 });
   const lot = await create('inventory/lots', { farmId: farm.id, productId: product.id, code: 'LOTE-SEGUIMIENTO-QA', unitCostCop: 12500 });
   await create('inventory/movements', { farmId: farm.id, lotId: lot.id, requestId: randomUUID(), direction: 'IN', quantity: 10 });
 
   await page.goto('/#disease');
   let region = await openFollowups(page, inspection.id);
-  await authorize(region);
+  await authorize(region, product.id);
   await region.getByRole('button', { name: 'Registrar ejecución', exact: true }).click();
   const form = region.getByRole('form', { name: 'Registrar ejecución', exact: true });
-  await form.getByRole('combobox', { name: 'Lote del producto', exact: true }).selectOption(String(lot.id));
+  const lotPicker = form.getByRole('combobox', { name: 'Lote del producto', exact: true });
+  await lotPicker.selectOption(String(lot.id));
+  await expect(lotPicker.locator('option').filter({ hasText: 'LOTE-HOMONIMO-QA' })).toHaveCount(0);
   await form.getByLabel('Cantidad ejecutada (kg)', { exact: true }).fill('2');
   await form.getByRole('button', { name: 'Registrar ejecución', exact: true }).click();
   await expect(region.getByText('Pendiente de verificación', { exact: true })).toBeVisible();
@@ -118,7 +126,7 @@ test('connected treatment follow-up records execution against the original inspe
   const inventory = await inventoryResponse.json();
   expect(inventory.lots).toContainEqual(expect.objectContaining({ id: lot.id, balance: 8 }));
   expect(inventory.movements.entries).toContainEqual(expect.objectContaining({ id: followup.inventoryMovementId, lotId: lot.id, direction: 'OUT', quantity: 2 }));
-  const month = followup.executedAt.slice(0, 7);
+  const month = farmDateTimeInput(new Date(followup.executedAt)).slice(0, 7);
   const financeResponse = await page.request.get(`${base}/finances?farmId=${farm.id}&month=${month}`);
   await expect(financeResponse).toBeOK();
   const finance = await financeResponse.json();

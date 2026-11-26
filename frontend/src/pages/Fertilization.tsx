@@ -5,6 +5,7 @@ import { useApp } from '../context';
 import { api, request } from '../lib/api';
 import { saveDemo } from '../lib/demo';
 import { localDate, csvCell, number, statusLabels } from '../lib/domain';
+import { farmBusinessTimeZone, farmDateTimeInput, farmInputInstant } from '../lib/farm-business-date';
 import { nutrientNames, units, doseUnits, quantityUnit, coverageUnit, totalQuantity, planLabels, recurrenceLabels, fertilizationKey, readFertilizationDemo, interpretAnalysis, nutrientStatusTones } from '../lib/fertilization';
 import type { Analysis, FertilizerProduct, FertilizationPlan, FertilizationApplication, FertilizationData, SoilResult, Nutrient, NutrientInterpretation, NutrientReferenceProfile } from '../lib/fertilization';
 import type { Member, Task } from '../lib/types';
@@ -14,7 +15,7 @@ import { Badge, Modal, Notice, Panel } from '../components/ui';
 import PhotoGallery from '../components/PhotoGallery';
 import FertilizationContext from '../components/FertilizationContext';
 import FertilizationOverview from '../components/FertilizationOverview';
-import ApplicationLotSelect, { useApplicationLots } from '../components/ApplicationLotSelect';
+import ApplicationLotSelect, { ApplicationProductSelect, useApplicationLots } from '../components/ApplicationLotSelect';
 import FertilizationPlanCoverage, { FertilizationFarmCoverage } from '../components/FertilizationPlanCoverage';
 import SampleLocationFields, { SampleLocationMap } from '../components/SampleLocationFields';
 import '../fertilization.css';
@@ -38,14 +39,9 @@ const editorTitles: Record<Editor['kind'], string> = {
   approve: 'Aprobar plan',
   cancel: 'Anular plan',
 };
-const shortDate = (date: string) => new Date(date.length === 10 ? `${date}T00:00:00` : date).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
-const timeLabel = (date: string) => new Date(date).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+const shortDate = (date: string, timeZone?: string) => new Date(date.length === 10 ? `${date}T00:00:00` : date).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric', timeZone });
+const timeLabel = (date: string, timeZone?: string) => new Date(date).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', timeZone });
 const formatCop = (amount: number) => `${number(amount, 2)} COP`;
-
-function applicationDay(dateTime: string) {
-  const date = new Date(dateTime);
-  return Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 10) : undefined;
-}
 
 function FormSection({ title, children }: { title: string; children: ReactNode }) {
   return <fieldset className="fertilization-form-section"><legend>{title}</legend><div className="fertilization-form-grid">{children}</div></fieldset>;
@@ -108,6 +104,7 @@ export default function Fertilization({ onHistory }: { onHistory: () => void }) 
   const app = useApp();
   const { mode, farmId, data, role, profile, notify } = app;
   const demo = mode === 'demo';
+  const applicationTimeZone = demo ? undefined : farmBusinessTimeZone;
   const manager = role === 'ADMIN' || role === 'SUPERVISOR';
   const agronomic = role === 'ADMIN' || role === 'SUPERVISOR' || role === 'AGRONOMIST';
   const [records, setRecords] = useState<FertilizationData>(empty);
@@ -128,10 +125,11 @@ export default function Fertilization({ onHistory }: { onHistory: () => void }) 
   const [sampleBlockId, setSampleBlockId] = useState<number>();
   const [applicationInput, setApplicationInput] = useState<{ occurredAt: string; lotId?: number; taskId?: number; operationId: string }>({ occurredAt: '', operationId: '' });
   const planToApply = editor?.kind === 'application' ? editor.plan : undefined;
-  const applicationLots = useApplicationLots(!demo && planToApply ? farmId : undefined, {
+  const applicationLots = useApplicationLots(!demo && (planToApply || editor?.kind === 'plan') ? farmId : undefined, {
+    productId: planToApply?.inventoryProductId,
     productName: planToApply?.product,
     unit: planToApply && quantityUnit(planToApply.doseUnit),
-    appliedOn: applicationDay(applicationInput.occurredAt),
+    appliedOn: applicationInput.occurredAt.slice(0, 10),
   });
   const selectedLot = applicationLots.lots.find(lot => lot.id === applicationInput.lotId);
   useEffect(() => {
@@ -281,7 +279,8 @@ export default function Fertilization({ onHistory }: { onHistory: () => void }) 
         await api.fertilizerAction(`analyses/${editor.analysis.id}/review`, { decision: text('decision'), notes: text('reason') });
       } else if (editor.kind === 'plan') {
         const doseUnit = text('doseUnit') as FertilizationPlan['doseUnit'];
-        const payload = { blockId: numeric('blockId'), analysisId: numeric('analysisId'), inspectionId: text('inspectionId') ? numeric('inspectionId') : null, growthStage: text('growthStage'), diagnosis: text('diagnosis'), objective: text('objective'), product: text('product'), composition: text('composition'), dose: numeric('dose'), doseUnit, coverage: numeric('coverage'), method: text('method'), scheduledOn: text('scheduledOn'), scheduledTime: text('scheduledTime'), assigneeId: numeric('assigneeId'), followUpOn: text('followUpOn'), productId: text('productId') ? numeric('productId') : null, recurrence: text('recurrence') || 'NONE', recurrenceUntil: text('recurrenceUntil') || null };
+        const payload = { blockId: numeric('blockId'), analysisId: numeric('analysisId'), inspectionId: text('inspectionId') ? numeric('inspectionId') : null, growthStage: text('growthStage'), diagnosis: text('diagnosis'), objective: text('objective'), product: text('product'), composition: text('composition'), dose: numeric('dose'), doseUnit, coverage: numeric('coverage'), method: text('method'), scheduledOn: text('scheduledOn'), scheduledTime: text('scheduledTime'), assigneeId: numeric('assigneeId'), followUpOn: text('followUpOn'), productId: text('productId') ? numeric('productId') : null, recurrence: text('recurrence') || 'NONE', recurrenceUntil: text('recurrenceUntil') || null,
+          inventoryProductId: text('inventoryProductId') ? numeric('inventoryProductId') : undefined };
         const sample = analyses.find(analysis => analysis.id === payload.analysisId);
         if (!sample || sample.blockId !== payload.blockId) throw new Error('Selecciona un análisis del mismo bloque.');
         if (payload.inspectionId && !inspectionOptions.some(inspection => inspection.id === payload.inspectionId && inspection.blockId === payload.blockId)) throw new Error('La inspección debe pertenecer al mismo bloque.');
@@ -315,13 +314,14 @@ export default function Fertilization({ onHistory }: { onHistory: () => void }) 
             }
           }
         } else if (editor.kind === 'application') {
-          const payload = { occurredAt: new Date(text('occurredAt')).toISOString(), quantity: numeric('quantity'), coverage: numeric('coverage'), method: text('method'), notes: text('notes'), taskId: text('taskId') ? numeric('taskId') : null };
+          const occurredAt = text('occurredAt');
+          const payload = { occurredAt: demo ? new Date(occurredAt).toISOString() : farmInputInstant(occurredAt), quantity: numeric('quantity'), coverage: numeric('coverage'), method: text('method'), notes: text('notes'), taskId: text('taskId') ? numeric('taskId') : null };
           const taskId = payload.taskId ?? plan.taskId;
           if (!taskId || !taskCanApply(taskId)) throw new Error('La tarea debe estar pendiente o en progreso.');
           if (payload.quantity > remainingForTask(plan, taskId) + 1e-7 || payload.coverage > plan.coverage) throw new Error('La aplicación supera la cantidad o cobertura aprobada.');
           if (new Date(payload.occurredAt).getTime() > Date.now()) throw new Error('La aplicación no puede estar en el futuro.');
           const sample = analyses.find(item => item.id === plan.analysisId);
-          if (sample && payload.occurredAt.slice(0, 10) < sample.sampledOn) throw new Error('La aplicación no puede ser anterior a la muestra del plan.');
+          if (sample && occurredAt.slice(0, 10) < sample.sampledOn) throw new Error('La aplicación no puede ser anterior a la muestra del plan.');
           if (coverageUnit(plan.doseUnit) === 'plantas' && !Number.isInteger(payload.coverage)) throw new Error('Indica un número entero de plantas.');
           let application: FertilizationApplication;
           if (demo) {
@@ -335,7 +335,7 @@ export default function Fertilization({ onHistory }: { onHistory: () => void }) 
             application = await api.fertilizerAction<FertilizationApplication>(`plans/${plan.id}/applications`, {
               ...payload, inventoryLotId: selectedLot.id, operationId: applicationInput.operationId,
             });
-            await app.refresh(true).catch(() => { notify('La aplicación se guardó. Actualiza la finca para consultar la tarea y el evento.', true); });
+            await app.refresh(true).catch(() => setError('La aplicación se guardó. Actualiza la finca para consultar la tarea y el evento.'));
           }
           setDetail(application); setTab('applications');
         } else {
@@ -350,12 +350,13 @@ export default function Fertilization({ onHistory }: { onHistory: () => void }) 
   const open = (next: Editor) => {
     if (next.kind === 'analysis') setSampleBlockId(Number(activeBlockFilter) || data.blocks[0]?.id);
     if (next.kind === 'application') {
-      setApplicationInput({ occurredAt: `${localDate()}T08:00`, operationId: demo ? '' : crypto.randomUUID() });
+      const today = demo ? localDate() : farmDateTimeInput().slice(0, 10);
+      setApplicationInput({ occurredAt: `${today}T08:00`, operationId: demo ? '' : crypto.randomUUID() });
     }
     setDetail(undefined); setError(''); setEditor(next);
   };
-  const input = (label: string, name: string, options: { type?: string; value?: string | number; required?: boolean; min?: number | string; max?: number | string; step?: string; fullWidth?: boolean } = {}) =>
-    <label className={options.fullWidth ? 'full-span' : undefined}>{label}<input name={name} type={options.type ?? 'text'} defaultValue={options.value} required={options.required ?? true} min={options.min} max={options.max} step={options.step} maxLength={name === 'composition' || name === 'method' ? 1000 : 150} /></label>;
+  const input = (label: string, name: string, options: { type?: string; value?: string | number; required?: boolean; min?: number | string; max?: number | string; step?: string; fullWidth?: boolean; maxLength?: number } = {}) =>
+    <label className={options.fullWidth ? 'full-span' : undefined}>{label}<input name={name} type={options.type ?? 'text'} defaultValue={options.value} required={options.required ?? true} min={options.min} max={options.max} step={options.step} maxLength={options.maxLength ?? (name === 'composition' || name === 'method' ? 1000 : 150)} /></label>;
   const planSample = editor?.kind === 'plan' ? editor.sample : undefined;
   const blockSelect = <label>Bloque<select name="blockId" required defaultValue={planSample?.blockId ?? (activeBlockFilter || data.blocks[0]?.id)} onChange={editor?.kind === 'analysis' ? event => setSampleBlockId(Number(event.target.value)) : undefined}>{data.blocks.map(block => <option value={block.id} key={block.id}>{block.code} · {block.field.name}{block.areaHa != null && ` · ${number(block.areaHa, 2)} ha`}</option>)}</select></label>;
   const analysisSelect = (required = true) => <label>{required ? 'Análisis de referencia' : 'Nuevo análisis de seguimiento (opcional)'}<select name="analysisId" required={required} defaultValue={planSample?.id ?? ''}><option value="">Seleccionar</option>{analyses.map(sample => <option key={sample.id} value={sample.id}>#{sample.id} · {blockLabel(sample.blockId)} · {sample.sampledOn} · {sample.reference}</option>)}</select></label>;
@@ -423,7 +424,7 @@ export default function Fertilization({ onHistory }: { onHistory: () => void }) 
       { label: 'Aplicaciones registradas', value: visibleApplications.length, note: 'Incluye aplicaciones parciales', icon: Sprout, tone: 'green' },
       { label: 'Cantidad aplicada', value: appliedAmount || '—', note: 'Según la unidad de cada plan', icon: PackageCheck, tone: 'gold' },
       { label: 'Bloques atendidos', value: applicationBlockCount, note: 'Con aplicación registrada', icon: Layers3, tone: 'teal' },
-      { label: 'Última aplicación', value: latestApplication ? shortDate(latestApplication.application.occurredAt) : '—', note: latestApplication ? blockLabel(latestApplication.plan.blockId) : 'Pendiente de registro', icon: CalendarDays, tone: 'blue' },
+      { label: 'Última aplicación', value: latestApplication ? shortDate(latestApplication.application.occurredAt, applicationTimeZone) : '—', note: latestApplication ? blockLabel(latestApplication.plan.blockId) : 'Pendiente de registro', icon: CalendarDays, tone: 'blue' },
     ],
   }[recordsTab];
   const hasRecords = tab === 'analyses' ? visibleAnalyses.length > 0 : tab === 'plans' ? visiblePlans.length > 0 : visibleApplications.length > 0;
@@ -526,7 +527,7 @@ export default function Fertilization({ onHistory }: { onHistory: () => void }) 
             </tr>)}
             {tab === 'applications' && visibleApplications.map(({ application, plan }) => <tr role="row" key={application.id}>
               <td role="cell"><strong>{plan.product}</strong><small>{blockLabel(plan.blockId)}</small></td>
-              <td role="cell" data-label="Fecha / operador"><time dateTime={application.occurredAt}>{shortDate(application.occurredAt)} · {timeLabel(application.occurredAt)}</time><small>{memberName(application.createdBy)}</small></td>
+              <td role="cell" data-label="Fecha / operador"><time dateTime={application.occurredAt}>{shortDate(application.occurredAt, applicationTimeZone)} · {timeLabel(application.occurredAt, applicationTimeZone)}</time><small>{memberName(application.createdBy)}</small></td>
               <td role="cell" data-label="Cantidad / cobertura"><strong>{number(application.quantity, 6)} {quantityUnit(plan.doseUnit)}</strong><small>{number(application.coverage, 6)} {coverageUnit(plan.doseUnit)}</small></td>
               <td role="cell" data-label="Lote / método">{application.lot}<small>{application.method}</small>{application.inventoryMovementId != null && <small>Salida de inventario #{application.inventoryMovementId}</small>}</td>
               <td role="cell"><button className="outline-action" aria-label={`Ver aplicación ${application.id}`} onClick={() => viewRecord(application)}>Ver aplicación</button></td>
@@ -560,7 +561,7 @@ export default function Fertilization({ onHistory }: { onHistory: () => void }) 
           {tab === 'applications' && latestApplication && <Panel className="fertilization-insight" title="Última aplicación registrada">
             <div className="fertilization-latest">
               <span className="module-kpi-icon teal"><Sprout size={20} /></span>
-              <div><strong>{latestApplication.plan.product}</strong><small>{blockLabel(latestApplication.plan.blockId)} · {shortDate(latestApplication.application.occurredAt)}</small></div>
+              <div><strong>{latestApplication.plan.product}</strong><small>{blockLabel(latestApplication.plan.blockId)} · {shortDate(latestApplication.application.occurredAt, applicationTimeZone)}</small></div>
             </div>
             <dl className="fertilization-latest-detail">
               <div><dt>Cantidad</dt><dd>{number(latestApplication.application.quantity, 6)} {quantityUnit(latestApplication.plan.doseUnit)}</dd></div>
@@ -641,7 +642,8 @@ export default function Fertilization({ onHistory }: { onHistory: () => void }) 
             </FormSection>
             <FormSection title="Producto, dosis y método">
               {productSelect}
-              {input('Producto', 'product')}
+              {!demo && <ApplicationProductSelect {...applicationLots} label="Producto de inventario (opcional)" emptyLabel="Elegir por nombre al registrar la aplicación" />}
+              {input('Producto', 'product', { required: demo, maxLength: 250 })}
               {input('Composición declarada (N-P-K y otros)', 'composition')}
               {input('Dosis definida por el técnico', 'dose', { type: 'number', min: '0.000001', max: 1000000, step: 'any' })}
               <label>Unidad de dosis<select name="doseUnit">{Object.entries(doseUnits).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
@@ -663,8 +665,9 @@ export default function Fertilization({ onHistory }: { onHistory: () => void }) 
               <strong>{number(remaining, 6)} {quantityUnit(editor.plan.doseUnit)}</strong>
             </RecordContext>
             <FormSection title="Datos de la aplicación">
-              <label>Fecha y hora reales<input name="occurredAt" type="datetime-local" required value={applicationInput.occurredAt}
+              <label>Fecha y hora reales<input name="occurredAt" type="datetime-local" required value={applicationInput.occurredAt} aria-describedby={demo ? undefined : 'fertilization-application-time-zone'}
                 onChange={event => setApplicationInput({ ...applicationInput, occurredAt: event.target.value })} /></label>
+              {!demo && <small id="fertilization-application-time-zone" className="muted">Hora de Colombia (UTC−05:00).</small>}
               {editor.plan.recurrence && editor.plan.recurrence !== 'NONE' && <label>Ocurrencia de aplicación<select name="taskId" required value={applicationInput.taskId ?? ''}
                 onChange={event => setApplicationInput({ ...applicationInput, taskId: Number(event.target.value) || undefined })}>
                 <option value="">Seleccionar tarea</option>
@@ -785,7 +788,7 @@ export default function Fertilization({ onHistory }: { onHistory: () => void }) 
           <Panel title="Aplicaciones y fotos del plan">
             {applications.filter(item => item.planId === detail.id).length ? <ul>
               {applications.filter(item => item.planId === detail.id).map(item => <li key={item.id}>
-                <button type="button" className="text-button" onClick={() => viewRecord(item)}>{shortDate(item.occurredAt)} · {number(item.quantity, 6)} {quantityUnit(detail.doseUnit)} · Ver aplicación y fotos #{item.id}</button>
+                <button type="button" className="text-button" onClick={() => viewRecord(item)}>{shortDate(item.occurredAt, applicationTimeZone)} · {number(item.quantity, 6)} {quantityUnit(detail.doseUnit)} · Ver aplicación y fotos #{item.id}</button>
               </li>)}
             </ul> : <p>El plan aún no tiene aplicaciones registradas.</p>}
           </Panel>
@@ -817,7 +820,7 @@ export default function Fertilization({ onHistory }: { onHistory: () => void }) 
           <FertilizationContext plan={detail} analyses={analyses} data={data} />
         </> : <>
           <RecordContext icon={Sprout} title={applicationPlan?.product ?? `Plan #${detail.planId}`}
-            subtitle={[applicationPlan && blockLabel(applicationPlan.blockId), shortDate(detail.occurredAt), timeLabel(detail.occurredAt)].filter(Boolean).join(' · ')}>
+            subtitle={[applicationPlan && blockLabel(applicationPlan.blockId), shortDate(detail.occurredAt, applicationTimeZone), timeLabel(detail.occurredAt, applicationTimeZone)].filter(Boolean).join(' · ')}>
             <small>Cantidad aplicada</small>
             <strong>{number(detail.quantity, 6)} {applicationPlan && quantityUnit(applicationPlan.doseUnit)}</strong>
           </RecordContext>

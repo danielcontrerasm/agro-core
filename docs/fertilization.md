@@ -26,7 +26,8 @@
    las fotos se guardan vinculadas al análisis. **Guardar** sigue disponible
    para dejar registros sin evidencia y completarlos después.
 3. En **Planes → Nuevo plan**, relaciona la muestra, define dosis, área o
-   plantas, método, fecha y responsable inicial. Un plan único requiere
+   plantas, método, fecha y responsable inicial. Selecciona el producto de
+   inventario por su código para fijar los lotes admitidos. Un plan único requiere
    **Aprobar** y luego **Generar tarea**. Un plan recurrente genera una tarea
    por ocurrencia al aprobarlo.
 4. En **Ver plan → Tareas y distribución del trabajo** consulta fecha,
@@ -35,8 +36,10 @@
    miembros de la finca. Cada persona encuentra sus asignaciones en **Mi
    trabajo de hoy**.
 5. **Registrar aplicación** relaciona la ejecución con la tarea. Indica fecha,
-   cantidad, cobertura, método y lote. Después de guardar se abre el detalle
-   con **Fotos adjuntas**. El plan permite volver a abrir cada aplicación con
+   cantidad, cobertura, método y lote. En modo conectado, la hora de Colombia
+   define la fecha de aplicación, el vencimiento del lote y el periodo contable.
+   Después de guardar se abre el detalle con **Fotos adjuntas**. El plan permite
+   volver a abrir cada aplicación con
    **Ver aplicación y fotos**.
 6. **Ver plan → Mapa de ejecución del plan** muestra el bloque objetivo y
    separa cobertura programada, registrada y pendiente de la cantidad de
@@ -246,13 +249,20 @@ Las asociaciones se documentan, no se presentan como causalidad demostrada.
 
 ## Operación y límites
 
-Flyway aplica las migraciones V9, V10, V19, V21, V30 y V31 al reiniciar el backend. Los
-registros, PDF e imágenes se guardan en PostgreSQL; deben incluirse en sus copias
-de seguridad. Los perfiles de referencia ya son configurables por finca, cultivo,
+Flyway aplica las migraciones al reiniciar el backend. V38 ajusta la fecha de
+los movimientos y gastos automáticos existentes con su aplicación de origen.
+Los registros, PDF e imágenes se guardan en PostgreSQL y deben incluirse en sus
+copias de seguridad. Los perfiles de referencia ya son configurables por finca, cultivo,
 variedad y tipo de muestra; su contenido debe ser validado por el responsable técnico.
 Quedan pendientes la integración con laboratorios, el análisis foliar
 comparativo y las correlaciones causales con rendimiento o sanidad. Las
 existencias y el costo unitario de cada lote se gestionan en **Inventario**.
+`POST /api/v1/fertilization/plans` acepta `inventoryProductId`, el identificador
+del producto de inventario de la finca. `productId` identifica el producto del
+catálogo agronómico y conserva la composición y la dosis de referencia. Los
+planes que solo indican un nombre lo vinculan si hay un único producto
+compatible en la unidad de la aplicación. Si el producto aún no está en
+inventario, la ejecución resuelve ese vínculo al registrar el primer consumo.
 Todavía no hay validación específica por
 método de laboratorio, niveles de confianza ni recomendaciones automáticas de fertilización.
 La fecha de seguimiento se muestra en el módulo, no envía notificaciones externas.

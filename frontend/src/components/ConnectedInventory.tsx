@@ -233,7 +233,7 @@ export default function ConnectedInventory() {
 function InventoryFields({ editor, products, lots }: { editor: InventoryEditor; products: InventoryProduct[]; lots: InventoryLot[] }) {
   if (editor.kind === 'product') return <>
     <label>Código<input name="code" required maxLength={60} /></label>
-    <label>Nombre<input name="name" required maxLength={150} /></label>
+    <label>Nombre<input name="name" required maxLength={250} /></label>
     <label>Categoría<input name="category" required maxLength={80} /></label>
     <label>Unidad<input name="unit" required maxLength={30} placeholder="kg, L, unidades" /></label>
     <label>Existencia mínima<input name="minimum" required type="number" min="0" step="0.000001" defaultValue="0" /></label>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowRight, ClipboardCheck, FlaskConical, Layers3, Leaf, Maximize2, PackageCheck, Sprout, X } from 'lucide-react';
 import { number } from '../lib/domain';
+import { farmBusinessTimeZone } from '../lib/farm-business-date';
 import { coverageUnit, interpretAnalysis, latestSoilAnalyses, nutrientNames, units } from '../lib/fertilization';
 import type { Analysis, FertilizationApplication, FertilizationPlan, Nutrient, NutrientInterpretation } from '../lib/fertilization';
 import type { FarmData } from '../lib/types';
@@ -10,7 +11,7 @@ import { Donut, Modal, Panel } from './ui';
 
 const nutrientLayers = ['N', 'P', 'K', 'MG', 'CA', 'B', 'PH'] as const;
 const symbol = (nutrient: Nutrient) => nutrient === 'PH' ? 'pH' : nutrient === 'OM' ? 'MO' : nutrient[0] + nutrient.slice(1).toLowerCase();
-const dateLabel = (date: string) => new Date(date).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+const dateLabel = (date: string, timeZone?: string) => new Date(date).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric', timeZone });
 const states = {
   adequate: { label: 'En rango', color: '#19a65b' },
   high: { label: 'Por encima del rango', color: '#edb92c' },
@@ -193,7 +194,7 @@ export default function FertilizationOverview({ data, demo, blockFilter, analyse
           <button onClick={() => onApplication(application)}>
             <span className="fertilization-recent-icon"><PackageCheck size={18} /></span>
             <span><strong>{plan.product}</strong><small>{data.blocks.find(block => block.id === plan.blockId)?.code} · {number(application.coverage, 2)} {coverageUnit(plan.doseUnit)}</small></span>
-            <time dateTime={application.occurredAt}>{dateLabel(application.occurredAt)}</time>
+            <time dateTime={application.occurredAt}>{dateLabel(application.occurredAt, demo ? undefined : farmBusinessTimeZone)}</time>
           </button>
         </li>)}</ul> : <div className="fertilization-overview-empty"><PackageCheck size={21} /><p>Aún no hay aplicaciones registradas en esta selección.</p></div>}
       </Panel>

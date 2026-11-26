@@ -37,7 +37,7 @@ public class LegacyObservationService {
     queries.values("SELECT id FROM field_event WHERE id = ? FOR UPDATE", Long.class, id).stream()
       .findFirst().orElseThrow(LegacyObservationService::notFound);
     var previous = current(id);
-    if (request.version() != previous.version()) {
+    if (request.getVersion() != previous.version()) {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "La observación cambió. Actualiza antes de editar.");
     }
     var before = previous.snapshot();
@@ -62,7 +62,7 @@ public class LegacyObservationService {
         before_notes, before_symptoms, before_severity, before_problem_code,
         after_notes, after_symptoms, after_severity, after_problem_code
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      """, id, version, access.userId(), request.reason().strip(),
+      """, id, version, access.userId(), request.getReason().strip(),
       before.notes(), before.symptoms(), before.severity(), before.problemCode(),
       after.notes(), after.symptoms(), after.severity(), after.problemCode());
     return observation(id, new Current(version, previous.suspectedCatalogId(), after));
@@ -100,19 +100,22 @@ public class LegacyObservationService {
   }
 
   private Snapshot replacement(Edit request, Snapshot before) {
-    String notes = editableText(request.notes(), before.notes());
-    String symptoms = editableText(request.symptoms(), before.symptoms());
-    Integer severity = request.severity();
+    String notes = request.hasNotes() ? editableText(request.getNotes(), before.notes()) : before.notes();
+    String symptoms = request.hasSymptoms() ? editableText(request.getSymptoms(), before.symptoms()) : before.symptoms();
+    Integer severity = request.hasSeverity() ? request.getSeverity() : before.severity();
     if (!Objects.equals(severity, before.severity()) && severity != null && (severity < 1 || severity > 5)) {
       throw badRequest("La severidad debe estar entre 1 y 5.");
     }
-    String problem = request.problemCode() == null || request.problemCode().isBlank()
-      ? null : request.problemCode().strip().toUpperCase(Locale.ROOT);
+    String problem = request.hasProblemCode() ? normalizeProblemCode(request.getProblemCode()) : before.problemCode();
     if (problem != null && !Objects.equals(problem, before.problemCode())
         && queries.values("SELECT code FROM phytosanitary_problem WHERE code = ? AND active = TRUE", String.class, problem).isEmpty()) {
       throw badRequest("Selecciona un problema fitosanitario activo del catálogo.");
     }
     return new Snapshot(notes, symptoms, severity, problem);
+  }
+
+  private static String normalizeProblemCode(String input) {
+    return input == null || input.isBlank() ? null : input.strip().toUpperCase(Locale.ROOT);
   }
 
   private static String editableText(String input, String previous) {

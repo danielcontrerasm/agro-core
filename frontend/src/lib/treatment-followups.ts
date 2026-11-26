@@ -15,6 +15,7 @@ export interface TreatmentFollowup {
   status: TreatmentStatus;
   description: string;
   product?: string | null;
+  inventoryProductId?: number | null;
   authorizedByUserId: number;
   authorizedByName: string;
   authorizedAt: string;
@@ -36,7 +37,7 @@ export interface TreatmentFollowup {
   version: number;
 }
 
-type Authorization = Pick<TreatmentFollowup, 'description' | 'product'> & { requestId: string };
+type Authorization = Pick<TreatmentFollowup, 'description' | 'product' | 'inventoryProductId'> & { requestId: string };
 interface Execution { version: number; occurredAt: string; inventoryLotId?: number; quantity?: number; operationId: string }
 interface Verification { version: number; verifiedAt: string; outcome: TreatmentOutcome; notes: string }
 

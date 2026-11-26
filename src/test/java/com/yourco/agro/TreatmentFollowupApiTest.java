@@ -60,7 +60,8 @@ class TreatmentFollowupApiTest {
         "finance-schema.sql",
         "db/migration/V25__inventory.sql", "db/migration/V26__farm_finances.sql",
         "db/migration/V29__inspection_treatment_followups.sql", "db/migration/V30__inventory_application_costs.sql",
-        "db/migration/V32__treatment_application_inventory.sql");
+        "db/migration/V32__treatment_application_inventory.sql",
+        "db/migration/V36_1__inventory_product_names.sql", "db/migration/V36_3__treatment_inventory_product.sql");
     }
   }
 
@@ -193,6 +194,28 @@ class TreatmentFollowupApiTest {
   }
 
   @Test
+  void authorizesTheSelectedInventoryProductWhenNamesCoincide() throws Exception {
+    queries.execute("UPDATE inventory_product SET name = 'Insumo QA' WHERE id = 103");
+    String followups = API + "/" + inspection(12, 1) + "/treatment-followups";
+    postAs(followups, 2, Map.of("description", "Nombre ambiguo", "product", "Insumo QA"))
+      .andExpect(status().isConflict());
+    postAs(followups, 2, Map.of("description", "Producto ajeno", "inventoryProductId", 102))
+      .andExpect(status().isNotFound());
+
+    long id = record(postAs(followups, 2, Map.of("description", "Producto explícito", "inventoryProductId", 101))
+      .andExpect(status().isCreated()).andExpect(jsonPath("$.inventoryProductId").value(101))
+      .andExpect(jsonPath("$.product").value("Insumo QA"))).get("id").asLong();
+    String endpoint = followups + "/" + id + "/execute";
+    UUID operationId = UUID.randomUUID();
+    postAs(endpoint, 1, Map.of("version", 0, "occurredAt", now(), "inventoryLotId", 123,
+      "quantity", 2, "operationId", operationId)).andExpect(status().isConflict());
+    postAs(endpoint, 1, Map.of("version", 0, "occurredAt", now(), "inventoryLotId", 121,
+      "quantity", 2, "operationId", operationId)).andExpect(status().isOk())
+      .andExpect(jsonPath("$.unit").value("kg"));
+    assertThat(queries.value("SELECT balance FROM inventory_lot WHERE id = 123", BigDecimal.class)).isEqualByComparingTo("10");
+  }
+
+  @Test
   void restrictsWritesAndKeepsCanceledInspectionHistoryReadable() throws Exception {
     String inspection = API + "/" + inspection(12, 1);
     String followups = inspection + "/treatment-followups";
@@ -245,6 +268,24 @@ class TreatmentFollowupApiTest {
     postAs(treatments, 1, application).andExpect(status().isOk()).andExpect(jsonPath("$.id").value(id));
     assertThat(queries.value("SELECT amount FROM farm_financial_entry WHERE source_type = 'PHYTOSANITARY_TREATMENT' AND source_id = ?",
       BigDecimal.class, id)).isEqualByComparingTo("9.00");
+  }
+
+  @Test
+  void directApplicationOnTheLotExpirationDateUsesTheColombianAccountingMonth() throws Exception {
+    LocalDate appliedOn = LocalDate.of(2025, 10, 31);
+    queries.execute("UPDATE inventory_lot SET expires_on = ? WHERE id = 121", appliedOn);
+    long inspectionId = record(postAs(API, 1, Map.of("blockId", 12, "problemCode", "SIGATOKA",
+      "inspectedAt", "2025-10-31T23:00:00Z", "inspectedPlants", 20, "affectedPlants", 4,
+      "affectedAreaHa", 1, "symptoms", "Observación QA", "severityPercent", 20, "severityMethod", "Evaluación visual",
+      "nextVisit", "2025-11-02")).andExpect(status().isOk())).get("id").asLong();
+    var payload = application("2025-11-01T01:00:00Z", "Aplicación al cierre del mes", 121, 2, UUID.randomUUID());
+
+    var treatment = record(postAs(API + "/" + inspectionId + "/treatments", 1, payload).andExpect(status().isOk()));
+
+    assertThat(queries.value("SELECT applied_on FROM inventory_movement WHERE id = ?", LocalDate.class,
+      treatment.get("inventoryMovementId").asLong())).isEqualTo(appliedOn);
+    assertThat(queries.value("SELECT entry_date FROM farm_financial_entry WHERE source_type = 'PHYTOSANITARY_TREATMENT' AND source_id = ?",
+      LocalDate.class, treatment.get("id").asLong())).isEqualTo(appliedOn);
   }
 
   private Map<String, Object> application(String occurredAt, String description, long lotId, double quantity, UUID operationId) {

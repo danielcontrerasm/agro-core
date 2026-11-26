@@ -1,6 +1,7 @@
 package com.yourco.agro.inspections;
 
 import com.yourco.agro.auth.FarmAccess;
+import com.yourco.agro.farm.FarmBusinessDate;
 import com.yourco.agro.finances.FinanceDtos.Category;
 import com.yourco.agro.finances.FinanceService;
 import com.yourco.agro.inventory.InventoryDtos.ApplicationConsumption;
@@ -290,7 +291,7 @@ public class InspectionService {
   }
 
   InspectionDtos.Treatment createTreatment(InspectionDtos.Inspection inspection, InspectionDtos.TreatmentRequest request,
-                                          Long followupId, String expectedProduct) {
+                                          Long followupId, Long expectedProductId) {
     requireWritable(inspection);
     Instant occurredAt = request.occurredAt().truncatedTo(ChronoUnit.MICROS);
     if (request.occurredAt().isBefore(inspection.inspectedAt())) throw badRequest("El tratamiento no puede ser anterior a la inspección");
@@ -298,14 +299,14 @@ public class InspectionService {
       throw badRequest("Selecciona un lote de inventario para registrar un producto aplicado");
     }
     if (hasText(request.product()) || hasText(request.unit())) throw badRequest("El producto y la unidad se obtienen del lote de inventario");
-    var appliedOn = occurredAt.atOffset(ZoneOffset.UTC).toLocalDate();
+    LocalDate appliedOn = FarmBusinessDate.from(occurredAt);
     ApplicationConsumption consumption = null;
     if (request.inventoryLotId() != null) {
       if (request.quantity() == null || request.operationId() == null) throw badRequest("Indica la cantidad aplicada y el identificador de operación");
       String reference = "Tratamiento de inspección #" + inspection.id();
       if (followupId != null) reference += " · Orden #" + followupId;
       consumption = inventory.consumeForApplication(inspection.farmId(), request.inventoryLotId(), request.operationId(),
-        request.quantity(), expectedProduct, null, appliedOn, reference);
+        request.quantity(), expectedProductId, appliedOn, reference);
       if (consumption.costCop() == null) throw badRequest("Registra el costo unitario del lote antes de aplicar el producto");
     }
     long treatmentId = queries.insert("""

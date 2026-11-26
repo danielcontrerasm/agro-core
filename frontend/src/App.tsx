@@ -91,8 +91,10 @@ export default function App() {
 
   const loadLive = useCallback(async (nextProfile?: Profile, quiet = false) => {
     const requestId = ++liveRequest.current;
-    if (!quiet) setLoading(true);
-    setError('');
+    if (!quiet) {
+      setLoading(true);
+      setError('');
+    }
     try {
       const current = nextProfile ?? await api.me();
       const [farms, fields, blocks, rows, events, savedTasks] = await Promise.all([api.farms(), api.fields(), api.blocks(), api.rows(), api.events(), api.tasks()]);
@@ -104,7 +106,9 @@ export default function App() {
       }
       return current;
     } catch (failure) {
-      if (requestId === liveRequest.current) setError(failure instanceof Error ? failure.message : 'No se pudo cargar la finca.');
+      if (!quiet && requestId === liveRequest.current) {
+        setError(failure instanceof Error ? failure.message : 'No se pudo cargar la finca.');
+      }
       throw failure;
     } finally {
       if (requestId === liveRequest.current) setLoading(false);

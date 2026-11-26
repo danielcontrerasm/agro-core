@@ -1,0 +1,1 @@
+ALTER TABLE inventory_product ALTER COLUMN name TYPE VARCHAR(250);

@@ -1,6 +1,7 @@
 package com.yourco.agro.inspections;
 
 import com.yourco.agro.auth.FarmAccess;
+import com.yourco.agro.inventory.InventoryService;
 import com.yourco.agro.persistence.JpaSql;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -32,11 +33,13 @@ public class TreatmentFollowupService {
   private final JpaSql queries;
   private final FarmAccess access;
   private final InspectionService inspections;
+  private final InventoryService inventory;
 
-  public TreatmentFollowupService(JpaSql queries, FarmAccess access, InspectionService inspections) {
+  public TreatmentFollowupService(JpaSql queries, FarmAccess access, InspectionService inspections, InventoryService inventory) {
     this.queries = queries;
     this.access = access;
     this.inspections = inspections;
+    this.inventory = inventory;
   }
 
   @Transactional(readOnly = true)
@@ -52,21 +55,27 @@ public class TreatmentFollowupService {
     access.requireAgronomic(inspection.farmId());
     String description = request.description().strip();
     String product = optionalText(request.product());
+    Long requestedProductId = request.inventoryProductId();
     long author = access.userId();
     if (request.requestId() != null) {
       var existing = queries.select(SELECT + " WHERE f.inspection_id = ? AND f.request_id = ?",
         TreatmentFollowupService::map, inspectionId, request.requestId()).stream().findFirst();
       if (existing.isPresent()) {
         var previous = existing.get();
-        if (author == previous.authorizedByUserId() && description.equals(previous.description())
-          && Objects.equals(product, previous.product())) return previous;
+        boolean sameProduct = requestedProductId == null ? Objects.equals(product, previous.product())
+          : requestedProductId.equals(previous.inventoryProductId());
+        if (author == previous.authorizedByUserId() && description.equals(previous.description()) && sameProduct) return previous;
         throw conflict("El identificador de solicitud ya corresponde a otra autorización");
       }
     }
+    var inventoryProduct = inventory.findApplicationProduct(inspection.farmId(), requestedProductId,
+      requestedProductId == null ? product : null, null);
+    Long inventoryProductId = inventoryProduct == null ? null : inventoryProduct.id();
+    if (requestedProductId != null) product = inventoryProduct.name();
     long id = queries.insert("""
       INSERT INTO inspection_treatment_followup(inspection_id, request_id, description, product,
-        authorized_by_user_id, authorized_at) VALUES (?, ?, ?, ?, ?, ?)
-      """, inspectionId, request.requestId(), description, product, author, Instant.now());
+        authorized_by_user_id, authorized_at, inventory_product_id) VALUES (?, ?, ?, ?, ?, ?, ?)
+      """, inspectionId, request.requestId(), description, product, author, Instant.now(), inventoryProductId);
     return get(inspectionId, id);
   }
 
@@ -87,10 +96,17 @@ public class TreatmentFollowupService {
     if (optionalText(request.productLot()) != null) throw badRequest("Selecciona el lote del producto en el inventario");
     if (followup.product() != null && request.inventoryLotId() == null) throw badRequest("Selecciona el lote del producto autorizado");
     if (followup.product() == null && request.inventoryLotId() != null) throw badRequest("El lote debe corresponder a un producto autorizado");
-    var treatment = inspections.createTreatment(inspection, application, id, followup.product());
+    Long productId = followup.inventoryProductId();
+    if (followup.product() != null && productId == null) {
+      var inventoryProduct = inventory.findApplicationProduct(inspection.farmId(), null, followup.product(), null);
+      if (inventoryProduct == null) throw conflict("No se encontró en inventario el producto autorizado.");
+      productId = inventoryProduct.id();
+    }
+    var treatment = inspections.createTreatment(inspection, application, id, productId);
     queries.execute("""
-      UPDATE inspection_treatment_followup SET treatment_id = ?, product_lot = ?, version = version + 1 WHERE id = ?
-      """, treatment.id(), treatment.inventoryLotCode(), id);
+      UPDATE inspection_treatment_followup SET treatment_id = ?, product_lot = ?, inventory_product_id = ?,
+        version = version + 1 WHERE id = ?
+      """, treatment.id(), treatment.inventoryLotCode(), productId, id);
     return get(inspectionId, id);
   }
 
@@ -129,7 +145,7 @@ public class TreatmentFollowupService {
     if (treatmentId != null) status = Status.EXECUTED;
     if (verifiedAt != null) status = Status.VERIFIED;
     return new Followup(row.longValue("id"), row.longValue("inspection_id"), status,
-      row.text("description"), row.text("product"), row.longValue("authorized_by_user_id"),
+      row.text("description"), row.text("product"), row.value("inventory_product_id", Long.class), row.longValue("authorized_by_user_id"),
       row.text("authorized_by_name"), row.instant("authorized_at"), treatmentId, row.value("executed_by_user_id", Long.class),
       row.text("executed_by_name"), row.instant("executed_at"), row.text("product_lot"), InspectionService.treatmentQuantity(row),
       row.text("unit"), row.text("applied_product"), row.value("inventory_lot_id", Long.class), row.value("inventory_movement_id", Long.class),

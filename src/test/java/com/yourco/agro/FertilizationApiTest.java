@@ -53,7 +53,9 @@ class FertilizationApiTest {
         "db/migration/V25__inventory.sql",
         "db/migration/V26__farm_finances.sql",
         "db/migration/V30__inventory_application_costs.sql",
-        "db/migration/V31__fertilization_application_inventory.sql"
+        "db/migration/V31__fertilization_application_inventory.sql",
+        "db/migration/V36_1__inventory_product_names.sql",
+        "db/migration/V36_2__fertilization_inventory_product.sql"
       );
     }
   }
@@ -66,7 +68,7 @@ class FertilizationApiTest {
     return UsernamePasswordAuthenticationToken.authenticated(new AuthDtos.User(id,"Operator","user@example.com"),null,List.of());
   }
   @BeforeEach void seed() {
-    for (String table : List.of("nutrient_analysis_review","nutrient_reference_range","nutrient_reference_profile","fertilization_plan_task","fertilization_followup","fertilization_application","farm_financial_entry","inventory_movement","inventory_lot","inventory_product","fertilization_plan","fertilizer_product","soil_analysis","farm_task","field_event","farm_membership","app_user","block","field","farm")) queries.execute("DELETE FROM "+table);
+    for (String table : List.of("nutrient_analysis_review","nutrient_reference_range","nutrient_reference_profile","fertilization_plan_task","fertilization_followup","fertilization_application","fertilization_plan","farm_financial_entry","inventory_movement","inventory_lot","inventory_product","fertilizer_product","soil_analysis","farm_task","field_event","farm_membership","app_user","block","field","farm")) queries.execute("DELETE FROM "+table);
     queries.execute("INSERT INTO farm VALUES (10,'North'),(20,'South')");
     queries.execute("INSERT INTO field(id,farm_id,name) VALUES (11,10,'Norte'),(21,20,'Sur')");
     queries.execute("INSERT INTO block(id,field_id,area_ha,crop,variety,code) VALUES (12,11,28,'banana','Valery','A'),(15,11,18,'banana','Valery','B'),(22,21,10,'banana','Valery','C')");
@@ -76,6 +78,9 @@ class FertilizationApiTest {
   }
   private long stockedLot(long farmId, String sku, String product, String unit, String lot, int quantity, BigDecimal cost, LocalDate expiresOn) {
     long productId = queries.insert("INSERT INTO inventory_product(farm_id,code,name,category,unit,minimum) VALUES (?,?,?,'Fertilizantes',?,0)", farmId, sku, product, unit);
+    return stockedLot(farmId, productId, lot, quantity, cost, expiresOn);
+  }
+  private long stockedLot(long farmId, long productId, String lot, int quantity, BigDecimal cost, LocalDate expiresOn) {
     return queries.insert("INSERT INTO inventory_lot(farm_id,product_id,code,balance,unit_cost_cop,expires_on) VALUES (?,?,?,?,?,?)", farmId, productId, lot, quantity, cost, expiresOn);
   }
   private Map<String,Object> analysis() {
@@ -199,9 +204,10 @@ class FertilizationApiTest {
     postAs(endpoint,request,1).andExpect(status().isNotFound());
     long wrongProduct = stockedLot(10,"OTRO","Otro producto","kg","OTRO",80,BigDecimal.ONE,null);
     long wrongUnit = stockedLot(10,"LIQ","Producto técnico","L","LIQ",80,BigDecimal.ONE,null);
-    long expired = stockedLot(10,"VENC","Producto técnico","kg","VENC",80,BigDecimal.ONE,LocalDate.of(2026,1,11));
-    long insufficient = stockedLot(10,"BAJO","Producto técnico","kg","BAJO",4,BigDecimal.ONE,null);
-    long unpriced = stockedLot(10,"PRECIO","Producto técnico","kg","PRECIO",80,null,null);
+    long productId = queries.value("SELECT product_id FROM inventory_lot WHERE id=?", Long.class, stockLot);
+    long expired = stockedLot(10, productId, "VENC", 80, BigDecimal.ONE, LocalDate.of(2026, 1, 11));
+    long insufficient = stockedLot(10, productId, "BAJO", 4, BigDecimal.ONE, null);
+    long unpriced = stockedLot(10, productId, "PRECIO", 80, null, null);
     for (long lotId : List.of(wrongProduct,wrongUnit,expired,insufficient,unpriced)) {
       request.put("inventoryLotId",lotId);
       postAs(endpoint,request,1).andExpect(status().isConflict());
@@ -239,6 +245,33 @@ class FertilizationApiTest {
     next.put("sampleType","FOLIAR"); created("analyses",next,1);
     assertThat(service.latestSoil(12).get("id")).isEqualTo(nextId);
     assertThat(service.latestSoil(15)).isNull();
+  }
+  @Test void appliesOnlyTheBoundInventoryProductAndKeepsLongNames() throws Exception {
+    long sampleId = created("analyses", analysis(), 1).get("id").asLong();
+    String name = "Fertilizante de prueba " + "A".repeat(220);
+    long selectedLot = stockedLot(10, "LARGO", name, "kg", "L".repeat(80), 60, BigDecimal.ONE, null);
+    long homonymLot = stockedLot(10, "HOMONIMO", name, "kg", "LOTE-HOMONIMO", 60, BigDecimal.ONE, null);
+    long selectedProductId = queries.value("SELECT product_id FROM inventory_lot WHERE id=?", Long.class, selectedLot);
+    var request = plan(sampleId);
+    request.put("product", name);
+    postAs("plans", request, 2).andExpect(status().isConflict());
+    request.remove("product");
+    request.put("inventoryProductId", selectedProductId);
+    var createdPlan = created("plans", request, 2);
+    long planId = createdPlan.get("id").asLong();
+    assertThat(createdPlan.get("inventoryProductId").asLong()).isEqualTo(selectedProductId);
+    assertThat(createdPlan.get("product").asText()).isEqualTo(name);
+    postAs("plans/" + planId + "/approve", Map.of("version", 0, "reason", "Revisión QA"), 2)
+      .andExpect(status().isOk());
+    postAs("plans/" + planId + "/task", Map.of(), 2).andExpect(status().isOk());
+    String endpoint = "plans/" + planId + "/applications";
+    var applicationRequest = application(5);
+    applicationRequest.put("inventoryLotId", homonymLot);
+    postAs(endpoint, applicationRequest, 1).andExpect(status().isConflict());
+    applicationRequest.put("inventoryLotId", selectedLot);
+    created(endpoint, applicationRequest, 1);
+    assertThat(queries.value("SELECT description FROM farm_financial_entry", String.class)).contains(name);
+    assertThat(queries.value("SELECT balance FROM inventory_lot WHERE id=?", BigDecimal.class, homonymLot)).isEqualByComparingTo("60");
   }
   @Test void unitConversionsAndCancellationPreserveApprovalAudit() throws Exception {
     long sampleId=created("analyses",analysis(),1).get("id").asLong();

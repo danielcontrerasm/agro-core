@@ -29,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -124,6 +125,36 @@ class LegacyObservationApiTest {
     assertThat(queries.value("SELECT created_by_user_id FROM field_event WHERE id=14", Long.class)).isEqualTo(1);
     assertThat(queries.value("SELECT ai_diagnosis_json FROM observation_detail WHERE event_id=14", String.class))
       .isEqualTo("{\"original\":true}");
+  }
+
+  @Test
+  void patchesOnlySuppliedFieldsAndClearsExplicitNulls() throws Exception {
+    queries.execute("UPDATE observation_detail SET problem_code='SIGATOKA' WHERE event_id=14");
+    edit(OBSERVATION, 2, Map.of("version", 0, "reason", "Corregir severidad", "severity", 4))
+      .andExpect(status().isOk())
+      .andExpect(jsonPath("$.notes").value("Notas originales"))
+      .andExpect(jsonPath("$.symptoms").value("Manchas originales"))
+      .andExpect(jsonPath("$.severity").value(4))
+      .andExpect(jsonPath("$.problemCode").value("SIGATOKA"))
+      .andExpect(jsonPath("$.history[0].after.notes").value("Notas originales"));
+
+    var clear = new HashMap<String, Object>();
+    clear.put("version", 1);
+    clear.put("reason", "Eliminar valores incorrectos");
+    clear.put("notes", null);
+    clear.put("symptoms", null);
+    clear.put("severity", null);
+    clear.put("problemCode", null);
+    edit(OBSERVATION, 2, clear).andExpect(status().isOk())
+      .andExpect(jsonPath("$.version").value(2))
+      .andExpect(jsonPath("$.notes").doesNotExist())
+      .andExpect(jsonPath("$.symptoms").doesNotExist())
+      .andExpect(jsonPath("$.severity").doesNotExist())
+      .andExpect(jsonPath("$.problemCode").doesNotExist())
+      .andExpect(jsonPath("$.history[0].before.severity").value(4));
+    assertThat(queries.value("SELECT notes FROM field_event WHERE id=14", String.class)).isNull();
+    assertThat(queries.value("SELECT severity FROM observation_detail WHERE event_id=14", Integer.class)).isNull();
+    edit(OBSERVATION, 2, Map.of("version", 2, "reason", "Ningún campo enviado")).andExpect(status().isBadRequest());
   }
 
   @Test

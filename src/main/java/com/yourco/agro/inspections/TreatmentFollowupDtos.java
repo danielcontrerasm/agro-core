@@ -21,7 +21,8 @@ public final class TreatmentFollowupDtos {
   public record Authorize(
     @NotBlank @Size(max = 4000) String description,
     @Size(max = 250) String product,
-    UUID requestId) {}
+    UUID requestId,
+    @Positive Long inventoryProductId) {}
 
   public record Execute(
     @NotNull @Min(0) Long version,
@@ -39,6 +40,7 @@ public final class TreatmentFollowupDtos {
 
   public record Followup(
     long id, long inspectionId, Status status, String description, String product,
+    Long inventoryProductId,
     long authorizedByUserId, String authorizedByName, Instant authorizedAt,
     Long treatmentId, Long executedByUserId, String executedByName, Instant executedAt,
     String productLot, BigDecimal quantity, String unit, String appliedProduct,

@@ -31,11 +31,13 @@ public class AnalyticsService {
     private final JpaSql queries;
     private final InspectionService inspections;
     private final FertilizationService fertilization;
+    private final FertilizerUsageRepository fertilizerUsage;
     private final IrrigationService irrigation;
     private final ObjectMapper json;
 
     public AnalyticsService(BlockRepository blocks, SensorDeviceRepository devices, SensorReadingRepository readings, CropMonitoringRecordRepository monitoring,
-                            FarmAccess access, JpaSql queries, InspectionService inspections, FertilizationService fertilization, IrrigationService irrigation, ObjectMapper json) {
+                            FarmAccess access, JpaSql queries, InspectionService inspections, FertilizationService fertilization,
+                            FertilizerUsageRepository fertilizerUsage, IrrigationService irrigation, ObjectMapper json) {
         this.blocks = blocks;
         this.devices = devices;
         this.readings = readings;
@@ -44,6 +46,7 @@ public class AnalyticsService {
         this.monitoring = monitoring;
         this.inspections = inspections;
         this.fertilization = fertilization;
+        this.fertilizerUsage = fertilizerUsage;
         this.irrigation = irrigation;
         this.json = json;
     }
@@ -91,7 +94,6 @@ public class AnalyticsService {
         access.require(farmId, false);
         var row = queries.row("""
                 SELECT COUNT(DISTINCT b.id) AS blocks,
-                  COALESCE(SUM(CASE WHEN r.record_type = 'FERTILIZER_APPLICATION' THEN r.quantity ELSE 0 END), 0) AS fertilizer_quantity,
                   COALESCE(SUM(CASE WHEN r.record_type = 'IRRIGATION' THEN r.water_volume ELSE 0 END), 0) AS water_volume,
                   COALESCE(SUM(CASE WHEN r.record_type = 'HARVEST' THEN r.harvested_quantity ELSE 0 END), 0) AS harvested_quantity,
                   COUNT(CASE WHEN r.record_type = 'HEALTH_OBSERVATION' THEN 1 END) AS health_observations
@@ -101,6 +103,7 @@ public class AnalyticsService {
                 """, farmId);
         var result = new LinkedHashMap<String, Object>();
         result.putAll(row);
+        result.put("fertilizer_quantity", fertilizerUsage.sumAppliedQuantity(farmId));
         result.put("openAlerts", queries.value("SELECT COUNT(*) FROM sensor_alert WHERE farm_id = ? AND status = 'OPEN'", Long.class, farmId));
         result.put("connectedDevices", queries.value("SELECT COUNT(*) FROM sensor_device WHERE farm_id = ? AND active = TRUE", Long.class, farmId));
         var water = queries.row("""

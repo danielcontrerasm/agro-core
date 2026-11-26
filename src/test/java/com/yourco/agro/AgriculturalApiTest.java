@@ -11,8 +11,10 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -123,6 +125,44 @@ class AgriculturalApiTest {
       .andExpect(status().isOk())
       .andExpect(jsonPath("$.features[0].properties.harvestedQuantity").value(1210.0))
       .andExpect(jsonPath("$.features[0].properties.estimatedYield").value(1250.0));
+  }
+
+  @Test
+  @Transactional(propagation = Propagation.NOT_SUPPORTED)
+  void deletingLocationWithAccountedTreatmentPreservesItsInspectionExpenseAndStock() throws Exception {
+    var user = users.register(new AuthDtos.RegisterRequest("Treatment auditor", UUID.randomUUID() + "@example.com", "test-password-123"));
+    var login = UsernamePasswordAuthenticationToken.authenticated(user, null, List.of());
+    long farmId = create("farms", Map.of("name", "Farm with accounted treatment"), login).get("id").asLong();
+    var polygon = Map.of("coordinates", List.of(List.of(List.of(-74.1, 10.5), List.of(-74.11, 10.5), List.of(-74.11, 10.51))));
+    long fieldId = create("fields", Map.of("farmId", farmId, "name", "Treatment field", "polygon", polygon), login).get("id").asLong();
+    long blockId = create("blocks", Map.of("fieldId", fieldId, "code", "TREATED", "polygon", polygon), login).get("id").asLong();
+    long inspectionId = create("inspections", Map.of("blockId", blockId, "problemCode", "WEEVILS",
+      "inspectedAt", "2024-10-16T13:00:00Z", "inspectedPlants", 20, "affectedPlants", 4, "affectedAreaHa", 0.4,
+      "symptoms", "Observed damage", "severityPercent", 10.0, "severityMethod", "Visual inspection", "nextVisit", "2024-10-20"), login)
+      .get("id").asLong();
+    long productId = queries.insert("""
+      INSERT INTO inventory_product(farm_id, code, name, category, unit, minimum)
+      VALUES (?, 'FIT-QA', 'Fitosanitario de prueba', 'Fitosanitarios', 'kg', 0)
+      """, farmId);
+    long lotId = queries.insert("""
+      INSERT INTO inventory_lot(farm_id, product_id, code, balance, unit_cost_cop)
+      VALUES (?, ?, 'LOTE-QA', 10, 12500)
+      """, farmId, productId);
+    var treatment = create("inspections/" + inspectionId + "/treatments", Map.of("occurredAt", "2024-10-16T14:00:00Z",
+      "description", "Treatment with accounted cost", "inventoryLotId", lotId, "quantity", 2, "operationId", UUID.randomUUID()), login);
+    long treatmentId = treatment.get("id").asLong();
+
+    for (String location : List.of("blocks/" + blockId, "fields/" + fieldId, "farms/" + farmId)) {
+      mvc.perform(delete("/api/v1/" + location).with(authentication(login)).with(csrf()))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.detail").value("La ubicación contiene tratamientos contabilizados y no se puede eliminar."));
+    }
+
+    mvc.perform(get("/api/v1/inspections/" + inspectionId + "/treatments").with(authentication(login)))
+      .andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(treatmentId));
+    assertThat(queries.value("SELECT block_id FROM farm_financial_entry WHERE farm_id=? AND source_id=?", Long.class, farmId, treatmentId))
+      .isEqualTo(blockId);
+    assertThat(queries.value("SELECT balance FROM inventory_lot WHERE id=?", BigDecimal.class, lotId)).isEqualByComparingTo("8");
   }
 
   @Test

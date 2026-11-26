@@ -23,7 +23,7 @@ public final class InventoryDtos {
   public record CreateProduct(
     @NotNull @Positive Long farmId,
     @NotBlank @Size(max = 60) String code,
-    @NotBlank @Size(max = 150) String name,
+    @NotBlank @Size(max = 250) String name,
     @NotBlank @Size(max = 80) String category,
     @NotBlank @Size(max = 30) String unit,
     @NotNull @DecimalMin("0") @Digits(integer = 13, fraction = 6) BigDecimal minimum) {}
@@ -49,6 +49,8 @@ public final class InventoryDtos {
 
   public record Product(long id, String code, String name, String category, String unit,
                         BigDecimal minimum, BigDecimal available, BigDecimal balance, boolean lowStock) {}
+
+  public record ApplicationProduct(long id, String name, String unit) {}
 
   public record Lot(long id, long productId, String code, LocalDate expiresOn, BigDecimal balance, LotStatus status,
                     boolean hasUnitCost, @JsonInclude(JsonInclude.Include.NON_NULL) BigDecimal unitCostCop,

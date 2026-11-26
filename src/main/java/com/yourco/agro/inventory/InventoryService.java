@@ -1,6 +1,7 @@
 package com.yourco.agro.inventory;
 
 import com.yourco.agro.auth.FarmAccess;
+import com.yourco.agro.farm.FarmBusinessDate;
 import com.yourco.agro.persistence.JpaSql;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
@@ -13,7 +14,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -47,7 +47,7 @@ public class InventoryService {
   public Overview overview(long farmId) {
     access.require(farmId, false);
     boolean viewCosts = access.canManage(farmId);
-    LocalDate today = LocalDate.now(ZoneOffset.UTC);
+    LocalDate today = FarmBusinessDate.today();
     var products = queries.select("""
       SELECT p.id, p.code, p.name, p.category, p.unit, p.minimum,
         COALESCE(SUM(l.balance), 0) AS balance,
@@ -108,7 +108,7 @@ public class InventoryService {
     int changed = queries.execute("UPDATE inventory_lot SET unit_cost_cop = ? WHERE farm_id = ? AND id = ?",
       request.unitCostCop(), request.farmId(), lotId);
     if (changed == 0) throw missingLot();
-    return queries.selectOne(LOT_SELECT + " AND id = ?", row -> lot(row, LocalDate.now(ZoneOffset.UTC), true), request.farmId(), lotId);
+    return queries.selectOne(LOT_SELECT + " AND id = ?", row -> lot(row, FarmBusinessDate.today(), true), request.farmId(), lotId);
   }
 
   @Transactional
@@ -118,9 +118,37 @@ public class InventoryService {
     return writeMovement(request, lot, null);
   }
 
+  @Transactional(readOnly = true)
+  public ApplicationProduct findApplicationProduct(long farmId, Long productId, String productName, String expectedUnit) {
+    access.require(farmId, false);
+    if (productId != null) {
+      var product = queries.select("SELECT id, name, unit FROM inventory_product WHERE farm_id = ? AND id = ?",
+        InventoryService::applicationProduct, farmId, productId).stream().findFirst()
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró el producto en la finca."));
+      if (productName != null && !textKey(productName).equals(textKey(product.name()))) {
+        throw conflict("El producto de inventario no coincide con el producto del catálogo.");
+      }
+      if (expectedUnit != null && !unitKey(expectedUnit).equals(unitKey(product.unit()))) {
+        throw conflict("La unidad del producto de inventario no coincide con la unidad aplicada.");
+      }
+      return product;
+    }
+    if (productName == null) return null;
+
+    String nameKey = textKey(productName);
+    String expectedUnitKey = expectedUnit == null ? null : unitKey(expectedUnit);
+    var matches = queries.select("SELECT id, name, unit FROM inventory_product WHERE farm_id = ?",
+      InventoryService::applicationProduct, farmId).stream()
+      .filter(product -> nameKey.equals(textKey(product.name())))
+      .filter(product -> expectedUnitKey == null || expectedUnitKey.equals(unitKey(product.unit())))
+      .limit(2).toList();
+    if (matches.size() > 1) throw conflict("Hay más de un producto compatible en el inventario. Selecciona el producto por su código.");
+    return matches.isEmpty() ? null : matches.get(0);
+  }
+
   @Transactional(propagation = Propagation.MANDATORY)
   public ApplicationConsumption consumeForApplication(long farmId, long lotId, UUID operationId, BigDecimal quantity,
-                                                       String expectedProduct, String expectedUnit, LocalDate appliedOn, String reference) {
+                                                       Long expectedProductId, LocalDate appliedOn, String reference) {
     access.require(farmId, false);
     if (quantity == null || quantity.signum() <= 0 || quantity.compareTo(BALANCE_LIMIT) >= 0 || quantity.stripTrailingZeros().scale() > 6) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Indica una cantidad aplicada positiva con hasta seis decimales.");
@@ -133,14 +161,11 @@ public class InventoryService {
     }
 
     var lot = lockLot(farmId, lotId);
-    var product = queries.selectOne("SELECT name, unit FROM inventory_product WHERE farm_id = ? AND id = ?",
-      row -> new ProductIdentity(row.text("name"), row.text("unit")), farmId, lot.productId());
-    if (expectedProduct != null && !textKey(expectedProduct).equals(textKey(product.name()))) {
+    if (expectedProductId != null && expectedProductId != lot.productId()) {
       throw conflict("El producto del lote no coincide con el producto de la aplicación.");
     }
-    if (expectedUnit != null && !unitKey(expectedUnit).equals(unitKey(product.unit()))) {
-      throw conflict("La unidad del lote no coincide con la unidad aplicada.");
-    }
+    var product = queries.selectOne("SELECT id, name, unit FROM inventory_product WHERE farm_id = ? AND id = ?",
+      InventoryService::applicationProduct, farmId, lot.productId());
 
     var request = new CreateMovement(farmId, lotId, operationId, Direction.OUT, quantity, reference, null);
     var saved = writeMovement(request, lot, appliedOn);
@@ -148,7 +173,7 @@ public class InventoryService {
   }
 
   private Lot lockLot(long farmId, long lotId) {
-    LocalDate today = LocalDate.now(ZoneOffset.UTC);
+    LocalDate today = FarmBusinessDate.today();
     return queries.select(LOT_SELECT + " AND id = ? FOR UPDATE", row -> lot(row, today, true), farmId, lotId)
       .stream().findFirst().orElseThrow(InventoryService::missingLot);
   }
@@ -213,6 +238,10 @@ public class InventoryService {
       minimum, available, row.value("balance", BigDecimal.class), available.compareTo(minimum) < 0);
   }
 
+  private static ApplicationProduct applicationProduct(JpaSql.Row row) {
+    return new ApplicationProduct(row.longValue("id"), row.text("name"), row.text("unit"));
+  }
+
   private static Lot lot(JpaSql.Row row, LocalDate today, boolean viewCosts) {
     BigDecimal balance = row.value("balance", BigDecimal.class);
     LocalDate expiresOn = row.date("expires_on");
@@ -268,5 +297,4 @@ public class InventoryService {
     return new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró el lote en la finca.");
   }
 
-  private record ProductIdentity(String name, String unit) {}
 }

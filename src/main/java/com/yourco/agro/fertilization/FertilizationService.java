@@ -3,6 +3,7 @@ package com.yourco.agro.fertilization;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yourco.agro.auth.FarmAccess;
+import com.yourco.agro.farm.FarmBusinessDate;
 import com.yourco.agro.finances.FinanceDtos;
 import com.yourco.agro.finances.FinanceService;
 import com.yourco.agro.inventory.InventoryService;
@@ -17,7 +18,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.*;
 import static com.yourco.agro.fertilization.FertilizationDtos.*;
 
@@ -80,6 +80,7 @@ public class FertilizationService {
     for (var entry : Map.ofEntries(Map.entry("id","id"),Map.entry("status","status"),Map.entry("version","version"),Map.entry("taskId","task_id"),Map.entry("totalQuantity","total_quantity"),Map.entry("createdBy","created_by"),Map.entry("approvedBy","approved_by"),Map.entry("approvedAt","approved_at"),Map.entry("decisionReason","decision_reason"),Map.entry("productId","product_id"),Map.entry("recurrence","recurrence"),Map.entry("recurrenceUntil","recurrence_until")).entrySet()) {
       Object value = row.get(entry.getValue()); result.put(entry.getKey(),value == null ? null : value instanceof java.time.temporal.TemporalAccessor ? value.toString() : value);
     }
+    result.put("inventoryProductId", row.get("inventory_product_id"));
     result.put("appliedQuantity",queries.value("SELECT COALESCE(SUM(quantity),0) FROM fertilization_application WHERE plan_id=?",BigDecimal.class,row.get("id")));
     var tasks = queries.select("""
       SELECT task_id, occurrence_on FROM fertilization_plan_task WHERE plan_id = ? ORDER BY occurrence_on
@@ -285,14 +286,36 @@ public class FertilizationService {
     Recurrence recurrence = recurrence(request);
     if (recurrence==Recurrence.NONE && request.recurrenceUntil()!=null) throw bad("Una aplicación única no puede tener fecha de recurrencia");
     if (recurrence!=Recurrence.NONE && (request.recurrenceUntil()==null || request.recurrenceUntil().isBefore(request.scheduledOn()) || request.recurrenceUntil().isAfter(request.scheduledOn().plusYears(2)))) throw bad("La recurrencia debe terminar entre la fecha programada y dos años después");
-    var catalogProduct = productForPlan(request.productId(),farmId);
-    if (catalogProduct!=null && !request.doseUnit().name().equals(catalogProduct.get("default_dose_unit"))) throw bad("La unidad de dosis no coincide con la unidad estándar del producto");
-    BigDecimal total = total(request); if (total.signum()<=0 || total.precision()-total.scale()>10) throw bad("Cantidad total fuera de rango");
-    var details = new LinkedHashMap<String,Object>(json.convertValue(request,new TypeReference<Map<String,Object>>() {}));
-    if (catalogProduct!=null) { details.put("product",catalogProduct.get("name")); details.put("composition",catalogProduct.get("composition")); }
-    details.put("recurrence",recurrence.name());
-    long id = queries.insert("INSERT INTO fertilization_plan(block_id,analysis_id,inspection_id,details,total_quantity,product_id,recurrence,recurrence_until,created_by) VALUES (?,?,?,?,?,?,?,?,?)",
-      request.blockId(),request.analysisId(),request.inspectionId(),encode(details),total,request.productId(),recurrence.name(),request.recurrenceUntil(),access.userId());
+    var catalogProduct = productForPlan(request.productId(), farmId);
+    if (catalogProduct != null && !request.doseUnit().name().equals(catalogProduct.get("default_dose_unit"))) {
+      throw bad("La unidad de dosis no coincide con la unidad estándar del producto");
+    }
+    String productName = catalogProduct == null ? request.product() : (String) catalogProduct.get("name");
+    if (request.inventoryProductId() == null && (productName == null || productName.isBlank())) {
+      throw bad("Indica el producto del plan o selecciona un producto de inventario");
+    }
+    String expectedName = catalogProduct != null || request.inventoryProductId() == null ? productName : null;
+    var inventoryProduct = inventory.findApplicationProduct(farmId, request.inventoryProductId(), expectedName,
+      quantityUnit(request.doseUnit()));
+    Long inventoryProductId = inventoryProduct == null ? null : inventoryProduct.id();
+    BigDecimal total = total(request);
+    if (total.signum() <= 0 || total.precision() - total.scale() > 10) {
+      throw bad("Cantidad total fuera de rango");
+    }
+    var details = new LinkedHashMap<String, Object>(json.convertValue(request, new TypeReference<Map<String, Object>>() {}));
+    if (catalogProduct != null) {
+      details.put("composition", catalogProduct.get("composition"));
+    }
+    if (catalogProduct == null && request.inventoryProductId() != null) {
+      productName = inventoryProduct.name();
+    }
+    details.put("product", productName);
+    details.put("recurrence", recurrence.name());
+    long id = queries.insert("""
+      INSERT INTO fertilization_plan(block_id,analysis_id,inspection_id,details,total_quantity,product_id,
+        recurrence,recurrence_until,created_by,inventory_product_id) VALUES (?,?,?,?,?,?,?,?,?,?)
+      """, request.blockId(), request.analysisId(), request.inspectionId(), encode(details), total, request.productId(),
+      recurrence.name(), request.recurrenceUntil(), access.userId(), inventoryProductId);
     return presentPlan(planRow(id,true,false));
   }
   @Transactional
@@ -375,7 +398,7 @@ public class FertilizationService {
     var task = queries.row("SELECT assignee_id,status FROM farm_task WHERE id=? FOR UPDATE",taskId);
     if (number(task,"assignee_id")!=userId) access.require(farmId,true);
     if (!Set.of("pending","progress").contains(task.get("status"))) throw bad("La tarea debe estar pendiente o en progreso");
-    LocalDate appliedOn = request.occurredAt().atOffset(ZoneOffset.UTC).toLocalDate();
+    LocalDate appliedOn = FarmBusinessDate.from(request.occurredAt());
     if (request.occurredAt().isAfter(Instant.now()) || appliedOn.isBefore(json.convertValue(decode((String) analysisRow(plan.analysisId()).get("details")),Analysis.class).sampledOn())) throw bad("Fecha de aplicación inválida");
     if (request.coverage().compareTo(plan.coverage())>0 || ((plan.doseUnit()==DoseUnit.G_PLANT || plan.doseUnit()==DoseUnit.ML_PLANT) && request.coverage().stripTrailingZeros().scale()>0)) throw bad("Cobertura inválida");
     BigDecimal applied = recurrence==Recurrence.NONE
@@ -383,8 +406,16 @@ public class FertilizationService {
       : queries.value("SELECT COALESCE(SUM(quantity),0) FROM fertilization_application WHERE plan_id=? AND task_id=?",BigDecimal.class,id,taskId);
     if (applied.add(request.quantity()).compareTo((BigDecimal) row.get("total_quantity"))>0) throw bad("La cantidad acumulada supera el plan aprobado; requiere un nuevo plan");
     String unit = quantityUnit(plan.doseUnit());
+    Long boundProductId = JpaSql.convert(row.get("inventory_product_id"), Long.class);
+    var inventoryProduct = inventory.findApplicationProduct(farmId, boundProductId, boundProductId == null ? plan.product() : null, unit);
+    if (inventoryProduct == null) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "No se encontró en inventario el producto del plan con la unidad aplicada.");
+    }
     var consumption = inventory.consumeForApplication(farmId, request.inventoryLotId(), request.operationId(),
-      request.quantity(), plan.product(), unit, appliedOn, "Fertilización · plan #" + id);
+      request.quantity(), inventoryProduct.id(), appliedOn, "Fertilización · plan #" + id);
+    if (boundProductId == null) {
+      queries.execute("UPDATE fertilization_plan SET inventory_product_id=? WHERE id=?", inventoryProduct.id(), id);
+    }
     var details = new ApplicationDetails(request.occurredAt(), request.quantity(), request.coverage(),
       request.method(), consumption.lotCode(), request.notes());
     String eventNotes = String.join(" · ", "Plan #" + id, plan.product(), request.quantity() + " " + unit,
@@ -395,9 +426,13 @@ public class FertilizationService {
       INSERT INTO fertilization_application(plan_id,event_id,task_id,quantity,details,created_by,operation_id,inventory_lot_id,inventory_movement_id)
       VALUES (?,?,?,?,?,?,?,?,?)
       """, id, eventId, taskId, request.quantity(), encode(details), userId, request.operationId(), request.inventoryLotId(), consumption.movementId());
+    String expenseDescription = "Fertilización · " + consumption.productName();
+    String lotDescription = " · lote " + consumption.lotCode();
+    if (expenseDescription.length() + lotDescription.length() <= 300) {
+      expenseDescription += lotDescription;
+    }
     long entryId = finance.recordApplicationExpense(farmId, plan.blockId(), request.operationId(), appliedOn,
-      FinanceDtos.Category.FERTILIZERS, consumption.costCop(),
-      "Fertilización · " + consumption.productName() + " · lote " + consumption.lotCode(), "FERTILIZATION_APPLICATION", applicationId);
+      FinanceDtos.Category.FERTILIZERS, consumption.costCop(), expenseDescription, "FERTILIZATION_APPLICATION", applicationId);
     queries.execute("UPDATE fertilization_application SET financial_entry_id=? WHERE id=?", entryId, applicationId);
     queries.execute("UPDATE farm_task SET status='progress',version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'",taskId);
     return presentApplication(queries.row(APPLICATION_SELECT + " WHERE a.id=?", applicationId), canReadFinance(farmId));

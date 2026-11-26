@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { number } from '../lib/domain';
-import { inventoryApi, inventoryProductKey, inventoryUnitKey, type InventoryOverview } from '../lib/inventory';
+import { inventoryApi, inventoryProductKey, inventoryUnitKey, type InventoryOverview, type InventoryProduct } from '../lib/inventory';
 
 export type ApplicationLot = {
   id: number;
@@ -12,8 +12,9 @@ export type ApplicationLot = {
   expiresOn: string | null;
 };
 
-export function useApplicationLots(farmId: number | undefined, { productName, unit, appliedOn }: {
-  productName?: string;
+export function useApplicationLots(farmId: number | undefined, { productId, productName, unit, appliedOn }: {
+  productId?: number | null;
+  productName?: string | null;
   unit?: string;
   appliedOn?: string;
 } = {}) {
@@ -34,19 +35,44 @@ export function useApplicationLots(farmId: number | undefined, { productName, un
 
   const current = result?.farmId === farmId ? result : undefined;
   const inventory = current?.inventory;
-  const products = new Map(inventory?.products.map(product => [product.id, product]));
-  const lots: ApplicationLot[] = [];
+  const products = inventory?.products ?? [];
   const expectedName = productName == null ? undefined : inventoryProductKey(productName);
+  const expectedUnit = unit && inventoryUnitKey(unit);
+  const matchingProducts = products.filter(product => {
+    if (expectedUnit && inventoryUnitKey(product.unit) !== expectedUnit) return false;
+    if (productId != null) return product.id === productId;
+    return !expectedName || inventoryProductKey(product.name) === expectedName;
+  });
+  const loading = farmId != null && !current;
+  if (productId == null && expectedName && matchingProducts.length > 1) {
+    return { products, lots: [], loading, error: 'Hay más de un producto compatible. Selecciona el producto por su código al crear el plan o la autorización.' };
+  }
+  const productsById = new Map(matchingProducts.map(product => [product.id, product]));
+  const lots: ApplicationLot[] = [];
   for (const lot of inventory?.lots ?? []) {
-    const product = products.get(lot.productId);
+    const product = productsById.get(lot.productId);
     if (!product || !lot.hasUnitCost || lot.balance <= 0) continue;
-    if (expectedName && inventoryProductKey(product.name) !== expectedName) continue;
-    if (unit && inventoryUnitKey(unit) !== inventoryUnitKey(product.unit)) continue;
     if (appliedOn && lot.expiresOn && lot.expiresOn < appliedOn) continue;
     lots.push({ id: lot.id, productName: product.name, productCode: product.code, lotCode: lot.code,
       unit: product.unit, balance: lot.balance, expiresOn: lot.expiresOn });
   }
-  return { lots, loading: farmId != null && !current, error: current?.error };
+  return { products, lots, loading, error: current?.error };
+}
+
+export function ApplicationProductSelect({ products, loading, error, label, emptyLabel }: {
+  products: InventoryProduct[];
+  loading: boolean;
+  error?: string;
+  label: string;
+  emptyLabel: string;
+}) {
+  return <div>
+    <label>{label}<select name="inventoryProductId" defaultValue="" disabled={loading || Boolean(error)}>
+      <option value="">{loading ? 'Cargando productos…' : emptyLabel}</option>
+      {products.map(product => <option value={product.id} key={product.id}>{product.code} · {product.name} · {product.unit}</option>)}
+    </select></label>
+    {error && <p className="form-error" role="alert">{error}</p>}
+  </div>;
 }
 
 export default function ApplicationLotSelect({ lots, loading, error, value, onChange, name = 'inventoryLotId', label = 'Lote de inventario', required = true }: {

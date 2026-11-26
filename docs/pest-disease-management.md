@@ -52,7 +52,8 @@ y muestra su condición. Las alertas quedan en la pestaña **Monitoreo**.
 ## Seguimiento de tratamientos
 
 1. Un administrador, supervisor o agrónomo autoriza la intervención desde el
-   detalle de la inspección. Puede registrar un producto en la autorización.
+   detalle de la inspección. Si requiere un producto, lo selecciona del
+   inventario por código. La autorización solo admite lotes de ese producto.
 2. Un integrante de la finca registra la ejecución. Cuando se aplica un
    producto, elige su lote de inventario e indica la cantidad usada. La unidad
    corresponde al producto del lote. La ejecución descuenta el saldo, registra
@@ -66,6 +67,18 @@ El alta directa de tratamientos aplica el mismo descuento y registro de gasto
 cuando se utiliza un producto. Las intervenciones sin insumos se registran como
 actividades técnicas. La anulación de la inspección conserva en el historial la
 aplicación realizada y sus movimientos.
+
+El alta de una autorización acepta `inventoryProductId`. También admite el
+nombre en `product` para clientes anteriores. Cuando una autorización solo
+tiene un nombre, la ejecución requiere un único producto compatible en la finca.
+
+Las fechas de ejecución conectadas se introducen y muestran en hora de
+Colombia. Ese día determina tanto el vencimiento del lote como el periodo del
+gasto automático.
+
+La API devuelve `409 Conflict` si se intenta eliminar un bloque, campo o finca
+que contiene un tratamiento contabilizado. Así se conservan el tratamiento,
+su evidencia y su vínculo con el movimiento y el gasto.
 
 [Pantalla de seguimiento](../frontend/src/components/TreatmentFollowups.tsx) ·
 [API de seguimiento](../src/main/java/com/yourco/agro/inspections/TreatmentFollowupController.java) ·
@@ -101,6 +114,10 @@ La corrección conserva el tipo de actividad, autor original, ubicación,
 fecha y evidencias de la observación. Las actividades con revisiones quedan
 protegidas contra el borrado desde el historial. El control de versión
 rechaza una corrección sobre datos desactualizados.
+
+En `PATCH /api/v1/events/{id}/legacy-observation`, envía la versión, el motivo y
+los campos que quieres modificar. Los campos omitidos conservan su valor y
+`null` borra el valor del campo enviado.
 
 [API de edición histórica](../src/main/java/com/yourco/agro/events/controller/LegacyObservationController.java) ·
 [Migración V35](../src/main/resources/db/migration/V35__legacy_observation_revisions.sql)

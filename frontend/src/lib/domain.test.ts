@@ -4,6 +4,13 @@ import { csvCell, farmMetrics, localDate, scopeFarm, todayTasks, transitionTask 
 import type { FarmData, Task } from './types.ts';
 import { demoInspections, incidence, inspectionCsv, inspectionHealth } from './inspections.ts';
 import { interpretAnalysis, interpretNutrient, type Analysis } from './fertilization.ts';
+import { farmDateTimeInput, farmInputInstant } from './farm-business-date.ts';
+
+test('application input keeps a Colombian month-end date across UTC midnight', () => {
+  const occurredAt = '2025-11-01T01:00:00.000Z';
+  assert.equal(farmDateTimeInput(new Date(occurredAt)), '2025-10-31T20:00');
+  assert.equal(farmInputInstant('2025-10-31T20:00'), occurredAt);
+});
 
 test('inspection incidence rejects invalid samples and health respects resolution, freshness and target', () => {
   assert.equal(incidence(20, 5), 25);
