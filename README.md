@@ -22,13 +22,11 @@ After updating those guides, refresh the handbook with
 
 ## Module guides
 
-- **Fertilización:** análisis de laboratorio, interpretación preliminar
-  revisable, perfiles, catálogo de productos, planes aprobados únicos o
-  recurrentes, tareas por ocurrencia, aplicaciones parciales con fotos y
-  seguimiento técnico. [Proceso y límites](docs/fertilization.md).
-- **Water management:** irrigation sectors, moisture monitoring, schedules,
-  execution, water usage, sources, quality, infrastructure, balances,
-  maintenance, and sensor checks. [Implementation details](docs/water-management.md).
+The [module catalog](docs/README.md) links functional requirements, implemented
+features, automated tests, and pending work for each area of AgroVision.
+[QA results](docs/test-results.md) and the
+[module screenshots and videos](docs/qa-evidence/README.md) document the
+verification runs.
 
 ## Current implementation snapshot
 
@@ -40,7 +38,7 @@ After updating those guides, refresh the handbook with
 | Planting | Catalogs, crop cycles, site assessments, planting-material lots, approved plans, execution, establishment checks, stage history, and regional calendars. | Calendar/stage automation, complete catalog lifecycle, and cycle audit history remain open gaps. |
 | Irrigation | Moisture records, thresholds, one-time plans, daily/weekly recurring schedules, execution, water records, and sensor checks. | No automatic valves, weather optimization, external telemetry gateway, or complete hydraulic map. |
 | Fertilization | Soil/foliar analysis, configurable profiles, provisional interpretation, agronomist review, product catalogs, approved recurring/one-time plans, applications, and follow-up. | No fertilizer prescription, inventory, cost management, or lab integration. |
-| Inspections and prevention | Managed pest/disease catalog, inspections, review, follow-ups, treatments, manual preventive assignments, and evidence. | Records are not a verified diagnosis; risk-triggered treatment workflows are not implemented. |
+| Inspections and prevention | Managed catalog, inspections and evidence, periodic monitoring, incidence alerts with technical review, treatment authorization, execution and verification, and preventive assignments. | Laboratory confirmation, visit assignment and external alert delivery remain pending. |
 | Harvest | Structured, editable `HARVEST` records linked to field/block/row and crop cycle, with quantities, units, quality, rejection, and variance. | Harvest planning and bunch-level traceability remain open gaps. |
 | Sensors and analytics | Sensor/readings APIs, configurable threshold alerts, dashboard and map summaries, and water-use analytics. | No physical IoT gateway or predictive recommendations. |
 | Photos | Authenticated JPEG/PNG upload, view, and download for events and inspections/treatments. | Photo bytes are stored in PostgreSQL; S3 uploads and presigned URLs are not implemented. |
@@ -77,7 +75,8 @@ layouts, a sidebar, global view search, farm selection, and these screens:
 - Fertilization overview with record counts and a block filter for soil/foliar
   analyses, approved plans, applications, and technical follow-up. Farm profiles and
   product catalogs are available to authorized roles in connected mode.
-- Pest/disease inspections, preventive assignments, treatments, and event history.
+- Pest/disease inspections, periodic monitoring, incidence alerts, treatment
+  authorization and verification, preventive assignments, and event history.
 - Structured crop-cycle harvest records alongside legacy harvest events.
 - Event creation and detail, authenticated photo uploads, legacy media references,
   filtered CSV export, and authorized deletion.
@@ -356,11 +355,11 @@ for [fertilization](docs/fertilization.md) and [water management](docs/water-man
 | FR-20 | An agronomist or authorized manager can configure crop/variety catalogs and production cycles by block, including growth stages and planned/actual planting and harvest dates. | In progress: core farm-scoped catalogs, cycle records, workflow controls, and AGRONOMIST approvals implemented; richer catalog lifecycle, automatic stages, and reconciliation remain |
 | FR-21 | Managers can configure planting windows by region, crop, and variety, and plan preparation, planting, and replanting. Perennial crops support continuous production without an annual-season requirement. | In progress: regional rules, suggestions, perennial support, and cycle-window validation implemented; reusable templates, weather context, and automatic task generation remain |
 | FR-22 | Approved fertilization plans specify products, doses, units, quantities, dates or recurrence, and target areas; workers record actual applications. | Implemented for farm-scoped product catalog, approved plans, recurring occurrence tasks, task-linked applications, and evidence; inventory and cost controls remain pending |
-| FR-23 | Pest/disease management connects observations, follow-up inspections, intervention criteria, and approved treatments to affected areas. | Partial: structured observations with affected area, managed catalog, follow-ups, and manual preventive assignments implemented; risk criteria and treatment approval workflow pending |
+| FR-23 | Pest/disease management connects observations, follow-up inspections, intervention criteria, and approved treatments to affected areas. | Implemented through monitoring plans, configurable incidence thresholds, recorded technical decisions, and treatment authorization, execution and verification. |
 | FR-24 | Irrigation plans specify target sectors, dates, and duration or volume; execution records actual watering. Water management records sources, quality, infrastructure, balances, maintenance, and sensor checks. Soil moisture is recorded manually or through sensors with configurable thresholds and alerts. | Implemented for sectors, one-time and recurring plans, idempotent task generation, pause/resume/cancel, execution, water usage, moisture monitoring, alerts, sources, quality, infrastructure, balances, maintenance, sensor checks, and versioned management edits; permissions and complete hydraulic mapping remain pending |
 | FR-25 | Soil sample records include structured laboratory results and can inform approved agronomic plans. | Partial: nutrient levels, configurable farm/crop/variety profiles, provisional statuses, persisted agronomist review, and plan linkage are implemented; laboratory integration, method-aware confidence, and recommendations remain pending |
 | FR-26 | Harvest plans identify target blocks, expected windows and instructions; execution records harvested quantities and quality. | In progress: structured harvest capture by field/block/row and crop cycle is implemented; harvest planning remains pending |
-| FR-27 | The system generates tasks from approved plans, dates, recurrence, and crop stages, and flags observations for review. Repeated generation must not duplicate tasks. | Partial: fertilizer and irrigation recurrence generation is idempotent; planting tasks can be generated manually from approved plans. Calendar/stage-driven crop work and observation alerts remain planned. |
+| FR-27 | The system generates tasks from approved plans, dates, recurrence, and crop stages, and flags observations for review. Repeated generation must not duplicate tasks. | Partial: fertilizer and irrigation recurrence is idempotent, planting plans support manual task generation, and inspections can generate incidence alerts. Calendar/stage-driven work and task assignment from alerts remain pending. |
 | FR-28 | Workers and supervisors receive assignment, overdue-work, and blocker notifications relevant to their responsibilities. | Planned for task notifications; sensor threshold alerts and acknowledgment are separate implemented features. |
 | FR-29 | A worker can capture work without connectivity and synchronize it later, with a visible synchronization state and conflict handling. | Planned |
 
@@ -767,7 +766,8 @@ Override Spring settings with environment properties such as
 | Monitoring and harvest records | `/api/v1/monitoring-records` | POST, GET | GET, PATCH, DELETE `/api/v1/monitoring-records/{id}` |
 | Irrigation and water management | `/api/v1/irrigation` | GET, POST, PATCH | Recurring-schedule actions, executions, and water-record routes; see [water management](docs/water-management.md) |
 | Fertilization | `/api/v1/fertilization` | GET, POST | Analysis, product/profile, plan, application, review, and follow-up routes; see [fertilization](docs/fertilization.md) |
-| Inspections and treatments | `/api/v1/inspections`, `/api/v1/phytosanitary-problems` | GET, POST, PATCH | Review, cancellation, treatment, and evidence subresources |
+| Inspections and treatments | `/api/v1/inspections`, `/api/v1/phytosanitary-problems` | GET, POST, PATCH | Reviews, cancellations, treatment authorization/execution/verification, and evidence |
+| Phytosanitary monitoring | `/api/v1/inspection-monitoring` | GET, POST, PUT, PATCH | Periodic plans, incidence alerts and technical reviews |
 | Photos | `/api/v1/photos` | GET, multipart POST | GET `/api/v1/photos/{id}/content` |
 | Sensor devices | `/api/v1/sensors` | POST, GET | None |
 | Sensor readings | `/api/v1/sensors/{deviceId}/readings` | POST, GET | None |

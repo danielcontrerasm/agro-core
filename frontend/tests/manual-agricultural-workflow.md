@@ -91,7 +91,7 @@ visible y una API conectada a PostGIS temporal.
 | Verificación | Resultado | Informe |
 | --- | --- | --- |
 | Playwright en Chrome, escritorio y móvil | 58 aprobadas, 0 fallidas, 0 omitidas | [Informe completo de navegador](../playwright-report/agro-qa-20261125-121059-0d708858/browser/index.html) |
-| Recorrido automatizado de la finca QA | 1 aprobado, desde el inicio de sesión hasta el registro de cosecha | [Informe del recorrido QA](../playwright-report/agro-qa-20261125-121059-0d708858/walkthrough/index.html) · [Grabación WebM](../test-results/agro-qa-20261125-121059-0d708858/walkthrough/manual-agricultural-workfl-78134-ego-fertilización-y-cosecha-desktop/video.webm) |
+| Recorrido automatizado de la finca QA | 1 aprobado, desde el inicio de sesión hasta el registro de cosecha | [Informe del recorrido QA](../playwright-report/agro-qa-20261125-121059-0d708858/walkthrough/index.html) · [Grabación WebM](../../docs/qa-evidence/2026-11-25/conectado/recorrido-finca-qa.webm) |
 | Backend con Gradle, PostGIS y H2 | 48 aprobadas, 0 fallidas, 0 omitidas | [Informe de Gradle](../../build/reports/tests/test/index.html) |
 | Pruebas unitarias del frontend | 11 aprobadas, 0 fallidas | Salida de `npm test` en la terminal |
 | Compilación del frontend | Completada | Salida de `npm run build` en la terminal |

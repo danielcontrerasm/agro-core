@@ -73,8 +73,18 @@ export function interpretNutrient(result: SoilResult, crop?: string, sampleType:
   return { ...base, status, label: interpretationLabel(result.nutrient, status), reason: `Rango de referencia: ${range.lower}–${range.upper} ${units[range.unit]}. El resultado debe ser revisado con el método y el contexto del cultivo.`, profileId: profile.id, profileName: profile.name, profileVersion: profile.version, source: profile.source };
 }
 
-export function interpretAnalysis(analysis: Analysis, crop?: string): InterpretationSummary {
-  const interpretations = analysis.interpretations?.length ? analysis.interpretations : analysis.results.map(result => interpretNutrient(result, crop, analysis.sampleType));
+export function interpretAnalysis(analysis: Analysis, crop?: string, demo = false): InterpretationSummary {
+  const recorded = new Map(analysis.interpretations?.map(item => [item.nutrient, item]));
+  const interpretations = analysis.results.map((result): NutrientInterpretation => {
+    const interpretation = recorded.get(result.nutrient);
+    if (interpretation) return interpretation;
+    if (demo) return interpretNutrient(result, crop, analysis.sampleType);
+    return {
+      nutrient: result.nutrient, value: result.value, unit: result.unit,
+      status: 'UNKNOWN', label: nutrientStatusLabels.UNKNOWN,
+      reason: 'La muestra no tiene una interpretación disponible para este resultado.', requiresTechnicalReview: true,
+    };
+  });
   return {
     interpretations,
     low: interpretations.filter(item => item.status === 'LOW').length,

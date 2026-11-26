@@ -29,7 +29,6 @@ import { api } from '../lib/api';
 import { readCatalogForFarm, type CropCatalog } from '../lib/catalog';
 import { demoSuggestions, readCalendarsForFarm, type CalendarSuggestion } from '../lib/calendar';
 import {
-  demoPlanting,
   plantingKey,
   readPlantingDemo,
   type Cycle,
@@ -41,6 +40,7 @@ import {
 import { csvCell, localDate } from '../lib/domain';
 import type { Member } from '../lib/types';
 import FarmMap from '../components/FarmMap';
+import PhotoGallery from '../components/PhotoGallery';
 import { Badge, Empty, Loading, Modal, Notice } from '../components/ui';
 import '../planting.css';
 
@@ -90,6 +90,7 @@ const dateLabel = (value?: string | null) => {
 };
 
 const numberLabel = (value: number | undefined, digits = 0) => new Intl.NumberFormat('es-CO', { maximumFractionDigits: digits }).format(Number(value ?? 0));
+const emptyPlanting: PlantingData = { cycles: [], materialLots: [], plans: [], executions: [] };
 
 type ModalName = 'cycle' | 'assessment' | 'material' | 'materialDecision' | 'plan' | 'planDecision' | 'execution' | 'establishment' | 'stage' | null;
 type DetailTab = 'summary' | 'material' | 'plan' | 'execution' | 'followup' | 'files';
@@ -108,10 +109,11 @@ export default function Planting() {
   const app = useApp();
   const { mode, farmId, data, profile, role, notify } = app;
   const canManage = role !== 'WORKER';
-  const [planting, setPlanting] = useState<PlantingData>(() => readPlantingDemo());
-  const [catalog, setCatalog] = useState<CropCatalog[]>(() => readCatalogForFarm(farmId));
+  const [planting, setPlanting] = useState<PlantingData>(() => mode === 'demo' ? readPlantingDemo() : emptyPlanting);
+  const [catalog, setCatalog] = useState<CropCatalog[]>(() => mode === 'demo' ? readCatalogForFarm(farmId) : []);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(mode === 'live');
+  const [loadError, setLoadError] = useState('');
   const [busy, setBusy] = useState(false);
   const [actionMenu, setActionMenu] = useState(false);
   const [modal, setModal] = useState<ModalName>(null);
@@ -166,14 +168,16 @@ export default function Planting() {
               ? 'Registrar seguimiento'
               : 'Mantener el seguimiento';
 
-  async function reload() {
+  async function reload(isActive = () => true) {
     setLoading(true);
+    setLoadError('');
     try {
       if (mode === 'live') {
         const people = canManage
           ? api.members(farmId)
           : Promise.resolve([{ userId: profile.user.id, name: profile.user.name, email: profile.user.email, role }]);
         const [savedPlanting, savedCatalog, savedMembers] = await Promise.all([api.planting(farmId), api.cropCatalog(farmId), people]);
+        if (!isActive()) return;
         setPlanting(savedPlanting);
         setCatalog(savedCatalog);
         setMembers(savedMembers);
@@ -189,14 +193,21 @@ export default function Planting() {
         setSelectedCycleId(current => saved.cycles.some(cycle => cycle.id === current) ? current : saved.cycles[0]?.id);
       }
     } catch (failure) {
-      notify(failure instanceof Error ? failure.message : 'No se pudo cargar siembra y ciclos.', true);
+      if (isActive()) setLoadError(failure instanceof Error ? failure.message : 'No se pudo cargar siembra y ciclos.');
     } finally {
-      setLoading(false);
+      if (isActive()) setLoading(false);
     }
   }
 
   useEffect(() => {
-    void reload();
+    let active = true;
+    if (mode === 'live') {
+      setPlanting(emptyPlanting);
+      setCatalog([]);
+      setMembers([]);
+    }
+    void reload(() => active);
+    return () => { active = false; };
   }, [farmId, mode, canManage, profile.user.email, profile.user.id, profile.user.name, role]);
 
   useEffect(() => {
@@ -222,7 +233,8 @@ export default function Planting() {
   }, [cycleVarieties]);
 
   useEffect(() => {
-    if (!cycleCropId) return;
+    setCalendarSuggestion(null);
+    if (modal !== 'cycle' || !cycleCropId) return;
     const cropId = Number(cycleCropId);
     const varietyId = cycleVarietyId ? Number(cycleVarietyId) : undefined;
     const suggestions = mode === 'live'
@@ -239,7 +251,7 @@ export default function Planting() {
       if (active) setCalendarSuggestion(null);
     });
     return () => { active = false; };
-  }, [farmId, mode, cycleCropId, cycleVarietyId]);
+  }, [modal, farmId, mode, cycleCropId, cycleVarietyId]);
 
   function applyDemo(update: DemoUpdate) {
     setPlanting(current => update(current));
@@ -697,6 +709,7 @@ export default function Planting() {
   }
 
   if (loading) return <div className="page-stack planting-screen"><Loading /></div>;
+  if (loadError) return <div className="page-stack planting-screen"><h1>Siembra y ciclos</h1><p className="form-error" role="alert">{loadError}</p><button className="button secondary" onClick={() => void reload()}><RefreshCw size={16} />Reintentar</button></div>;
 
   return <div className="page-stack planting-screen planting-reference-screen">
     <div className="planting-breadcrumb"><span><Home size={15} />Inicio</span><ChevronRight size={13} /><strong>Siembra y ciclos</strong></div>
@@ -814,7 +827,13 @@ export default function Planting() {
         {detailTab === 'plan' && <CyclePlans plans={selectedPlans} members={members} canManage={canManage} onDecide={openPlanDecision} onGenerateTask={generateTask} onExecute={openExecution} />}
         {detailTab === 'execution' && <CycleExecutions executions={selectedExecutions} />}
         {detailTab === 'followup' && <CycleChecks cycle={selectedCycle} />}
-        {detailTab === 'files' && <section className="panel planting-files-panel"><span className="planting-empty-icon"><FileText size={22} /></span><h3>Archivos del ciclo</h3><p>Las fotos de ubicación, material y ejecución se asocian a los eventos de campo. Este espacio queda listo para consultar evidencia vinculada al ciclo.</p><span className="planting-files-note">No hay archivos adicionales registrados.</span></section>}
+        {detailTab === 'files' && <section className="panel planting-files-panel">
+          <h3>Archivos del ciclo</h3>
+          {selectedExecutions.length ? selectedExecutions.map(execution => <div key={execution.id}>
+            <p>Ejecución del {dateLabel(execution.executedOn)}</p>
+            <PhotoGallery target={{ eventId: execution.eventId }} readOnly />
+          </div>) : <p>Sin ejecuciones asociadas a este ciclo.</p>}
+        </section>}
       </section> : <section className="panel planting-empty-detail"><Empty title="Crea tu primer ciclo" description="Define el cultivo, lote y ventana de siembra para comenzar la trazabilidad." action={<button className="button" onClick={openNewCycle}><Plus size={15} />Nuevo ciclo</button>} /></section>}
     </div>
 

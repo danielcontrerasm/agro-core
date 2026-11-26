@@ -1,0 +1,16 @@
+.workforce-crew > div > strong { min-width: 0; overflow-wrap: anywhere; }
+.workforce-crew ul { padding-left: 22px; margin: 9px 0; color: #263f58; }
+.workforce-crew li { margin: 4px 0; overflow-wrap: anywhere; }
+.workforce-crew .text-button { margin-top: 6px; }
+
+.workforce-members {
+  min-width: 0;
+  border: 1px solid #dce8e0;
+  border-radius: 8px;
+  padding: 10px 13px;
+  color: #263f58;
+}
+.workforce-members legend { padding: 0 5px; font-weight: 650; }
+.workforce-members label { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.workforce-members input[type='checkbox'] { width: 16px; height: 16px; flex: none; accent-color: #138c4e; }
+.workforce-members label small { display: block; color: #526579; font-size: 12px; }

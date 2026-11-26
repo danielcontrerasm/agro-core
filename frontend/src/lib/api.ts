@@ -21,7 +21,7 @@ async function token() {
   return csrf!;
 }
 
-async function request<T>(path: string, method = 'GET', payload?: unknown, retry = true): Promise<T> {
+export async function request<T>(path: string, method = 'GET', payload?: unknown, retry = true): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (payload !== undefined && !(payload instanceof FormData)) headers['Content-Type'] = 'application/json';
   if (method !== 'GET') { const protection = csrf ?? await token(); headers[protection.headerName] = protection.token; }

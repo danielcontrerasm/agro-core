@@ -5,13 +5,16 @@ import { useApp } from '../context';
 import { api } from '../lib/api';
 import { csvCell, localDate, number } from '../lib/domain';
 import type { Inspection, InspectionEvidence, InspectionTreatment, NewEvidence, NewTreatment } from '../lib/inspections';
+import type { TreatmentFollowup } from '../lib/treatment-followups';
 import PhotoGallery from './PhotoGallery';
+import TreatmentFollowups from './TreatmentFollowups';
 
 export default function InspectionActions({ inspection, related, onOpen, onUpdate, onFollowUp, onBusyChange }: { inspection: Inspection; related: Inspection[]; onOpen: (id: number) => void; onUpdate: (record: Inspection) => void; onFollowUp: () => void; onBusyChange: (busy: boolean) => void }) {
   const { mode, role, profile } = useApp();
   const [treatments, setTreatments] = useState<InspectionTreatment[]>([]);
   const [evidence, setEvidence] = useState<InspectionEvidence[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [action, setAction] = useState<'treatment' | 'evidence' | 'cancel' | null>(null);
@@ -20,15 +23,29 @@ export default function InspectionActions({ inspection, related, onOpen, onUpdat
     if (action) formRef.current?.querySelector<HTMLElement>('input, select, textarea')?.focus();
   }, [action]);
   useEffect(() => {
-    let active = true; setError(''); setLoading(true);
+    let active = true; setLoadError(''); setError(''); setLoading(true);
     if (mode === 'demo') { setTreatments(inspection.treatments ?? []); setEvidence(inspection.evidence ?? []); setLoading(false); return; }
     Promise.all([api.inspectionTreatments(inspection.id), api.inspectionEvidence(inspection.id)])
       .then(([savedTreatments, savedEvidence]) => { if (active) { setTreatments(savedTreatments); setEvidence(savedEvidence); } })
-      .catch(failure => { if (active) setError(failure.message); }).finally(() => { if (active) setLoading(false); });
+      .catch(failure => { if (active) setLoadError(failure instanceof Error ? failure.message : 'No se pudieron cargar los tratamientos y las evidencias.'); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [inspection.id, mode]);
   const now = new Date();
   const localTime = `${localDate(now)}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+  function saveFollowups(records: TreatmentFollowup[], executed?: TreatmentFollowup) {
+    let nextTreatments = treatments;
+    if (executed?.treatmentId && executed.executedAt && executed.executedByUserId != null) {
+      const treatment: InspectionTreatment = {
+        id: executed.treatmentId, inspectionId: inspection.id, occurredAt: executed.executedAt,
+        description: executed.description, product: executed.product, quantity: executed.quantity,
+        unit: executed.unit, createdByUserId: executed.executedByUserId, authorName: executed.executedByName ?? '',
+      };
+      nextTreatments = [treatment, ...treatments.filter(item => item.id !== treatment.id)];
+    }
+    if (mode === 'demo') onUpdate({ ...inspection, treatments: nextTreatments, evidence, treatmentFollowups: records });
+    if (executed) setTreatments(nextTreatments);
+  }
 
   function exportTreatments() {
     const rows = [['Inspección ID', 'Tratamiento ID', 'Fecha UTC', 'Descripción', 'Producto', 'Cantidad', 'Unidad', 'Responsable', 'Referencias de evidencia', 'Motivo de anulación de inspección'],
@@ -71,7 +88,7 @@ export default function InspectionActions({ inspection, related, onOpen, onUpdat
   }
 
   const followUps = related.filter(item => item.parentInspectionId === inspection.id);
-  const writable = !inspection.canceledAt && !loading;
+  const writable = !inspection.canceledAt && !loading && !loadError;
   const chooseAction = (next: typeof action) => { setError(''); setAction(next); };
   const actionFooter = (label: string) => <>
     {error && <p className="form-error inspection-full-row" role="alert">{error}</p>}
@@ -95,7 +112,7 @@ export default function InspectionActions({ inspection, related, onOpen, onUpdat
         <label className="inspection-full-row">Descripción del tratamiento<textarea name="description" required maxLength={4000} /></label>
         {actionFooter('Guardar tratamiento')}
       </form>}
-      {loading ? <p role="status">Cargando tratamientos y evidencias…</p> : !treatments.length && <p className="inspection-empty-copy">Sin tratamientos registrados.</p>}
+      {loading ? <p role="status">Cargando tratamientos y evidencias…</p> : loadError ? <p className="form-error" role="alert">{loadError}</p> : !treatments.length && <p className="inspection-empty-copy">Sin tratamientos registrados.</p>}
       {treatments.map(item => <article className="inspection-treatment" key={item.id}>
         <div><strong>{item.product || 'Tratamiento aplicado'}</strong>{item.quantity != null && <span>{number(item.quantity, 2)} {item.unit}</span>}</div>
         <p>{item.description}</p>
@@ -103,6 +120,10 @@ export default function InspectionActions({ inspection, related, onOpen, onUpdat
       </article>)}
       {treatments.length > 0 && <button className="text-button" onClick={exportTreatments}><Download size={15} />Exportar tratamientos CSV</button>}
     </section>
+    <TreatmentFollowups inspection={inspection} disabled={busy || loading} onSaved={saveFollowups} onBusyChange={value => {
+      setBusy(value);
+      onBusyChange(value);
+    }} />
     <section className="inspection-detail-section">
       <PhotoGallery target={{ inspectionId: inspection.id }} treatments={treatments} readOnly={!!inspection.canceledAt} onBusyChange={value => { setBusy(value); onBusyChange(value); }} />
     </section>
@@ -118,7 +139,7 @@ export default function InspectionActions({ inspection, related, onOpen, onUpdat
         <label>Tipo de contenido<input name="contentType" maxLength={150} placeholder="image/jpeg" /></label>
         {actionFooter('Guardar evidencia')}
       </form>}
-      {!loading && !evidence.length && <p className="inspection-empty-copy">Sin evidencias registradas.</p>}
+      {!loading && !loadError && !evidence.length && <p className="inspection-empty-copy">Sin evidencias registradas.</p>}
       {evidence.map(item => <div className="inspection-evidence" key={item.id}><FileText size={20} /><div><strong>{item.s3Key}</strong><small>{item.contentType || item.kind} · {item.treatmentId ? `Tratamiento #${item.treatmentId}` : 'Inspección'} · {item.authorName}</small></div></div>)}
     </section>
     {(writable || inspection.parentInspectionId || followUps.length > 0) && <section className="inspection-detail-section">

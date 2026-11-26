@@ -1,5 +1,6 @@
 import type { AnalyticsLayer } from './types.ts';
 import { csvCell } from './domain.ts';
+import type { TreatmentFollowup } from './treatment-followups.ts';
 
 export interface SanitaryProblem { code: string; name: string; category: 'DISEASE' | 'PEST'; active: boolean }
 export type AssessmentStatus = 'SUSPECTED' | 'CONFIRMED' | 'DISCARDED';
@@ -14,7 +15,7 @@ export interface Inspection {
   reviewNotes?: string | null; reviewedAt?: string | null; version: number;
   canceledAt?: string | null; canceledByUserId?: number | null; cancellationReason?: string | null;
   parentInspectionId?: number | null;
-  treatments?: InspectionTreatment[]; evidence?: InspectionEvidence[];
+  treatments?: InspectionTreatment[]; evidence?: InspectionEvidence[]; treatmentFollowups?: TreatmentFollowup[];
 }
 export interface InspectionTreatment { id: number; inspectionId: number; occurredAt: string; description: string; product?: string | null; quantity?: number | null; unit?: string | null; createdByUserId: number; authorName: string }
 export interface InspectionEvidence { id: number; inspectionId: number; treatmentId?: number | null; kind: 'IMAGE' | 'DOCUMENT' | 'VIDEO'; s3Key: string; contentType?: string | null; createdByUserId: number; authorName: string; createdAt: string }

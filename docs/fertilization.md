@@ -1,6 +1,19 @@
 # Fertilización: diagnóstico → aprobación → aplicación → seguimiento
 
-Última revisión **25 de noviembre de 2026**.
+Última revisión **26 de noviembre de 2026**.
+
+## Requerimientos funcionales
+
+| ID | Requerimiento | Estado actual |
+| --- | --- | --- |
+| FERT-01 | Registrar muestreo de suelo o foliar por bloque con procedencia, fecha, profundidad, resultados, unidades, método e informe PDF opcional. | Implementado. La revisión técnica se puede actualizar. La corrección de datos requiere un nuevo análisis. |
+| FERT-02 | Interpretar resultados con el perfil compatible de la finca, mostrar la trazabilidad de la muestra y priorizar la revisión por bloque. | Implementado. La validación de compatibilidad por método y el ciclo de edición y desactivación de perfiles están pendientes. |
+| FERT-03 | Preparar un plan con diagnóstico, referencia analítica, contexto sanitario opcional, dosis técnica, cobertura, producto, responsable y fechas. | Implementado para planes únicos y recurrentes. Los productos se pueden crear y consultar. Faltan edición y desactivación de productos. |
+| FERT-04 | Aprobar o anular con justificación, controlar la versión y generar una tarea por ocurrencia sin duplicados. | Implementado. Los planes recurrentes aprobados generan las tareas al aprobarse. Falta una operación que reprograme o anule ocurrencias futuras preservando el historial. |
+| FERT-05 | Registrar aplicaciones parciales con evento, lote, cantidad, cobertura, método y fotos. | Implementado. El saldo se valida por ocurrencia y se preserva el flujo de revisión de la tarea. |
+| FERT-06 | Registrar seguimiento técnico, comparar lo programado con lo aplicado y consultar mapas e historial. | Implementado. Los avisos externos, la comparación foliar y la integración con inventario y costos están pendientes. |
+
+## Funcionalidades y pantallas disponibles
 
 La sección **Fertilización** conserva el historial anterior y reúne cuatro vistas:
 
@@ -133,21 +146,18 @@ los datos de fertilización se conservan localmente en el navegador:
 - **Reportes y actividad** (`#/reports`): consulta el evento agrícola creado por
   una aplicación y su historial general.
 
-La interpretación que aparece en Análisis y Mapas es provisional: no confirma por
-sí sola una deficiencia ni genera recomendaciones, dosis o prescripciones.
+La interpretación que aparece en Análisis y Mapas requiere revisión técnica para
+confirmar deficiencias y decidir recomendaciones, dosis o prescripciones.
 
 ## Cálculos y revisión
 
 Solo se convierte la dosis elegida por el técnico a cantidad total:
 `kg/ha × ha`, `L/ha × ha`, `g/planta × plantas ÷ 1000` o
-`mL/planta × plantas ÷ 1000`. En la vista real de Análisis, el API selecciona el
-perfil activo de la finca por cultivo, variedad opcional y tipo de muestra, y luego
-busca rangos por nutriente y unidad. No valida que el método del laboratorio sea
-compatible con el perfil. La capa de Mapas usa un perfil provisional incorporado
-para suelo de banano/plátano, no los perfiles personalizados de la finca; sus
-estados pueden diferir del detalle de Análisis. En demo se usa ese mismo perfil
-provisional. Todo estado requiere revisión técnica: no confirma una deficiencia
-ni calcula requerimientos, mezclas o dosis.
+`mL/planta × plantas ÷ 1000`. En Análisis y Mapas, el API selecciona el perfil
+activo de la finca por cultivo, variedad opcional y tipo de muestra. Después
+busca rangos por nutriente y unidad. La compatibilidad del método de laboratorio
+requiere revisión técnica. En demo se usa un perfil ilustrativo de suelo para
+banano y plátano.
 La composición se transcribe como texto de etiqueta; no se estima absorción.
 El técnico debe comprobarla con el informe y el contexto del cultivo.
 
@@ -167,18 +177,11 @@ sustituyen al suelo. Si la muestra más reciente no midió un nutriente, se mues
 unidades, método, laboratorio, referencia y fecha, y no se promedian muestras
 históricas.
 
-En la vista real de **Análisis**, la interpretación del API usa el perfil activo de
-la finca compatible con cultivo, variedad opcional, tipo de muestra, nutriente y
-unidad; sin perfil o rango compatible muestra «Sin interpretar». No valida la
-compatibilidad por método de laboratorio. El API permite listar y crear perfiles
-y productos, pero no editarlos ni desactivarlos; para cambiar un perfil se puede
-crear otro, que queda priorizado por especificidad y luego por ID descendente. La capa de
-**Mapas → Nutrientes** todavía calcula su interpretación en el frontend con un
-perfil provisional incorporado para suelo de banano/plátano. Por eso, esa capa no
-debe tomarse como interpretación del perfil personalizado de la finca y puede
-mostrar un estado distinto al detalle del análisis. En demo se usa el mismo perfil
-provisional. En todos los casos los colores del mapa representan valores relativos,
-no una deficiencia ni un óptimo agronómico.
+Análisis y **Mapas → Nutrientes** muestran «Sin interpretar» cuando el servidor
+no encuentra un perfil o rango compatible con la muestra. El API permite listar
+y crear perfiles y productos. Para cambiar un perfil se puede crear otro. El API
+prioriza los más específicos y luego los de mayor ID. Los colores del mapa
+representan la distribución de valores medidos en muestras comparables.
 
 Los registros antiguos de monitoreo permanecen conservados, pero al no tener
 suficiente trazabilidad analítica no se convierten en muestras certificadas.
@@ -230,4 +233,21 @@ plan, ocurrencia, evento y evidencia. [Persistencia JPA](../README.md#jpa-persis
 
 El recorrido QA del 25 de noviembre de 2026 verificó análisis, plan, aprobación,
 tarea, aplicación y seguimiento contra la API conectada a PostGIS.
-[Informes y video](../frontend/tests/manual-agricultural-workflow.md#última-ejecución-completa-verificada)
+[Informe del recorrido conectado del 25 de noviembre a las 14:07](../frontend/playwright-report/agro-qa-20261125-140701-ab730663/walkthrough/index.html)
+
+### Funcionalidades probadas y resultados
+
+| Prueba automatizada | Funcionalidades verificadas | Resultado del 25 de noviembre de 2026 |
+| --- | --- | --- |
+| [Recorrido de Fertilización en Playwright](../frontend/qa/modules/fertilizacion.spec.ts) | Consultar potasio y alertas por bloque. Crear el plan desde la alerta con muestra y lote precargados. Aprobar y generar tarea. Registrar 5 kg, 0,5 ha y lote de producto. Adjuntar la foto y comprobar cantidades y producto en el resumen. | 1 aprobada en la revalidación, con datos de demostración. [Informe por módulo](test-results.md#recorridos-por-módulo-del-25-de-noviembre) |
+| [Suite de Fertilización en Chrome](../frontend/tests/fertilization.spec.ts) | Guardar B y el método de laboratorio. Convertir g/planta a kg. Exigir aprobación y tarea. Persistir aplicación parcial, foto y seguimiento tras recargar. Consultar unidad, método y referencia de B, verificar la unidad de Ca y distinguir N, P y B en el mapa. En modo conectado con API simulada, registrar una muestra como trabajador con CSRF y sin consultar miembros. | 6 aprobadas, 3 en escritorio y 3 en móvil. [Informe de Chrome](../frontend/playwright-report/agro-qa-20261125-155129-bcbe583c/browser/index.html) |
+| [Pruebas unitarias de dominio](../frontend/src/lib/domain.test.ts) | Clasificar resultados compatibles y dejar pendientes los no interpretables. Resumir atención y revisión técnica sin generar dosis. | 2 casos de nutrición aprobados en la suite de 11. [Salida de unitarias](../frontend/playwright-report/agro-qa-20261125-155129-bcbe583c/unitarias-frontend.txt) |
+| [API de Fertilización en H2](../src/test/java/com/yourco/agro/FertilizationApiTest.java) | Validar finca, permisos, bloque, coordenadas, fechas y unidades. Crear un perfil, interpretar y revisar una muestra con autorización. Aprobar con versión, generar la tarea sin duplicados y guardar aplicaciones parciales válidas con evento y saldo. Rechazar estados o cantidades inválidas. Descargar el PDF autenticado y validar seguimientos. Elegir la última muestra de suelo. Convertir las cuatro unidades de dosis, conservar la auditoría de anulación y comprobar el catálogo, la generación recurrente y el saldo por ocurrencia. | 7 aprobadas. [Informe de Gradle](../frontend/playwright-report/agro-qa-20261125-155129-bcbe583c/gradle/classes/com.yourco.agro.FertilizationApiTest.html) |
+| [Integración con PostGIS](../src/test/java/com/yourco/agro/FertilizationPostgresTest.java) | Persistir muestra, plan aprobado, tarea sin duplicados y aplicación parcial vinculada a su evento. Recuperar la última muestra de suelo y listar las aplicaciones de la finca. | 1 aprobada. [Informe de Gradle](../frontend/playwright-report/agro-qa-20261125-155129-bcbe583c/gradle/classes/com.yourco.agro.FertilizationPostgresTest.html) |
+| [Recorrido conectado de la finca QA](../frontend/tests/manual-agricultural-workflow.spec.ts) | Pasos 10–15, desde el muestreo y el plan hasta el seguimiento de una aplicación de 5 kg. | Aprobado el 25 de noviembre a las 14:07 y el 26 de noviembre. La revalidación del 25 a las 15:51 se detuvo al comprobar el surco. [Historial y resultado de la revalidación](test-results.md#recorrido-conectado) |
+
+### Pantallazos y video
+
+- [Captura de la revalidación de Fertilización](../frontend/playwright-report/agro-qa-20261125-155129-bcbe583c/modulos/data/488939db4d5346a139b538fd2d785bb7b6dea0f9.png)
+- [Galería con capturas por paso y video del recorrido de demostración](../frontend/playwright-report/qa-modulos-20261125-150226-aab46d/modulos/fertilizacion.html) · [Video WebM](../frontend/playwright-report/qa-modulos-20261125-150226-aab46d/videos/fertilizacion.webm)
+- [Índice de evidencia de Fertilización](qa-evidence/README.md#fertilizacion)

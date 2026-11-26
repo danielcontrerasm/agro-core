@@ -71,7 +71,7 @@ export default function PhotoGallery({ target, treatments = [], readOnly = false
     </>}
     {loading && <p role="status">Cargando fotos…</p>}{busy && <p role="status">Guardando fotos…</p>}{status && <p role="status">{status}</p>}
     {error && <p className="form-error" role="alert">{error}</p>}
-    {!loading && !photos.length && <p>Sin fotos adjuntas.</p>}
+    {!loading && !error && !photos.length && <p>Sin fotos adjuntas.</p>}
     <div className="photo-grid">{photos.map(photo => <figure key={photo.id}><button type="button" className="photo-thumbnail" aria-label={`Ver foto ${photo.originalName}`} onClick={() => setEnlarged(photo.id)}><img src={photo.url} alt={photo.originalName} loading="lazy" onError={() => setError('No se pudo mostrar una foto. Revisa tu sesión o vuelve a abrir el detalle.')} /></button><figcaption>{photo.originalName}{photo.treatmentId && <small>Tratamiento #{photo.treatmentId}</small>}<a href={mode === 'live' ? `${photo.url}?download=true` : photo.url} download={photo.originalName}>Descargar foto</a></figcaption></figure>)}</div>
     {selected && <div className="photo-expanded"><button type="button" className="button secondary small" onClick={() => setEnlarged(null)}>Cerrar vista ampliada</button><img src={selected.url} alt={`Foto ampliada: ${selected.originalName}`} /></div>}
   </section>;

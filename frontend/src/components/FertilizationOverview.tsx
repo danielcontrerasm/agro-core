@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowRight, ClipboardCheck, FlaskConical, Leaf, Maximize2, PackageCheck, Sprout, Wallet, X } from 'lucide-react';
+import { ArrowRight, ClipboardCheck, FlaskConical, Layers3, Leaf, Maximize2, PackageCheck, Sprout, X } from 'lucide-react';
 import { number } from '../lib/domain';
 import { coverageUnit, interpretAnalysis, latestSoilAnalyses, nutrientNames, units } from '../lib/fertilization';
 import type { Analysis, FertilizationApplication, FertilizationPlan, Nutrient, NutrientInterpretation } from '../lib/fertilization';
@@ -49,7 +49,7 @@ export default function FertilizationOverview({ data, demo, blockFilter, analyse
   for (const block of data.blocks) {
     if (blockFilter && blockFilter !== String(block.id)) continue;
     const sample = samples.get(block.id);
-    const interpretations = sample && sample.review?.decision !== 'REJECTED' ? interpretAnalysis(sample, block.crop).interpretations : [];
+    const interpretations = sample && sample.review?.decision !== 'REJECTED' ? interpretAnalysis(sample, block.crop, demo).interpretations : [];
     const issues = interpretations.filter(result => result.status === 'LOW' || result.status === 'HIGH');
     const reading = interpretations.find(result => result.nutrient === nutrient);
     const activeIssues = nutrient === 'all' ? issues : issues.filter(result => result.nutrient === nutrient);
@@ -95,9 +95,9 @@ export default function FertilizationOverview({ data, demo, blockFilter, analyse
   const metrics = [
     { icon: Leaf, tone: 'green strong-green', label: 'Cumplimiento del plan', value: progress != null ? `${progress} %` : '—', detail: approvedWithTarget.length ? `${completed} de ${approvedWithTarget.length} planes completados` : 'Sin planes aprobados' },
     { icon: PackageCheck, tone: 'blue', label: 'Fertilizante aplicado', value: amount || '—', detail: `${applications.length} ${applications.length === 1 ? 'aplicación registrada' : 'aplicaciones registradas'}` },
-    { icon: Wallet, tone: 'mint', label: 'Costo de fertilización', value: '—', detail: 'Sin costos registrados' },
+    { icon: Layers3, tone: 'mint', label: 'Bloques muestreados', value: samples.size, detail: 'Con análisis de suelo registrado' },
     { icon: Sprout, tone: 'mint', label: 'Áreas por fertilizar', value: area, detail: knownAreas.length < pendingBlocks.size ? 'Área registrada parcialmente' : 'Bloques con saldo pendiente' },
-    { icon: FlaskConical, tone: 'gold', label: 'Deficiencias detectadas', value: `${deficient.size} ${deficient.size === 1 ? 'nutriente' : 'nutrientes'}`, detail: nutrientSymbols || 'Según el rango de referencia' },
+    { icon: FlaskConical, tone: 'gold', label: 'Deficiencias detectadas', value: measured.size ? `${deficient.size} ${deficient.size === 1 ? 'nutriente' : 'nutrientes'}` : '—', detail: nutrientSymbols || (measured.size ? 'Según el rango de referencia' : 'Sin resultados interpretados') },
   ];
   const legend = <>
     {Object.values(states).filter(state => nutrient === 'all' || state !== states.multiple).map(state => <span key={state.label}><i style={{ background: state.color }} />{state.label}</span>)}
@@ -154,7 +154,7 @@ export default function FertilizationOverview({ data, demo, blockFilter, analyse
       </section>
 
       <Panel className="fertilization-alerts" title="Alertas de nutrición" action={alerts.length > 0 && <button className="text-button" onClick={() => setShowAllAlerts(true)}>Ver todas <ArrowRight size={14} /></button>}>
-        {alerts.length ? alertList(alerts.slice(0, 3)) : <div className="fertilization-overview-empty"><ClipboardCheck size={21} /><p>{samples.size ? 'Sin alertas para el nutriente y los bloques seleccionados.' : 'Las alertas aparecen al interpretar los resultados de suelo.'}</p></div>}
+        {alerts.length ? alertList(alerts.slice(0, 3)) : <div className="fertilization-overview-empty"><ClipboardCheck size={21} /><p>{(nutrient === 'all' ? measured.size > 0 : measured.has(nutrient)) ? 'Sin alertas para el nutriente y los bloques seleccionados.' : 'Sin resultados interpretados para esta selección.'}</p></div>}
       </Panel>
       {showAllAlerts && <Modal className="farm-work-modal nutrient-modal" title="Alertas de nutrición" onClose={() => setShowAllAlerts(false)}>
         <div className="fertilization-alert-dialog">{alertList(alerts)}</div>

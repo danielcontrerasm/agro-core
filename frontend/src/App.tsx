@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { LayoutDashboard, Map, Sprout, Droplets, FlaskConical, Bug, Wheat, FileChartColumn, Sparkles, Settings, ListTodo, Leaf, Search, Bell, ChevronDown, LogOut, Menu, X, ArrowRight, CalendarDays, RefreshCw, CheckCircle2, AlertCircle, LoaderCircle, ArrowUpRight, CloudSun, UsersRound, Box, Wallet } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { AppContext } from './context';
-import { api } from './lib/api';
+import { api, ApiError } from './lib/api';
 import { demoData, demoProfile, demoTasks, readDemo, saveDemo } from './lib/demo';
-import { localDate, roleLabels, scopeFarm, transitionTask } from './lib/domain';
+import { localDate, roleLabels, scopeFarm, todayTasks, transitionTask } from './lib/domain';
 import type { FarmData, Mode, Page, Profile, Role, Task } from './lib/types';
 import { Empty, Logo, Loading, Panel } from './components/ui';
 import Dashboard from './pages/Dashboard';
@@ -18,6 +18,7 @@ import SettingsPage from './pages/Settings';
 import FarmAdministration from './pages/FarmAdministration';
 import { ResourceForm } from './components/Forms';
 import { demoInspections, inspectionDemoKey, saveSanitaryProblemsDemo, sanitaryProblems } from './lib/inspections';
+import { monitoringPlansDemoKey } from './lib/inspection-monitoring';
 import { demoFertilization, fertilizationKey, readFertilizationDemo } from './lib/fertilization';
 import { demoIrrigation, irrigationKey, readIrrigationDemo } from './lib/irrigation';
 import { plantingKey, demoPlanting } from './lib/planting';
@@ -46,17 +47,18 @@ const navigation: { id: Page; label: string; icon: LucideIcon; group?: string }[
 ];
 const cropManagementPages: Page[] = ['tasks', 'plants', 'planting', 'irrigation', 'fertilization', 'disease', 'harvest', 'workers', 'inventory', 'costs', 'reports', 'insights', 'settings'];
 const empty: FarmData = { farms: [], fields: [], blocks: [], rows: [], events: [] };
+const emptyProfile: Profile = { user: { id: 0, name: '', email: '' }, memberships: [] };
 const pageFromHash = () => { const page = window.location.hash.slice(1) as Page; return navigation.some(item => item.id === page) ? page : 'dashboard'; };
 const topbarDateFormatter = new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
 const formatTopbarDate = (value: string) => topbarDateFormatter.format(new Date(`${value}T12:00:00`));
 
 export default function App() {
-  const [mode, setMode] = useState<Mode>('demo');
-  const [profile, setProfile] = useState<Profile>(demoProfile);
-  const [allData, setAllData] = useState<FarmData>(() => readDemo('data', demoData));
-  const [tasks, setTasks] = useState<Task[]>(() => readDemo('tasks', demoTasks));
+  const [mode, setMode] = useState<Mode>(() => sessionStorage.getItem('agrovision.live') === 'true' ? 'live' : 'demo');
+  const [profile, setProfile] = useState<Profile>(mode === 'live' ? emptyProfile : demoProfile);
+  const [allData, setAllData] = useState<FarmData>(() => mode === 'live' ? empty : readDemo('data', demoData));
+  const [tasks, setTasks] = useState<Task[]>(() => mode === 'live' ? [] : readDemo('tasks', demoTasks));
   const [liveTasks, setLiveTasks] = useState<Task[]>([]);
-  const [farmId, setFarmId] = useState(1);
+  const [farmId, setFarmId] = useState(mode === 'live' ? 0 : 1);
   const [fieldContextId, setFieldContextId] = useState(0);
   const [mapFieldId, setMapFieldId] = useState(0);
   const [mapBlockId, setMapBlockId] = useState(0);
@@ -66,11 +68,12 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [newFarm, setNewFarm] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(mode === 'live');
   const [error, setError] = useState('');
   const [toast, setToast] = useState<{ message: string; error: boolean } | null>(null);
   const [notifications, setNotifications] = useState(false);
   const [demoRole, setDemoRole] = useState<Role>('ADMIN');
+  const liveRequest = useRef(0);
 
   const notify = useCallback((message: string, isError = false) => setToast({ message, error: isError }), []);
   const [settingsTab, setSettingsTab] = useState<'profile' | 'calendar'>('profile');
@@ -83,28 +86,35 @@ export default function App() {
   }, []);
   const data = useMemo(() => scopeFarm(allData, farmId), [allData, farmId]);
   useEffect(() => { setMapFieldId(0); setMapBlockId(0); }, [farmId]);
-  const role = mode === 'demo' ? demoRole : profile.memberships.find(membership => membership.farmId === farmId)?.role ?? 'WORKER';
+  const farmRole = mode === 'demo' ? demoRole : profile.memberships.find(membership => membership.farmId === farmId)?.role;
+  const role = farmRole ?? 'WORKER';
 
   const loadLive = useCallback(async (nextProfile?: Profile, quiet = false) => {
-    if (!quiet) setLoading(true); setError('');
+    const requestId = ++liveRequest.current;
+    if (!quiet) setLoading(true);
+    setError('');
     try {
       const current = nextProfile ?? await api.me();
-      setProfile(current);
       const [farms, fields, blocks, rows, events, savedTasks] = await Promise.all([api.farms(), api.fields(), api.blocks(), api.rows(), api.events(), api.tasks()]);
-      setLiveTasks(savedTasks);
-      setProfile(current); setAllData({ farms, fields, blocks, rows, events });
-      setFarmId(previous => farms.some(farm => farm.id === previous) ? previous : farms[0]?.id ?? 0);
+      if (requestId === liveRequest.current) {
+        setProfile(current);
+        setLiveTasks(savedTasks);
+        setAllData({ farms, fields, blocks, rows, events });
+        setFarmId(previous => farms.some(farm => farm.id === previous) ? previous : farms[0]?.id ?? 0);
+      }
       return current;
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'No se pudo cargar la finca.');
+      if (requestId === liveRequest.current) setError(failure instanceof Error ? failure.message : 'No se pudo cargar la finca.');
       throw failure;
-    } finally { if (!quiet) setLoading(false); }
+    } finally {
+      if (requestId === liveRequest.current) setLoading(false);
+    }
   }, []);
 
   useEffect(() => { const listener = () => setPage(pageFromHash()); window.addEventListener('hashchange', listener); return () => window.removeEventListener('hashchange', listener); }, []);
   useEffect(() => { if (toast) { const timeout = window.setTimeout(() => setToast(null), 5000); return () => clearTimeout(timeout); } }, [toast]);
   useEffect(() => { if (mode === 'demo' && !saveDemo('data', allData)) notify('El navegador no permite guardar la demostración.', true); }, [allData, mode, notify]);
-  useEffect(() => { if (!saveDemo('tasks', tasks)) notify('No se pudieron guardar las tareas locales.', true); }, [tasks, notify]);
+  useEffect(() => { if (mode === 'demo' && !saveDemo('tasks', tasks)) notify('No se pudieron guardar las tareas locales.', true); }, [mode, tasks, notify]);
   useEffect(() => {
     if (page !== 'maps') return;
     setMapFieldId(previous => data.fields.some(field => field.id === previous) ? previous : 0);
@@ -115,10 +125,12 @@ export default function App() {
     setFieldContextId(0);
   }, [page, fieldContextId, data.fields]);
   useEffect(() => {
-    if (sessionStorage.getItem('agrovision.live') === 'true') {
-      setMode('live'); setAllData(empty);
-      void loadLive().catch(() => { setAuthOpen(true); });
-    }
+    if (sessionStorage.getItem('agrovision.live') !== 'true') return;
+    const restoration = loadLive();
+    const requestId = liveRequest.current;
+    void restoration.catch(failure => {
+      if (requestId === liveRequest.current && failure instanceof ApiError && failure.status === 401) setAuthOpen(true);
+    });
   }, [loadLive]);
 
   async function create(resource: string, payload: Record<string, unknown>) {
@@ -188,6 +200,7 @@ export default function App() {
   async function resetDemo() {
     try { await clearDemoPhotos(); } catch (failure) { notify(failure instanceof Error ? failure.message : 'No se pudieron restablecer las fotos.', true); return; }
     if (!saveDemo(inspectionDemoKey, demoInspections())) { notify('No se pudieron restablecer las inspecciones.', true); return; }
+    if (!saveDemo(monitoringPlansDemoKey, [])) { notify('No se pudieron restablecer los planes de monitoreo.', true); return; }
     if (!saveSanitaryProblemsDemo(sanitaryProblems)) { notify('No se pudo restablecer el catálogo fitosanitario.', true); return; }
     if (!saveDemo(fertilizationKey, demoFertilization())) { notify('No se pudo restablecer la fertilización.', true); return; }
     if (!saveDemo(irrigationKey, demoIrrigation())) { notify('No se pudo restablecer el riego.', true); return; }
@@ -199,15 +212,38 @@ export default function App() {
   }
 
   async function authenticated(nextProfile: Profile) {
-    setMode('live'); setProfile(nextProfile); setAllData(empty); setAuthOpen(false); sessionStorage.setItem('agrovision.live', 'true');
+    setMode('live'); setProfile(nextProfile); setAllData(empty); setLiveTasks([]); setFarmId(0); setAuthOpen(false); sessionStorage.setItem('agrovision.live', 'true');
     try { await loadLive(nextProfile); notify(`Bienvenido, ${nextProfile.user.name.split(' ')[0]}.`); } catch {}
+  }
+
+  function openDemo() {
+    liveRequest.current++;
+    sessionStorage.removeItem('agrovision.live');
+    setMode('demo');
+    setProfile(demoProfile);
+    setAllData(readDemo('data', demoData));
+    setTasks(readDemo('tasks', demoTasks));
+    setFarmId(1);
+    setAuthOpen(false);
+    setNotifications(false);
+    setLoading(false);
+    setError('');
   }
 
   async function logout() {
     if (mode === 'live') {
       try { await api.logout(); } catch (failure) { notify(failure instanceof Error ? failure.message : 'No se pudo cerrar sesión.', true); return; }
+      liveRequest.current++;
+      setProfile(emptyProfile);
+      setAllData(empty);
+      setLiveTasks([]);
+      setFarmId(0);
+      setLoading(false);
     }
-    sessionStorage.removeItem('agrovision.live'); setMode('demo'); setProfile(demoProfile); setAllData(readDemo('data', demoData)); setFarmId(1); setAuthOpen(true);
+    sessionStorage.removeItem('agrovision.live');
+    setNotifications(false);
+    setMenuOpen(false);
+    setAuthOpen(true);
   }
 
   async function createTask(payload: Record<string, unknown>) {
@@ -227,6 +263,10 @@ export default function App() {
   }
 
   const visibleTasks = mode === 'live' ? liveTasks.filter(task => task.farmId === farmId) : tasks;
+  const farmTasks = mode === 'live' ? visibleTasks : visibleTasks.filter(task => task.farmId === farmId || (!task.farmId && data.blocks.some(block => block.id === task.blockId)));
+  const workdayTasks = todayTasks(farmTasks, date, mode === 'demo' && role === 'WORKER' ? profile.user.name : undefined);
+  const pendingTaskCount = workdayTasks.filter(task => task.status !== 'completed' && task.status !== 'review').length;
+  const blockedTaskCount = workdayTasks.filter(task => task.status === 'blocked').length;
   function selectMapBlock(id: number) {
     setMapBlockId(id);
     const fieldId = data.blocks.find(block => block.id === id)?.field.id;
@@ -234,26 +274,28 @@ export default function App() {
   }
   const context = { mode, profile, data, allData, farmId, role, tasks: visibleTasks, date, search, loading, fieldContextId, mapFieldId, mapBlockId, setMapBlockId: selectMapBlock, setDate, setFarmId, setFieldContextId, navigate, notify, setTasks, createTask, updateTask, create, remove, refresh: async (quiet = false) => { if (mode === 'live') await loadLive(undefined, quiet); }, connect: () => setAuthOpen(true), setDemoRole, resetDemo };
   const currentFarm = allData.farms.find(farm => farm.id === farmId);
+  const isFarmAdministration = page === 'workers' || page === 'inventory' || page === 'costs';
   const pageLabel = navigation.find(item => item.id === page)?.label;
   const initials = profile.user.name.split(' ').map(part => part[0]).slice(0, 2).join('');
 
   return <AppContext.Provider value={context}>
-    {authOpen ? <AuthScreen onAuthenticated={authenticated} onDemo={() => { sessionStorage.removeItem('agrovision.live'); setMode('demo'); setProfile(demoProfile); setAllData(readDemo('data', demoData)); setFarmId(1); setAuthOpen(false); setError(''); }} /> : <div className={`app-shell ${page === 'dashboard' ? 'dashboard-app-shell' : ''} ${page === 'maps' ? 'maps-app-shell' : ''} ${page === 'fields' ? 'fields-app-shell' : ''} ${cropManagementPages.includes(page) ? 'crop-app-shell' : ''}`}>
+    {authOpen ? <AuthScreen onAuthenticated={authenticated} onDemo={openDemo} /> : <div className={`app-shell ${page === 'dashboard' ? 'dashboard-app-shell' : ''} ${page === 'maps' ? 'maps-app-shell' : ''} ${page === 'fields' ? 'fields-app-shell' : ''} ${cropManagementPages.includes(page) ? 'crop-app-shell' : ''} ${isFarmAdministration ? 'admin-app-shell' : ''}`}>
       {menuOpen && <div className="sidebar-scrim" onClick={() => setMenuOpen(false)} />}
       <aside className={`sidebar ${menuOpen ? 'sidebar-open' : ''}`}><div className="sidebar-top"><Logo /><button className="icon-button mobile-only" aria-label="Cerrar menú" onClick={() => setMenuOpen(false)}><X size={20} /></button></div>
-        <nav aria-label="Navegación principal">{navigation.map(item => <div key={item.id}>{item.group && <span className="nav-group">{item.group}</span>}<button className={`nav-item ${page === item.id ? 'active' : ''}`} onClick={() => navigate(item.id)} aria-current={page === item.id ? 'page' : undefined}><item.icon size={19} strokeWidth={1.7} /><span>{item.label}</span>{item.id === 'tasks' && mode === 'demo' && <span className="nav-count">{tasks.filter(task => !['completed', 'review'].includes(task.status)).length}</span>}</button></div>)}</nav>
-        <div className="sidebar-bottom"><div className="sidebar-message"><Sprout size={29} /><p>El campo también<br /><strong>innova.</strong></p><span>Decisiones que hacen crecer.</span></div><div className="sidebar-user"><span className="avatar">{initials}</span><div><strong>{profile.user.name}</strong><small>{roleLabels[role]}</small></div></div><button className="logout" onClick={() => void logout()}><LogOut size={17} />{mode === 'demo' ? 'Salir de demostración' : 'Cerrar sesión'}</button></div>
+        <nav aria-label="Navegación principal">{navigation.map(item => <div key={item.id}>{item.group && <span className="nav-group">{item.group}</span>}<button className={`nav-item ${page === item.id ? 'active' : ''}`} onClick={() => navigate(item.id)} aria-current={page === item.id ? 'page' : undefined}><item.icon size={19} strokeWidth={1.7} /><span>{item.label}</span>{item.id === 'tasks' && !loading && !error && pendingTaskCount > 0 && <span className="nav-count" aria-hidden="true">{pendingTaskCount}</span>}</button></div>)}</nav>
+        <div className="sidebar-bottom"><div className="sidebar-message"><Sprout size={29} /><p>El campo también<br /><strong>innova.</strong></p><span>Decisiones que hacen crecer.</span></div>{profile.user.name && <div className="sidebar-user"><span className="avatar">{initials}</span><div><strong>{profile.user.name}</strong>{farmRole && <small>{roleLabels[farmRole]}</small>}</div></div>}<button className="logout" onClick={() => void logout()}><LogOut size={17} />{mode === 'demo' ? 'Salir de demostración' : 'Cerrar sesión'}</button></div>
       </aside>
       <div className="workspace"><header className="topbar"><button className="icon-button mobile-only" aria-label="Abrir menú" onClick={() => setMenuOpen(true)}><Menu /></button><div className="global-search"><Search size={18} /><input aria-label="Buscar en la vista actual" placeholder={page === 'maps' || page === 'fields' ? 'Buscar campo, bloque, fila o planta…' : 'Buscar campo, bloque, planta o tarea…'} value={search} onChange={event => setSearch(event.target.value)} /><kbd>⌕</kbd></div><div className="topbar-filters"><div className="farm-picker"><Leaf size={16} /><select aria-label="Seleccionar finca" value={farmId} onChange={event => setFarmId(Number(event.target.value))}>{!allData.farms.length && <option value="0">Sin finca asignada</option>}{allData.farms.map(farm => <option key={farm.id} value={farm.id}>{farm.name}</option>)}</select><ChevronDown size={14} /></div>{page === 'maps' && <><div className="map-context-picker"><select aria-label="Seleccionar campo" value={data.fields.some(field => field.id === mapFieldId) ? mapFieldId : 0} onChange={event => {
           const fieldId = Number(event.target.value);
           setMapFieldId(fieldId);
           setMapBlockId(data.blocks.find(block => block.field.id === fieldId)?.id ?? 0);
-        }}><option value={0}>Todos los campos</option>{data.fields.map(field => <option key={field.id} value={field.id}>{field.name}</option>)}</select><ChevronDown size={14} /></div><div className="map-context-picker map-block-picker"><select aria-label="Seleccionar bloque" value={mapBlockId} onChange={event => setMapBlockId(Number(event.target.value))}>{data.blocks.map(block => <option key={block.id} value={block.id}>{block.code}</option>)}</select><ChevronDown size={14} /></div></>}{page === 'fields' && <div className="map-context-picker fields-context-picker"><select aria-label="Filtrar campos" value={fieldContextId} onChange={event => setFieldContextId(Number(event.target.value))}><option value={0}>Todos los campos</option>{data.fields.map(field => <option key={field.id} value={field.id}>{field.name}</option>)}</select><ChevronDown size={14} /></div>}<label className="date-picker"><CalendarDays size={16} /><span className="date-picker-value">{formatTopbarDate(date)}</span><ChevronDown size={14} /><input type="date" aria-label="Fecha de trabajo" value={date} onChange={event => { if (event.target.value) setDate(event.target.value); }} /></label></div><div className="topbar-end">{mode === 'demo' && <div className="topbar-weather"><CloudSun size={31} strokeWidth={1.7} /><div><strong>24°C</strong><small>Parcialmente nublado</small></div></div>}<button className="notification-button icon-button" aria-label="Ver notificaciones" aria-expanded={notifications} onClick={() => setNotifications(value => !value)}><Bell size={21} />{mode === 'demo' && <i>7</i>}</button><button className="avatar profile-button" onClick={() => navigate('settings')} aria-label="Abrir configuración de perfil">{initials}</button></div></header>
-      {notifications && <div className="notification-popover"><div><strong>Notificaciones</strong><button className="icon-button" aria-label="Cerrar notificaciones" onClick={() => setNotifications(false)}><X size={16} /></button></div><p>{mode === 'demo' ? 'Tienes una tarea bloqueada pendiente de seguimiento.' : 'Las notificaciones automáticas estarán disponibles en una próxima versión.'}</p>{mode === 'demo' && <button className="text-button" onClick={() => { navigate('tasks'); setNotifications(false); }}>Ver mi trabajo <ArrowRight size={14} /></button>}</div>}
-      <div className={`environment-bar ${mode === 'live' ? 'live' : ''} ${page === 'dashboard' ? 'dashboard-environment' : ''} ${page === 'maps' ? 'maps-environment' : ''}`}><span><i />{mode === 'demo' ? 'Espacio de demostración' : 'Conectado a tu finca'}<span className="environment-description">{mode === 'demo' ? 'Explora AgroVision con datos de ejemplo. Los cambios son locales.' : 'Los registros agrícolas se guardan en el servidor.'}</span></span>{mode === 'demo' ? <button onClick={() => setAuthOpen(true)}>Conectar mi finca<ArrowUpRight size={13} /></button> : <button onClick={() => void loadLive().catch(() => {})} disabled={loading}><RefreshCw size={13} />Actualizar</button>}</div>
+        }}><option value={0}>Todos los campos</option>{data.fields.map(field => <option key={field.id} value={field.id}>{field.name}</option>)}</select><ChevronDown size={14} /></div><div className="map-context-picker map-block-picker"><select aria-label="Seleccionar bloque" value={mapBlockId} onChange={event => setMapBlockId(Number(event.target.value))}>{data.blocks.map(block => <option key={block.id} value={block.id}>{block.code}</option>)}</select><ChevronDown size={14} /></div></>}{page === 'fields' && <div className="map-context-picker fields-context-picker"><select aria-label="Filtrar campos" value={fieldContextId} onChange={event => setFieldContextId(Number(event.target.value))}><option value={0}>Todos los campos</option>{data.fields.map(field => <option key={field.id} value={field.id}>{field.name}</option>)}</select><ChevronDown size={14} /></div>}<label className="date-picker"><CalendarDays size={16} /><span className="date-picker-value">{formatTopbarDate(date)}</span><ChevronDown size={14} /><input type="date" aria-label="Fecha de trabajo" value={date} onChange={event => { if (event.target.value) setDate(event.target.value); }} /></label></div><div className="topbar-end">{mode === 'demo' && <div className="topbar-weather"><CloudSun size={31} strokeWidth={1.7} /><div><strong>24°C</strong><small>Parcialmente nublado</small></div></div>}<button className="notification-button icon-button" aria-label="Ver notificaciones" aria-expanded={notifications} onClick={() => setNotifications(value => !value)}><Bell size={21} />{!loading && !error && blockedTaskCount > 0 && <i aria-hidden="true" />}</button>{profile.user.name && <button className="avatar profile-button" onClick={() => navigate('settings')} aria-label="Abrir configuración de perfil">{initials}</button>}</div></header>
+      {notifications && <div className="notification-popover"><div><strong>Notificaciones</strong><button className="icon-button" aria-label="Cerrar notificaciones" onClick={() => setNotifications(false)}><X size={16} /></button></div>
+        {loading ? <p>Cargando tareas…</p> : error ? <p>No se pudieron consultar las tareas.</p> : <><p>{blockedTaskCount === 0 ? 'No hay tareas bloqueadas para esta fecha.' : blockedTaskCount === 1 ? 'Hay 1 tarea bloqueada pendiente de seguimiento.' : `Hay ${blockedTaskCount} tareas bloqueadas pendientes de seguimiento.`}</p>{blockedTaskCount > 0 && <button className="text-button" onClick={() => { navigate('tasks'); setNotifications(false); }}>Ver mi trabajo <ArrowRight size={14} /></button>}</>}</div>}
+      <div className={`environment-bar ${mode === 'live' ? 'live' : ''}`}><span><i />{mode === 'demo' ? 'Espacio de demostración' : 'Conectado a tu finca'}<span className="environment-description">{mode === 'demo' ? 'Explora AgroVision con datos de ejemplo. Los cambios son locales.' : 'Los registros agrícolas se guardan en el servidor.'}</span></span>{mode === 'demo' ? <button onClick={() => setAuthOpen(true)}>Conectar mi finca<ArrowUpRight size={13} /></button> : <button onClick={() => void loadLive().catch(() => {})} disabled={loading}><RefreshCw size={13} />Actualizar</button>}</div>
       <main id="main-content" className={page === 'dashboard' ? 'dashboard-main' : page === 'maps' ? 'maps-main' : ''}><div className="mobile-context"><label><Leaf size={14} /><select aria-label="Finca en móvil" value={farmId} onChange={event => setFarmId(Number(event.target.value))}>{!allData.farms.length && <option value="0">Sin finca</option>}{allData.farms.map(farm => <option key={farm.id} value={farm.id}>{farm.name}</option>)}</select></label><label><CalendarDays size={14} /><input type="date" aria-label="Fecha de trabajo en móvil" value={date} onChange={event => { if (event.target.value) setDate(event.target.value); }} /></label></div><div className="breadcrumbs"><span>{currentFarm?.name ?? 'AgroVision'}</span><span>/</span><strong>{pageLabel}</strong></div>
         {error && <div className="error-banner" role="alert"><AlertCircle size={19} /><div><strong>No se pudieron cargar todos los datos</strong><p>{error}</p></div><button className="button secondary" onClick={() => void loadLive().catch(() => {})}>Reintentar</button></div>}
-        {loading ? <Loading /> : mode === 'live' && error ? <Panel><Empty title="Reconectemos con tu finca" description="No podemos confirmar tus datos en este momento. Reintenta la carga o inicia sesión de nuevo para continuar." action={<button className="button secondary" onClick={() => setAuthOpen(true)}>Iniciar sesión de nuevo<ArrowRight size={16} /></button>} /></Panel> : mode === 'live' && !allData.farms.length ? <div className="onboarding panel"><Sprout size={44} /><span className="eyebrow">BIENVENIDO A AGROVISION</span><h1>Tu próxima cosecha empieza aquí.</h1><p>Crea tu primera finca o pide a su administrador que te asigne acceso con tu correo: <strong>{profile.user.email}</strong>.</p><button className="button" onClick={() => setNewFarm(true)}>Crear mi primera finca<ArrowRight size={17} /></button></div> : <>{page === 'dashboard' && <Dashboard />}{page === 'maps' && <Maps />}{page === 'tasks' && <Tasks />}{(page === 'fields' || page === 'plants') && <Records page={page} />}{page === 'planting' && <Planting />}{['irrigation', 'fertilization', 'disease', 'harvest', 'reports', 'insights'].includes(page) && <Operations page={page} />}{(page === 'workers' || page === 'inventory' || page === 'costs') && <FarmAdministration page={page} />}{page === 'settings' && <SettingsPage key={settingsTab} initialTab={settingsTab} />}</>}
+        {loading ? <Loading /> : mode === 'live' && error ? <Panel><Empty title="Reconectemos con tu finca" description="No podemos confirmar tus datos en este momento. Reintenta la carga o inicia sesión de nuevo para continuar." action={<button className="button secondary" onClick={() => setAuthOpen(true)}>Iniciar sesión de nuevo<ArrowRight size={16} /></button>} /></Panel> : mode === 'live' && !allData.farms.length ? <div className="onboarding panel"><Sprout size={44} /><span className="eyebrow">BIENVENIDO A AGROVISION</span><h1>Tu próxima cosecha empieza aquí.</h1><p>Crea tu primera finca o pide a su administrador que te asigne acceso con tu correo: <strong>{profile.user.email}</strong>.</p><button className="button" onClick={() => setNewFarm(true)}>Crear mi primera finca<ArrowRight size={17} /></button></div> : <Fragment key={`${mode}-${farmId}`}>{page === 'dashboard' && <Dashboard />}{page === 'maps' && <Maps />}{page === 'tasks' && <Tasks />}{(page === 'fields' || page === 'plants') && <Records page={page} />}{page === 'planting' && <Planting />}{['irrigation', 'fertilization', 'disease', 'harvest', 'reports', 'insights'].includes(page) && <Operations page={page} />}{isFarmAdministration && <FarmAdministration page={page} />}{page === 'settings' && <SettingsPage key={settingsTab} initialTab={settingsTab} />}</Fragment>}
         <footer className="footer"><span><Sprout size={13} />AgroVision <span>·</span> Cultivos con futuro</span><span>{mode === 'demo' ? 'Datos ilustrativos, decisiones con propósito.' : 'Tu finca, conectada.'}</span></footer>
       </main></div>
     </div>}

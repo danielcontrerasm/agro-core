@@ -1,12 +1,113 @@
 # Informe de resultados de pruebas de AgroVision
 
-**25 de noviembre de 2026** · Verificación finalizada a las **15:58:22**,
-hora de Colombia (UTC−05:00).
+## Regresión de sanidad del 26 de noviembre de 2026
 
-## Resultado de la última verificación
+**146 ejecuciones aprobadas, 0 fallidas y 0 omitidas** en la regresión iniciada
+a las **08:56** de Colombia (UTC−05:00), más el recorrido grabado de sanidad.
+Se aplicaron las migraciones V28 y V29 en PostGIS temporal. La compilación de
+producción también pasó.
+
+| Verificación | Aprobadas | Evidencia |
+| --- | ---: | --- |
+| Gradle con H2 y PostGIS | 60 | [Informe de Gradle](../frontend/playwright-report/agro-qa-20261126-085656-001afe3b/gradle/index.html) |
+| Unitarias de dominio | 11 | [Casos ejecutados](qa-evidence/test-cases.md#unitarias-del-frontend) |
+| Chrome en escritorio y móvil | 74 | [Informe de Playwright](../frontend/playwright-report/agro-qa-20261126-085656-001afe3b/browser/index.html) |
+| Recorrido conectado de la finca | 1 | [Informe de Playwright](../frontend/playwright-report/agro-qa-20261126-085656-001afe3b/walkthrough/index.html) |
+| Recorrido grabado de sanidad | 1 | [Capturas y video](qa-evidence/README.md#monitoreo-y-tratamientos) |
+
+El backend aprobó los seis casos nuevos de monitoreo, alertas y tratamientos.
+Chrome aprobó cuatro ejecuciones nuevas por función, incluyendo escritorio
+y móvil en demostración y conectados a PostGIS. Las suites existentes de
+inspecciones y fotos también aprobaron. [Ficha del módulo](pest-disease-management.md#funcionalidades-verificadas) ·
+[Listado de casos](qa-evidence/test-cases.md)
+
+Una revalidación posterior repitió las ocho pruebas nuevas tras ajustar la
+visualización del responsable de la alerta y el control del catálogo activo.
+Pasaron las ocho. [Informe de la revalidación](../frontend/playwright-report/sanidad-revalidacion/index.html)
+
+## Regresión anterior del 26 de noviembre de 2026
+
+**132 ejecuciones aprobadas, 0 fallidas y 0 omitidas** sobre una copia fija
+del código local con los cambios de Administración. La ejecución empezó a
+las **08:21**, hora de Colombia (UTC−05:00), con base en `5cd8583`.
+El [listado de casos](qa-evidence/test-cases.md) enlaza los métodos y pruebas
+de las suites ejecutadas.
+
+| Verificación | Aprobadas | Evidencia |
+| --- | ---: | --- |
+| Backend Gradle con H2 y PostGIS | 54 | [Informe de Gradle](../frontend/playwright-report/agro-qa-20261126-082107-c0612773/gradle/index.html) |
+| [Unitarias del frontend](../frontend/src/lib/domain.test.ts) | 11 | `npm test` |
+| Chrome de escritorio y móvil | 66 | [Informe de Chrome](../frontend/playwright-report/agro-qa-20261126-082107-c0612773/browser/index.html) |
+| Recorrido conectado con finca temporal | 1 | [Informe de Playwright](../frontend/playwright-report/agro-qa-20261126-082107-c0612773/walkthrough/index.html) · [Pantallazo final](qa-evidence/2026-11-26/conectado/finca-qa-cosecha.jpg) |
+
+Aprobaron los 33 casos de escritorio y los 33 de móvil, incluida
+Administración conectada. También pasó la compilación de producción. El
+recorrido de la finca verificó riego, fertilización y cosecha contra PostGIS.
+Los 15 recorridos independientes aprobados se registraron en el corte de
+las 08:10. [Capturas y videos por módulo](qa-evidence/README.md)
+
+## Verificación del 26 de noviembre de 2026 a las 08:10
+
+Se ejecutó sobre una copia fija del código local a las **08:10**, hora de
+Colombia (UTC−05:00), con el commit base `5cd8583` y los cambios de trabajo
+presentes al copiarla.
+
+| Verificación | Aprobadas | Fallidas | Omitidas | Evidencia |
+| --- | ---: | ---: | ---: | --- |
+| Backend con Gradle, H2 y PostGIS | 50 | 2 | 0 | [Informe de Gradle](../frontend/playwright-report/agro-qa-20261126-081104-76cbb5d3/gradle/index.html) |
+| [Unitarias de dominio](../frontend/src/lib/domain.test.ts) | 11 | 0 | 0 | `npm test` |
+| Chrome de escritorio y móvil | 64 | 2 | 0 | [Informe de navegador](../frontend/playwright-report/agro-qa-20261126-081104-76cbb5d3/browser/index.html) |
+| Recorrido conectado con finca temporal | 1 | 0 | 0 | [Informe y capturas](../frontend/playwright-report/agro-qa-20261126-081104-76cbb5d3/walkthrough/index.html) |
+| Recorridos independientes por módulo | 15 | 0 | 0 | [Informe, capturas y grabaciones](../frontend/playwright-report/qa-modulos-20261126-081101-35b229/index.html) |
+
+TypeScript y Vite completaron la compilación de producción. El archivo
+JavaScript principal quedó en 957,30 kB minificados.
+
+- **API.** Falló un caso de inventario y otro de cuadrillas con
+  `EmptyResultDataAccessException`. Los casos de API de Finanzas se añadieron
+  después de este corte.
+- **Chrome.** Pasaron 32 de 33 casos en escritorio y 32 de 33 en móvil.
+  En ambos perfiles, el recorrido de administración creó el producto y
+  se detuvo al localizar el selector **Producto** de **Nuevo lote**. Quedaron
+  pendientes los movimientos de existencias, los gastos e ingresos, el
+  presupuesto, las cuadrillas y la asistencia en esta ejecución.
+- **Finca temporal.** El recorrido conectado completó el alta de finca,
+  campo, bloque y surco, el registro de riego, la aplicación de fertilizante
+  y el registro de cosecha contra PostGIS.
+- **Recorridos por módulo.** Pasaron Reportes y Centro agronómico, que habían
+  fallado en la ejecución de las 15:51 del día anterior. La configuración
+  temporal de ese servidor usó tipografías de respaldo durante parte del
+  recorrido. La galería versionada conserva las [grabaciones y capturas
+  originales por módulo](qa-evidence/README.md).
+
+Una ejecución previa sobre el árbol de trabajo a las **08:06** registró
+5 casos aprobados y 10 fallidos mientras se incorporaban las dependencias
+de Administración de finca. El informe de la copia fija es el que permite
+comparar los resultados por módulo. [Primer intento del 26 de noviembre](../frontend/playwright-report/qa-modulos-20261126-080638-59d9c8/playwright/index.html)
+
+### Revalidación de Administración de finca
+
+Se actualizó la copia con los cambios de Administración presentes a las
+**08:18** y se repitieron las pruebas de los tres módulos, incluyendo la API de
+Finanzas añadida después del primer corte.
+
+| Prueba | Aprobadas | Fallidas | Evidencia |
+| --- | ---: | ---: | --- |
+| [API de Inventario](../src/test/java/com/yourco/agro/InventoryApiTest.java) | 2 | 0 | [Gradle](../frontend/playwright-report/agro-qa-20261126-administracion/gradle/classes/com.yourco.agro.InventoryApiTest.html) |
+| [API de Trabajadores](../src/test/java/com/yourco/agro/WorkforceApiTest.java) | 2 | 0 | [Gradle](../frontend/playwright-report/agro-qa-20261126-administracion/gradle/classes/com.yourco.agro.WorkforceApiTest.html) |
+| [API de Finanzas](../src/test/java/com/yourco/agro/FinanceApiTest.java) | 2 | 0 | [Gradle](../frontend/playwright-report/agro-qa-20261126-administracion/gradle/classes/com.yourco.agro.FinanceApiTest.html) |
+| [Administración conectada en Chrome](../frontend/tests/farm-administration-live.spec.ts) | 2 | 0 | [Playwright](../frontend/playwright-report/agro-qa-20261126-administracion/browser/index.html) · [Pantallazos y videos](qa-evidence/README.md#administración-de-finca) |
+
+En escritorio y móvil se verificaron el saldo de 10 kg tras registrar entradas
+y salidas, la persistencia de gastos, ingresos y presupuesto, y la edición de
+asistencia a 8 horas para un miembro de la cuadrilla. La grabación usó una copia
+del caso automatizado con capturas añadidas.
+
+## Verificación histórica del 25 de noviembre de 2026
 
 La ejecución usó una copia fija de `main` en `2af4d38` con los cambios
-locales presentes a las **15:51:30**. [Ficha de la ejecución](../frontend/playwright-report/agro-qa-20261125-155129-bcbe583c/ejecucion.json)
+locales presentes a las **15:51:30** y finalizó a las **15:58:22**, hora de
+Colombia. [Ficha de la ejecución](../frontend/playwright-report/agro-qa-20261125-155129-bcbe583c/ejecucion.json)
 
 | Verificación | Aprobadas | Fallidas | Omitidas | Evidencia |
 | --- | ---: | ---: | ---: | --- |
@@ -24,7 +125,7 @@ La compilación de producción pasó con TypeScript y Vite. El paquete
 JavaScript principal quedó en 916,40 kB minificados, por encima del umbral
 de aviso de 500 kB de Vite. [Salida de compilación](../frontend/playwright-report/agro-qa-20261125-155129-bcbe583c/compilacion-frontend.txt)
 
-## Recorridos por módulo
+## Recorridos por módulo del 25 de noviembre
 
 Cada recorrido abre una sesión de demostración independiente en Chrome. La
 prueba de Acceso utiliza un servicio de autenticación simulado. Playwright
@@ -49,7 +150,7 @@ guardó 47 capturas de pasos aprobados y dos capturas de fallos.
 | Centro agronómico | Buscar una guía y abrir el módulo relacionado | Fallido | [Captura del fallo](../frontend/playwright-report/agro-qa-20261125-155129-bcbe583c/modulos/data/b432391e5ff8286a1703875a1d0941dc95d942f8.png) |
 | Configuración | Gestionar el catálogo y comprobar permisos simulados | Aprobado | [Captura](../frontend/playwright-report/agro-qa-20261125-155129-bcbe583c/modulos/data/727bd9e5a325f9588272e828ca12f98d4c688ab0.png) |
 
-## Incidencias de la última verificación
+## Incidencias de la verificación del 25 de noviembre
 
 ### Suite de Chrome
 
@@ -83,7 +184,7 @@ en esa finca de QA.
   contenedor con la clase `.insights-grid`. La búsqueda de la guía y la
   navegación a Fertilización quedaron pendientes en ese recorrido.
 
-## Ejecuciones anteriores del mismo día
+## Otras ejecuciones del 25 de noviembre
 
 - **14:07, suite completa y finca QA.** Las 58 pruebas de Chrome y el
   recorrido conectado terminaron sin fallos. [Suite de Chrome](../frontend/playwright-report/agro-qa-20261125-140701-ab730663/browser/index.html) ·
@@ -103,7 +204,7 @@ en esa finca de QA.
   [Registro de ejecución](../frontend/playwright-report/agro-qa-20261125-154457-658b14c2/ejecucion.json) ·
   [Salida de Chrome](../frontend/playwright-report/agro-qa-20261125-154457-658b14c2/browser.txt)
 
-## Entorno y evidencias
+## Entorno y evidencias históricas
 
 Las pruebas de backend se ejecutaron con Gradle 8.14 y JDK 17.0.2. Las pruebas
 de API usaron H2 y las de integración con PostgreSQL se ejecutaron en un
@@ -113,6 +214,7 @@ una finca de QA desechable. La verificación de navegador utilizó Playwright
 escritorio y móvil para la suite general. Las pruebas unitarias y la
 compilación del frontend usaron Node.js 26.13.1.
 
-Los enlaces a informes y capturas abren los artefactos generados en este
-checkout. Los comandos para repetir la ejecución y ver Chrome en vivo están
-en la [guía de pruebas automatizadas](../frontend/tests/manual-agricultural-workflow.md#pruebas-automatizadas-en-chrome).
+Los enlaces a informes abren artefactos generados localmente. Las
+[capturas y grabaciones por módulo](qa-evidence/README.md) también están
+disponibles en el repositorio. Los comandos de reproducción están en la
+[guía de pruebas automatizadas](../frontend/tests/manual-agricultural-workflow.md#pruebas-automatizadas-en-chrome).

@@ -1,6 +1,37 @@
 import { expect, test } from '@playwright/test';
 import { createQaFarm, signInAsNewQaUser } from './support/qa-account';
 
+test('harvest does not show demo records when the live harvest request fails', async ({ page }) => {
+  const farm = { id: 1, name: 'Finca conectada' };
+  const field = { id: 1, name: 'Campo conectado', farm, areaHa: 10 };
+  const block = { id: 1, code: 'B1', field, crop: 'Banano' };
+  let harvestUnavailable = true;
+  await page.addInitScript(() => sessionStorage.setItem('agrovision.live', 'true'));
+  await page.route('**/api/v1/**', async route => {
+    const path = new URL(route.request().url()).pathname;
+    let response: unknown = [];
+    if (path.endsWith('/auth/me')) response = { user: { id: 42, name: 'Administrador', email: 'admin@example.com' }, memberships: [{ farmId: farm.id, farmName: farm.name, role: 'ADMIN' }] };
+    else if (path.endsWith('/farms')) response = [farm];
+    else if (path.endsWith('/fields')) response = [field];
+    else if (path.endsWith('/blocks')) response = [block];
+    else if (path.endsWith('/planting')) response = { cycles: [] };
+    else if (path.endsWith('/monitoring-records') && harvestUnavailable) {
+      await route.fulfill({ status: 503, json: { detail: 'Servicio temporalmente no disponible' } });
+      return;
+    }
+    await route.fulfill({ json: response });
+  });
+  await page.goto('/#harvest');
+  await expect(page.getByRole('alert')).toContainText('No se pudieron cargar los registros de cosecha');
+  await expect(page.getByRole('heading', { name: 'Historial estructurado de cosechas' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Registrar cosecha' })).toBeDisabled();
+
+  harvestUnavailable = false;
+  await page.getByRole('button', { name: 'Reintentar' }).click();
+  await expect(page.getByText('Sin cosechas para esta selección', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Registrar cosecha' })).toBeEnabled();
+});
+
 test('real server onboarding and agricultural record creation', async ({ page }) => {
   test.skip(process.env.AGRO_LIVE_TEST !== '1', 'Requires an isolated running Agro Core backend.');
   await signInAsNewQaUser(page);
@@ -34,7 +65,7 @@ test('real server onboarding and agricultural record creation', async ({ page })
   await dialog.getByLabel(/Coordenadas/).fill('[[-74.1,10.5],[-74.101,10.501]]');
   await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByText('R-real', { exact: true })).toBeVisible();
+  await expect(page.getByRole('table').getByText('R-real', { exact: true })).toBeVisible();
   await page.evaluate(() => { window.location.hash = 'reports'; });
   await page.getByRole('button', { name: 'Registrar actividad', exact: true }).click();
   dialog = page.getByRole('dialog');

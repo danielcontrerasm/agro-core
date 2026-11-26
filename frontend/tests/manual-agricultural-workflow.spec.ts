@@ -220,7 +220,7 @@ test('recorrido manual: finca, lote, riego, fertilización y cosecha', async ({ 
     await dialog.getByLabel(/Coordenadas de la línea/).fill(rowLine());
     await dialog.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect(dialog).toHaveCount(0);
-    await expect(page.getByText(names.row, { exact: true })).toBeVisible();
+    await expect(page.getByRole('table').getByText(names.row, { exact: true })).toBeVisible();
   });
 
   await visibleStep(page, 5, 'Crear un sector de riego', `Sector creado: ${names.sector}.`, async () => {

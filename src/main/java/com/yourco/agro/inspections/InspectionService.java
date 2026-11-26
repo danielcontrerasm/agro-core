@@ -2,6 +2,7 @@ package com.yourco.agro.inspections;
 
 import com.yourco.agro.auth.FarmAccess;
 import com.yourco.agro.persistence.JpaSql;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,7 @@ import java.util.function.Function;
 public class InspectionService {
   private final JpaSql queries;
   private final FarmAccess access;
+  private final ApplicationEventPublisher events;
   private static final String SELECT = """
     SELECT i.*, f.farm_id, p.name AS problem_name, u.name AS inspector_name
     FROM phytosanitary_inspection i JOIN block b ON b.id = i.block_id
@@ -42,7 +44,13 @@ public class InspectionService {
       result.text("cancellation_reason"), result.value("parent_inspection_id", Long.class));
   };
 
-  public InspectionService(JpaSql queries, FarmAccess access) { this.queries = queries; this.access = access; }
+  public InspectionService(JpaSql queries, FarmAccess access, ApplicationEventPublisher events) {
+    this.queries = queries;
+    this.access = access;
+    this.events = events;
+  }
+
+  record Recorded(InspectionDtos.Inspection inspection) {}
 
   public List<InspectionDtos.Problem> problems(Long farmId, boolean includeInactive) {
     if (farmId == null) throw badRequest("La finca es obligatoria");
@@ -130,7 +138,9 @@ public class InspectionService {
       """, request.blockId(), request.rowId(), problemCode, request.inspectedAt(), request.inspectedPlants(),
       request.affectedPlants(), request.affectedAreaHa(), request.symptoms(), request.severityPercent(),
       request.severityMethod(), request.nextVisit(), access.userId(), request.parentInspectionId());
-    return get(id);
+    var inspection = get(id);
+    events.publishEvent(new Recorded(inspection));
+    return inspection;
   }
 
   public InspectionDtos.Inspection get(Long id) {
@@ -189,11 +199,11 @@ public class InspectionService {
     return "NO_ACTIVE_FINDINGS";
   }
 
-  private ResponseStatusException badRequest(String message) { return new ResponseStatusException(HttpStatus.BAD_REQUEST, message); }
+  private static ResponseStatusException badRequest(String message) { return new ResponseStatusException(HttpStatus.BAD_REQUEST, message); }
 
   private ResponseStatusException conflict(String message) { return new ResponseStatusException(HttpStatus.CONFLICT, message); }
 
-  private String normalizeCode(String value) {
+  static String normalizeCode(String value) {
     String normalized = value.trim().toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]+", "_");
     if (normalized.isBlank() || normalized.length() > 40) throw badRequest("El código no es válido");
     return normalized;
@@ -205,7 +215,7 @@ public class InspectionService {
     return normalized;
   }
 
-  private InspectionDtos.Inspection writable(Long id) {
+  InspectionDtos.Inspection writable(Long id) {
     get(id);
     queries.value("SELECT id FROM phytosanitary_inspection WHERE id = ? FOR UPDATE", Long.class, id);
     var inspection = get(id);

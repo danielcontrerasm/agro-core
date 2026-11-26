@@ -1,6 +1,6 @@
 # Water Management
 
-Last reviewed **2026-11-25**.
+Last reviewed **2026-11-26**.
 
 This document describes the implemented water-management workflow in Agro Core.
 It covers irrigation sectors, soil-moisture monitoring, irrigation scheduling and
@@ -223,6 +223,8 @@ queries. [JPA persistence](../README.md#jpa-persistence)
 - Automated meter/telemetry reconciliation and weather-service integration.
 - Complete hydraulic map showing sources, pipes, valves, drains, and relationships.
 - Permission policies for water-source, infrastructure, and technical-threshold administration.
+- Water permits, automated water-balance calculations, maintenance work orders,
+  and calibration rules that exclude unreliable readings from analysis.
 - Offline capture and synchronization for field operations.
 
 ## Verification
@@ -239,11 +241,21 @@ The frontend irrigation workflow can be verified from `frontend` with:
 
 ```text
 npm run build
-npm run test:e2e -- tests/irrigation.spec.ts -g "water management records"
-npm run test:e2e -- tests/irrigation.spec.ts -g "recurring irrigation schedules"
-npm run test:e2e -- tests/irrigation.spec.ts -g "water usage report"
+npm run test:e2e -- tests/irrigation.spec.ts
 ```
 
-The November 25, 2026 QA walkthrough verified sector creation, a manual
-reading, scheduling, task generation, and a metered execution against PostGIS.
-[QA reports and recording](../frontend/tests/manual-agricultural-workflow.md#última-ejecución-completa-verificada)
+### Tested functionality and results
+
+| Automated test | Verified functionality | November 25, 2026 result |
+| --- | --- | --- |
+| [Riego module walkthrough](../frontend/qa/modules/riego.spec.ts) | Filter the map and sector table, create a sector and record 27% volumetric moisture, schedule 60 minutes and 12 m³, generate a task, record 6 m³ in 30 effective minutes and recover the metered reading and photo after reload. | 1 passed in the revalidation with demonstration data. [Module report](test-results.md#recorridos-por-módulo-del-25-de-noviembre) |
+| [Browser suite](../frontend/tests/irrigation.spec.ts) | Create a sector, save a manual reading, schedule and generate work, convert a partial meter reading from L to m³, retrieve its photo after reload and check moisture status and units on the map. Estimate flow volume net of interruptions and require a reason for overruns. Edit sources, quality, assets, balances, maintenance and calibration from their tables. Generate recurring occurrences, pause and resume the rule. Filter and export the water-use report. With a simulated connected API, send a worker's CSRF-protected reading with the sector unit and depth and hide manager actions. | 12 passed, 6 desktop and 6 mobile. [Chrome report](../frontend/playwright-report/agro-qa-20261125-155129-bcbe583c/browser/index.html) |
+| [Irrigation API tests on H2](../src/test/java/com/yourco/agro/IrrigationApiTest.java) | Enforce farm and role permissions, compatible readings and thresholds, version conflicts and revision history. Identify stale sensor data and a more recent manual reading. Generate tasks without duplicates, normalize liters, reject unauthorized or overlapping execution, preserve totals and link events. Deduct interruptions, require variance reasons, reject execution while in review, and prevent canceled plans and invalid counters from creating events. Create and edit six infrastructure record types with version checks. Generate, preview, pause, resume and cancel recurring schedules and retain their history. | 7 passed. [Gradle report](../frontend/playwright-report/agro-qa-20261125-155129-bcbe583c/gradle/classes/com.yourco.agro.IrrigationApiTest.html) |
+| [PostGIS integration](../src/test/java/com/yourco/agro/IrrigationPostgresTest.java) | Persist metered execution and associated event, expose moisture on the map and volume on the dashboard, and compare planned and actual water use with measured and estimated origins, rainfall and deficits. | 2 passed. [Gradle report](../frontend/playwright-report/agro-qa-20261125-155129-bcbe583c/gradle/classes/com.yourco.agro.IrrigationPostgresTest.html) |
+| [Connected QA farm walkthrough](../frontend/tests/manual-agricultural-workflow.spec.ts) | Steps 5–9 create the sector, record manual moisture, schedule irrigation, generate the task and record 5 m³ by meter. | Passed at 14:07 on November 25 and in the November 26 connected revalidation. The November 25 15:51 run stopped at the row check. [November 26 connected walkthrough](../frontend/playwright-report/agro-qa-20261126-081104-76cbb5d3/walkthrough/index.html) · [Revalidation result](test-results.md#recorrido-conectado) |
+
+### Screenshots and recording
+
+- [Irrigation revalidation screenshot](../frontend/playwright-report/agro-qa-20261125-155129-bcbe583c/modulos/data/eebf81d581672200804e7bdcd502338e409336fe.png)
+- [Demonstration walkthrough with step-by-step screenshots](../frontend/playwright-report/qa-modulos-20261125-150226-aab46d/modulos/riego.html) · [WebM recording](../frontend/playwright-report/qa-modulos-20261125-150226-aab46d/videos/riego.webm)
+- [Irrigation evidence index](qa-evidence/README.md#riego)

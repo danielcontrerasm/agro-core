@@ -71,15 +71,20 @@ export default function Irrigation({ onHistory }: { onHistory: () => void }) {
   const [chosenSector, setChosenSector] = useState(0);
   const [volumeMode, setVolumeMode] = useState<'METER' | 'FLOW'>('METER');
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [photoBusy, setPhotoBusy] = useState(false); const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   useEffect(() => {
-    let active = true; setLoading(true); setRecords(emptyIrrigation()); setError(''); setEditor(undefined); setDetail(undefined);
+    let active = true; setLoading(true); setRecords(emptyIrrigation()); setError(''); setLoadError(''); setEditor(undefined); setDetail(undefined);
     const people = demo ? Promise.resolve([{ userId: 1, name: profile.user.name, email: profile.user.email, role: 'ADMIN' as const }, { userId: 2, name: 'María Rodríguez', email: 'maria@demo.local', role: 'WORKER' as const }]) : manager ? api.members(farmId) : Promise.resolve([]);
     Promise.all([demo ? Promise.resolve(readIrrigationDemo()) : api.irrigation(farmId), people, demo ? Promise.resolve([]) : api.sensorDevices(farmId)]).then(([result, users, sensorDevices]) => {
       if (active) { setRecords(result); setMembers(users); setDevices(sensorDevices as Device[]); }
-    }).catch(failure => { if (active) setError(failure.message); }).finally(() => { if (active) setLoading(false); });
+    }).catch(failure => { if (active) setLoadError(failure instanceof Error ? failure.message : 'No se pudo cargar el riego.'); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [demo, farmId, manager, profile.user.id, profile.user.name, profile.user.email]);
-  useEffect(() => { const timer = setInterval(() => setRecords(previous => refreshIrrigation(previous)), 60000); return () => clearInterval(timer); }, []);
+  useEffect(() => {
+    if (!demo) return;
+    const timer = setInterval(() => setRecords(previous => refreshIrrigation(previous)), 60000);
+    return () => clearInterval(timer);
+  }, [demo]);
   const sectors = records.sectors.filter(sector => data.blocks.some(block => block.id === sector.blockId));
   const plans = records.plans.filter(plan => sectors.some(sector => sector.id === plan.sectorId));
   const executions = records.executions.filter(execution => plans.some(plan => plan.id === execution.planId));
@@ -256,7 +261,7 @@ export default function Irrigation({ onHistory }: { onHistory: () => void }) {
       <header className="module-heading">
         <div><h1>Riego</h1><p>Gestiona sectores, consulta la humedad del suelo y programa ejecuciones de riego.</p></div>
         <div className="module-heading-actions">
-          <button className="button secondary" onClick={exportCsv}><Download size={16} />Exportar CSV</button>
+          <button className="button secondary" disabled={loading || !!loadError} onClick={exportCsv}><Download size={16} />Exportar CSV</button>
           {tab === 'summary' && manager && <button className="button" disabled={!sectors.length} onClick={() => open({ kind: 'plan' })}><CalendarDays size={16} />Programar riego</button>}
         </div>
       </header>
@@ -265,7 +270,7 @@ export default function Irrigation({ onHistory }: { onHistory: () => void }) {
         <button type="button" onClick={onHistory}>Historial</button>
       </div>
       {error && !editor && !detail && <p className="form-error" role="alert">{error}</p>}
-      {tab === 'summary' ? (
+      {loadError ? <p className="form-error" role="alert">{loadError}</p> : tab === 'summary' ? (
         loading ? <p role="status">Cargando riego…</p> : <IrrigationOverview key={farmId} data={data} demo={demo} date={date}
           sectors={sectors} plans={plans} executions={executions} infrastructure={records.infrastructure} maintenance={records.maintenance ?? []}
           alerts={<IrrigationAlerts sectors={sectors} plans={plans} records={records} onReview={setTab} onViewAll={() => setTab('measurements')} />}

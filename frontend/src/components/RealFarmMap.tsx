@@ -4,7 +4,8 @@ import 'leaflet/dist/leaflet.css';
 import { Layers, LocateFixed, Maximize2, Rows3, Sprout, SquareStack, X } from 'lucide-react';
 import type { AnalyticsLayer, Block, DiseaseLayer, Farm, Field, LineStringGeometry, PolygonGeometry, Row } from '../lib/types';
 import { units } from '../lib/fertilization';
-import { mapNutrientCodes, mapMoistureReading, moistureMapColor, moistureMapUnits, nutrientMapBand, nutrientMapColors, summarizeNutrientMap } from '../lib/map-analytics';
+import { healthLabels } from '../lib/inspections';
+import { healthMapColors, mapNutrientCodes, mapMoistureReading, moistureMapColor, moistureMapUnits, nutrientMapBand, nutrientMapColors, summarizeNutrientMap } from '../lib/map-analytics';
 import type { FarmMapProps, MapLayer } from './FarmMap';
 
 type BaseLayer = 'satellite' | 'hybrid' | 'map';
@@ -22,12 +23,18 @@ const mapFitPadding = 0.01;
 const mapFitZoomBoost = 8;
 type FilterValue = number | 'all';
 
+function plantEstimate(row?: Row) {
+  if (!validLine(row?.geom)) return 0;
+  return Math.max(0, Math.round(row?.plantsEstimated ?? 0));
+}
+
 function plantPoints(rows: Row[], selectedPlant?: number): L.LatLngTuple[] {
   const points: L.LatLngTuple[] = [];
   rows.forEach(row => {
     const coordinates = row.geom?.coordinates;
     if (!coordinates?.length) return;
-    const count = Math.max(1, Math.round(row.plantsEstimated ?? ((row.lengthM ?? 0) / (row.plantSpacingM || 2)) + 1));
+    const count = plantEstimate(row);
+    if (!count) return;
     if (count === 1) {
       points.push([coordinates[0][1], coordinates[0][0]]);
       return;
@@ -163,7 +170,7 @@ function blockColor(block: Block, layer: MapLayer, analytics: Map<number, Analyt
   const properties = analytics.get(block.id);
   if (layer === 'satellite') return '#579359';
   if (!properties) return '#9eaea0';
-  if (layer === 'health') return properties.healthStatus === 'ACTIVE_FINDINGS' ? '#e95e51' : properties.healthStatus === 'NO_ACTIVE_FINDINGS' ? '#62b66b' : '#9eaea0';
+  if (layer === 'health') return healthMapColors[properties.healthStatus ?? 'NO_RECENT_INSPECTION'];
   if (layer === 'moisture') return moistureMapColor(mapMoistureReading(properties).condition);
   const result = nutrientResult(properties, nutrient);
   return result && result.unit === nutrientRange.unit ? nutrientMapColors[nutrientMapBand(result.value, nutrientRange.min, nutrientRange.max)] : '#a9b5ae';
@@ -173,7 +180,7 @@ function blockLabel(block: Block, layer: MapLayer, analytics: Map<number, Analyt
   const properties = analytics.get(block.id);
   const code = escapeHtml(block.code);
   if (!properties) return `${code} · ${block.areaHa ?? 'Sin área'} ha · Sin datos`;
-  if (layer === 'health') return `${code} · ${properties.healthStatus === 'ACTIVE_FINDINGS' ? 'Hallazgos activos' : properties.healthStatus === 'NO_ACTIVE_FINDINGS' ? 'Sin hallazgos activos' : 'Sin evaluación reciente'}`;
+  if (layer === 'health') return `${code} · ${healthLabels[properties.healthStatus ?? 'NO_RECENT_INSPECTION']}`;
   if (layer === 'moisture') {
     const reading = mapMoistureReading(properties);
     if (reading.sectorCount > 1) return `${code} · ${reading.sectorCount} sectores`;
@@ -186,8 +193,8 @@ function blockLabel(block: Block, layer: MapLayer, analytics: Map<number, Analyt
   return `${code} · ${block.areaHa ?? properties.areaHa ?? 'Sin área'} ha`;
 }
 
-function popupForBlock(block: Block, field?: Field) {
-  return `<div class="real-map-popup-content"><span class="real-map-popup-eyebrow">BLOQUE</span><strong>${escapeHtml(block.code)}</strong><span>${escapeHtml(field?.name ?? block.field.name)}</span><dl><div><dt>Área</dt><dd>${escapeHtml(block.areaHa ?? 'Sin dato')} ${block.areaHa == null ? '' : 'ha'}</dd></div><div><dt>Cultivo</dt><dd>${escapeHtml(block.crop)}</dd></div><div><dt>Variedad</dt><dd>${escapeHtml(block.variety ?? 'Sin dato')}</dd></div></dl></div>`;
+function popupForBlock(block: Block, field?: Field, detail?: string) {
+  return `<div class="real-map-popup-content"><span class="real-map-popup-eyebrow">BLOQUE</span><strong>${escapeHtml(block.code)}</strong><span>${escapeHtml(field?.name ?? block.field.name)}</span>${detail ? `<span>${escapeHtml(detail)}</span>` : ''}<dl><div><dt>Área</dt><dd>${escapeHtml(block.areaHa ?? 'Sin dato')} ${block.areaHa == null ? '' : 'ha'}</dd></div><div><dt>Cultivo</dt><dd>${escapeHtml(block.crop)}</dd></div><div><dt>Variedad</dt><dd>${escapeHtml(block.variety ?? 'Sin dato')}</dd></div></dl></div>`;
 }
 
 function createBaseLayer(mode: BaseLayer) {
@@ -212,7 +219,7 @@ export default function RealFarmMap({ blocks, farm, fields = [], rows = [], laye
   const [showFields, setShowFields] = useState(true);
   const [showBlocks, setShowBlocks] = useState(true);
   const [showRows, setShowRows] = useState(true);
-  const [showPlants, setShowPlants] = useState(true);
+  const [showPlants, setShowPlants] = useState(false);
   const [showFarmBoundary, setShowFarmBoundary] = useState(true);
   const [divisionFilter, setDivisionFilter] = useState<FilterValue>('all');
   const [blockFilter, setBlockFilter] = useState<FilterValue>('all');
@@ -234,9 +241,9 @@ export default function RealFarmMap({ blocks, farm, fields = [], rows = [], laye
     const ids = new Set(visibleRows.map(row => row.id));
     return disease?.features.filter(feature => ids.has(feature.properties.rowId));
   }, [disease, visibleRows]);
-  const selectedRow = rowFilter === 'all' ? undefined : rows.find(row => row.id === rowFilter);
-  const selectedPlant = plantFilter === 'all' || selectedRow?.block.id !== 1 ? undefined : plantFilter;
-  const selectedPlantCount = selectedRow?.block.id === 1 ? Math.max(0, Math.round(selectedRow.plantsEstimated ?? ((selectedRow.lengthM ?? 0) / (selectedRow.plantSpacingM || 2)) + 1)) : 0;
+  const selectedRow = rowFilter === 'all' ? undefined : visibleRows.find(row => row.id === rowFilter);
+  const selectedPlantCount = plantEstimate(selectedRow);
+  const selectedPlant = plantFilter === 'all' || plantFilter > selectedPlantCount ? undefined : plantFilter;
   const filterActive = divisionFilter !== 'all' || blockFilter !== 'all' || rowFilter !== 'all' || plantFilter !== 'all';
 
   useEffect(() => {
@@ -303,7 +310,6 @@ export default function RealFarmMap({ blocks, farm, fields = [], rows = [], laye
     const blockLayer = L.layerGroup();
     const rowLayer = L.layerGroup();
     const diseaseLayer = L.layerGroup();
-    const plantLayer = new PlantPointsLayer(plantPoints(visibleRows.filter(row => row.block.id === 1), selectedPlant));
 
     const farmGeometry = farm?.geom;
     if (showFarmBoundary && validPolygon(farmGeometry)) {
@@ -331,7 +337,7 @@ export default function RealFarmMap({ blocks, farm, fields = [], rows = [], laye
       const presentation = blockPresentation?.get(block.id);
       const polygon = L.polygon(polygonCoordinates(geometry), { color: isSelected || presentation ? '#ffffff' : '#294f35', fillColor: presentation?.color ?? blockColor(block, layer, analyticsByBlock, nutrient, nutrientRange), fillOpacity: presentation ? .58 : blockPresentation ? .1 : layer === 'satellite' ? .24 : .62, weight: isSelected ? 4 : 1.6, opacity: .95 });
       polygon.bindTooltip(presentation ? `${escapeHtml(presentation.label ?? block.code)} · ${escapeHtml(presentation.detail)}` : blockLabel(block, layer, analyticsByBlock, nutrient), { sticky: true, className: 'real-map-tooltip' });
-      polygon.bindPopup(popupForBlock(block, fieldById.get(block.field.id)), { className: 'real-map-popup', maxWidth: 260 });
+      polygon.bindPopup(popupForBlock(block, fieldById.get(block.field.id), presentation?.detail), { className: 'real-map-popup', maxWidth: 260 });
       polygon.on('click', () => { setSelectedField(undefined); onSelect?.(block.id); onSelectField?.(block.field.id); });
       polygon.addTo(blockLayer);
       makePathAccessible(polygon, `Seleccionar ${block.code}`);
@@ -358,7 +364,10 @@ export default function RealFarmMap({ blocks, farm, fields = [], rows = [], laye
     if (showBlocks) blockLayer.addTo(overlays);
     if (showRows) rowLayer.addTo(overlays);
     if (showRows) diseaseLayer.addTo(overlays);
-    if (showPlants && visibleRows.length) overlays.addLayer(plantLayer);
+    if (showPlants) {
+      const points = plantPoints(visibleRows, selectedPlant);
+      if (points.length) overlays.addLayer(new PlantPointsLayer(points));
+    }
     infrastructurePoints?.forEach(point => {
       const marker = L.marker([point.latitude, point.longitude], {
         icon: irrigationPointIcon,
@@ -382,7 +391,7 @@ export default function RealFarmMap({ blocks, farm, fields = [], rows = [], laye
     else map.setView([4.5709, -74.2973], 6);
   };
 
-  const noGeometry = !infrastructurePoints?.length && !validPolygon(farm?.geom) && !fields.some(field => validPolygon(field.geom)) && !blocks.some(block => validPolygon(block.geom));
+  const noGeometry = !infrastructurePoints?.length && !validPolygon(farm?.geom) && !fields.some(field => validPolygon(field.geom)) && !blocks.some(block => validPolygon(block.geom)) && !rows.some(row => validLine(row.geom));
 
   return <div className={`farm-map real-map ${large ? 'map-large' : ''} ${expanded ? 'map-expanded' : ''} ${noGeometry ? 'real-map-empty' : ''}`}>
     <div ref={containerRef} className="real-map-canvas" aria-label="Mapa geográfico interactivo de la finca" />
@@ -397,12 +406,12 @@ export default function RealFarmMap({ blocks, farm, fields = [], rows = [], laye
       <label className="real-map-filter"><span>División</span><select aria-label="Filtrar por división" value={divisionFilter} onChange={event => { const value: FilterValue = event.target.value === 'all' ? 'all' : Number(event.target.value); setDivisionFilter(value); setBlockFilter('all'); setRowFilter('all'); setPlantFilter('all'); }}><option value="all">Todas</option>{fields.map(field => <option key={field.id} value={field.id}>{field.name}</option>)}</select></label>
       <label className="real-map-filter"><span>Bloque</span><select aria-label="Filtrar por bloque" value={blockFilter} onChange={event => { const value: FilterValue = event.target.value === 'all' ? 'all' : Number(event.target.value); setBlockFilter(value); setRowFilter('all'); setPlantFilter('all'); }}><option value="all">Todos</option>{filterBlocks.map(block => <option key={block.id} value={block.id}>{block.code}</option>)}</select></label>
       <label className="real-map-filter"><span>Surco</span><select aria-label="Filtrar por surco" value={rowFilter} onChange={event => { const value: FilterValue = event.target.value === 'all' ? 'all' : Number(event.target.value); setRowFilter(value); setPlantFilter('all'); }}><option value="all">Todos</option>{filterRows.map(row => <option key={row.id} value={row.id}>{row.rowCode}</option>)}</select></label>
-      <label className="real-map-filter"><span>Planta</span><select aria-label="Filtrar por planta" value={plantFilter} disabled={!selectedRow || selectedRow.block.id !== 1} onChange={event => setPlantFilter(event.target.value === 'all' ? 'all' : Number(event.target.value))}><option value="all">Todas</option>{Array.from({ length: selectedPlantCount }, (_, index) => <option key={index + 1} value={index + 1}>Planta {index + 1}</option>)}</select></label>
+      <label className="real-map-filter"><span>Planta</span><select aria-label="Filtrar por planta" value={selectedPlant ?? 'all'} disabled={!selectedPlantCount} onChange={event => { setShowPlants(true); setPlantFilter(event.target.value === 'all' ? 'all' : Number(event.target.value)); }}><option value="all">Todas</option>{Array.from({ length: selectedPlantCount }, (_, index) => <option key={index + 1} value={index + 1}>Planta {index + 1}</option>)}</select></label>
       <label><input type="checkbox" checked={showFarmBoundary} onChange={event => setShowFarmBoundary(event.target.checked)} /><Layers size={15} />Límite de la finca</label>
       <label><input type="checkbox" checked={showFields} onChange={event => setShowFields(event.target.checked)} /><SquareStack size={15} />Divisiones / campos</label>
       <label><input type="checkbox" checked={showBlocks} onChange={event => setShowBlocks(event.target.checked)} /><SquareStack size={15} />Bloques</label>
       <label><input type="checkbox" checked={showRows} onChange={event => setShowRows(event.target.checked)} /><Rows3 size={15} />Filas y observaciones</label>
-      <label><input type="checkbox" checked={showPlants} onChange={event => setShowPlants(event.target.checked)} /><Sprout size={15} />Plantas · Bloque 1</label>
+      <label><input type="checkbox" checked={showPlants} onChange={event => { setShowPlants(event.target.checked); if (!event.target.checked) setPlantFilter('all'); }} /><Sprout size={15} />Posiciones estimadas de plantas</label>
       <div className="real-map-layer-current"><Layers size={14} /><span>Capa activa</span><strong>{layerLabels[layer]}</strong></div>
       {comparisonLayer && <div className="real-map-layer-current"><span>Comparando</span><strong>{layerLabels[comparisonLayer]}</strong></div>}
     </div>}

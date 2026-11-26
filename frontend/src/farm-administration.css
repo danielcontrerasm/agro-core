@@ -4,6 +4,15 @@
   gap: 14px;
   color: #14243a;
 }
+@media (min-width: 801px) {
+  .admin-app-shell .topbar .date-picker { display: flex; }
+}
+@media (max-width: 800px) {
+  .crop-app-shell.admin-app-shell main .mobile-context { display: flex; gap: 9px; padding: 13px 0 6px; }
+  .admin-app-shell .mobile-context > label { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 7px 8px; border: 1px solid #dce8e3; border-radius: 7px; background: #fff; color: #526958; }
+  .admin-app-shell .mobile-context > label:first-child { flex: 1; }
+  .admin-app-shell .mobile-context :is(select, input) { width: 100%; min-width: 0; border: 0; padding: 0; background: none; font-size: 13px; }
+}
 .admin-heading,
 .admin-toolbar,
 .admin-filters,

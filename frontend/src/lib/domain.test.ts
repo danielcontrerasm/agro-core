@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { csvCell, farmMetrics, localDate, scopeFarm, todayTasks, transitionTask } from './domain.ts';
 import type { FarmData, Task } from './types.ts';
 import { demoInspections, incidence, inspectionCsv, inspectionHealth } from './inspections.ts';
-import { interpretAnalysis, interpretNutrient } from './fertilization.ts';
+import { interpretAnalysis, interpretNutrient, type Analysis } from './fertilization.ts';
 
 test('inspection incidence rejects invalid samples and health respects resolution, freshness and target', () => {
   assert.equal(incidence(20, 5), 25);
@@ -110,17 +110,22 @@ test('nutrient interpretation classifies only compatible results and keeps revie
 });
 
 test('analysis interpretation reports attention and unknown results without prescribing a dose', () => {
-  const summary = interpretAnalysis({
+  const analysis: Analysis = {
     id: 1, blockId: 1, sampleType: 'SOIL', sampledOn: '2026-10-16', laboratory: 'Lab', reference: 'S-1', depthCm: 20,
     results: [
       { nutrient: 'N', value: 0.1, unit: 'PERCENT', method: 'Total' },
       { nutrient: 'P', value: 20, unit: 'MG_KG', method: 'Bray' },
       { nutrient: 'ZN', value: 2, unit: 'MG_KG', method: 'DTPA' },
     ], createdBy: 1,
-  }, 'banana');
+  };
+  const summary = interpretAnalysis(analysis, 'banana', true);
   assert.equal(summary.low, 1);
   assert.equal(summary.adequate, 2);
   assert.equal(summary.high, 0);
   assert.equal(summary.unknown, 0);
   assert.equal(summary.attention, 1);
+  const live = interpretAnalysis({ ...analysis, interpretations: [summary.interpretations[1]] }, 'banana');
+  assert.equal(live.low, 0);
+  assert.equal(live.adequate, 1);
+  assert.equal(live.unknown, 2);
 });

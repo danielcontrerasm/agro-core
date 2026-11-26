@@ -70,19 +70,19 @@ function InterpretationBadge({ interpretation }: { interpretation: NutrientInter
   return <Badge tone={nutrientStatusTones[interpretation.status]}>{interpretation.label}</Badge>;
 }
 
-function AnalysisInterpretation({ analysis, crop }: { analysis: Analysis; crop?: string }) {
-  const summary = interpretAnalysis(analysis, crop);
+function AnalysisInterpretation({ analysis, crop, demo }: { analysis: Analysis; crop?: string; demo: boolean }) {
+  const summary = interpretAnalysis(analysis, crop, demo);
   const profile = summary.interpretations.find(item => item.profileName);
   const detail = summary.attention ? `${summary.attention} resultado${summary.attention === 1 ? '' : 's'} por revisar` : `${summary.adequate} resultado${summary.adequate === 1 ? '' : 's'} en rango`;
   const representative = summary.interpretations.find(item => item.status === 'LOW' || item.status === 'HIGH') ?? summary.interpretations[0];
-  return <div className="nutrient-interpretation-summary">{representative && <InterpretationBadge interpretation={representative} />}<span>{detail}</span>{summary.unknown > 0 && <small>{summary.unknown} sin perfil compatible</small>}{profile && <small>{profile.profileName} · requiere revisión técnica</small>}</div>;
+  return <div className="nutrient-interpretation-summary">{representative && <InterpretationBadge interpretation={representative} />}{summary.adequate + summary.attention > 0 && <span>{detail}</span>}{summary.unknown > 0 && <small>{summary.unknown} sin interpretar</small>}{profile && <small>{profile.profileName} · requiere revisión técnica</small>}</div>;
 }
 
-function AnalysisInterpretationDetails({ analysis, crop, canReview, onReview }: { analysis: Analysis; crop?: string; canReview: boolean; onReview: () => void }) {
-  const summary = interpretAnalysis(analysis, crop);
+function AnalysisInterpretationDetails({ analysis, crop, demo, canReview, onReview }: { analysis: Analysis; crop?: string; demo: boolean; canReview: boolean; onReview: () => void }) {
+  const summary = interpretAnalysis(analysis, crop, demo);
   const profile = summary.interpretations.find(item => item.profileName);
   return <Panel title="Interpretación preliminar" action={canReview && <button className="button small" onClick={onReview}>{analysis.review ? 'Actualizar revisión' : 'Registrar revisión'}</button>}>
-    <p className="muted">Los estados usan el perfil nutricional de la finca.</p>
+    <p className="muted">{demo ? 'Interpretación con un perfil ilustrativo.' : 'Los estados interpretados usan el perfil nutricional de la finca.'}</p>
     <div className="table-wrap"><table>
       <thead><tr><th scope="col">Parámetro</th><th scope="col">Estado</th><th scope="col">Fundamento</th></tr></thead>
       <tbody>{summary.interpretations.map(interpretation => <tr key={interpretation.nutrient}>
@@ -114,14 +114,15 @@ export default function Fertilization({ onHistory }: { onHistory: () => void }) 
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [photoBusy, setPhotoBusy] = useState(false);
   useEffect(() => {
-    let active = true; setLoading(true); setError(''); setRecords(empty); setDetail(undefined); setEditor(undefined); setChoosingApplication(false);
+    let active = true; setLoading(true); setError(''); setLoadError(''); setRecords(empty); setDetail(undefined); setEditor(undefined); setChoosingApplication(false);
     const inspections = demo ? Promise.resolve(readDemo(inspectionDemoKey, demoInspections())) : api.inspections(farmId);
     const people = demo ? Promise.resolve([{ userId: 1, name: profile.user.name, email: profile.user.email, role: 'ADMIN' as const }, { userId: 2, name: 'María González', email: 'maria@demo.local', role: 'WORKER' as const }]) : manager ? api.members(farmId) : Promise.resolve([]);
     Promise.all([demo ? Promise.resolve(readFertilizationDemo()) : api.fertilization(farmId), people, inspections, demo ? Promise.resolve([] as NutrientReferenceProfile[]) : api.nutrientProfiles(farmId), demo ? Promise.resolve([] as FertilizerProduct[]) : api.fertilizerProducts(farmId)]).then(([result, users, inspections, profiles, products]) => {
       if (active) { setRecords(result); setMembers(users); setInspectionOptions(inspections.filter(inspection => !inspection.canceledAt)); setReferenceProfiles(profiles); setProducts(products); }
-    }).catch(failure => { if (active) setError(failure.message); }).finally(() => { if (active) setLoading(false); });
+    }).catch(failure => { if (active) setLoadError(failure instanceof Error ? failure.message : 'No se pudo cargar la fertilización.'); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [demo, farmId, manager, profile.user.id, profile.user.name, profile.user.email]);
   function persist(next: FertilizationData) {
@@ -270,7 +271,7 @@ export default function Fertilization({ onHistory }: { onHistory: () => void }) 
   const appliedAmount = (['kg', 'L'] as const).filter(unit => amounts[unit] > 0)
     .map(unit => `${number(amounts[unit], 6)} ${unit}`).join(' · ');
   const readings = visibleAnalyses.reduce((totals, analysis) => {
-    const interpreted = interpretAnalysis(analysis, data.blocks.find(block => block.id === analysis.blockId)?.crop);
+    const interpreted = interpretAnalysis(analysis, data.blocks.find(block => block.id === analysis.blockId)?.crop, demo);
     totals.low += interpreted.low;
     totals.high += interpreted.high;
     totals.adequate += interpreted.adequate;
@@ -334,15 +335,15 @@ export default function Fertilization({ onHistory }: { onHistory: () => void }) 
         <div className="fertilization-heading-actions">
           {isOverview ? <>
             {manager && <button className="button secondary" type="button" disabled={loading || !analyses.length} onClick={() => open({ kind: 'plan' })}><FilePlus2 size={17} />Crear plan de fertilización</button>}
-            {(manager || readyToApply.length > 0) && <button className="button" type="button" disabled={loading} onClick={beginApplication}><Plus size={18} />Registrar aplicación</button>}
+            {(manager || readyToApply.length > 0) && <button className="button" type="button" disabled={loading || !!loadError} onClick={beginApplication}><Plus size={18} />Registrar aplicación</button>}
           </> : <>
             {canCreate && <button className="button fertilization-primary" type="button"
-              disabled={!data.blocks.length || (tab === 'plans' && !analyses.length)}
+              disabled={loading || !!loadError || !data.blocks.length || (tab === 'plans' && !analyses.length)}
               onClick={() => open({ kind: tab === 'analyses' ? 'analysis' : 'plan' })}>
               <Plus size={17} />{tab === 'analyses' ? 'Nuevo análisis' : 'Nuevo plan'}
             </button>}
-            {tab === 'applications' && (manager || readyToApply.length > 0) && <button className="button" type="button" disabled={loading} onClick={beginApplication}><Plus size={18} />Registrar aplicación</button>}
-            {tab === 'plans' && <button className="button secondary" type="button" onClick={exportCsv}><Download size={16} />Exportar planes CSV</button>}
+            {tab === 'applications' && (manager || readyToApply.length > 0) && <button className="button" type="button" disabled={loading || !!loadError} onClick={beginApplication}><Plus size={18} />Registrar aplicación</button>}
+            {tab === 'plans' && <button className="button secondary" type="button" disabled={loading || !!loadError} onClick={exportCsv}><Download size={16} />Exportar planes CSV</button>}
           </>}
         </div>
       </header>
@@ -356,14 +357,14 @@ export default function Fertilization({ onHistory }: { onHistory: () => void }) 
           <button type="button" onClick={onHistory}><History size={16} />Historial anterior</button>
         </div>
         <div className="fertilization-controls-actions">
-          {isOverview && <button className="outline-action" type="button" disabled={!data.blocks.length} onClick={newAnalysis}><FlaskConical size={14} />Nuevo análisis</button>}
+          {isOverview && <button className="outline-action" type="button" disabled={loading || !!loadError || !data.blocks.length} onClick={newAnalysis}><FlaskConical size={14} />Nuevo análisis</button>}
           <label>Filtrar bloque<select className="compact-select" value={activeBlockFilter} onChange={event => setBlockFilter(event.target.value)}>
             <option value="">Todos los bloques</option>{data.blocks.map(block => <option key={block.id} value={block.id}>{block.code}</option>)}
           </select></label>
         </div>
       </div>
       {error && !editor && !detail && <p className="form-error" role="alert">{error}</p>}
-      {isOverview ? loading ? <p role="status">Cargando fertilización…</p> : <FertilizationOverview key={`${farmId}-${activeBlockFilter}`}
+      {loadError ? <p className="form-error" role="alert">{loadError}</p> : isOverview ? loading ? <p role="status">Cargando fertilización…</p> : <FertilizationOverview key={`${farmId}-${activeBlockFilter}`}
         data={data} demo={demo} blockFilter={activeBlockFilter} analyses={visibleAnalyses} approvedPlans={approved}
         applications={visibleApplications} amount={appliedAmount} onTab={setTab} onAnalysis={viewRecord} onApplication={viewRecord}
         onPlan={manager ? sample => open({ kind: 'plan', sample }) : undefined} /> : <>
@@ -386,7 +387,7 @@ export default function Fertilization({ onHistory }: { onHistory: () => void }) 
               <td role="cell" data-label="Resultados"><div className="fertilization-result-chips">{sample.results.slice(0, 4).map(result =>
                 <span title={nutrientNames[result.nutrient]} key={result.nutrient}><b>{result.nutrient === 'PH' ? 'pH' : result.nutrient}</b> {result.value} {units[result.unit]}</span>
               )}</div></td>
-              <td role="cell" data-label="Interpretación" className="farm-record-full"><AnalysisInterpretation analysis={sample} crop={data.blocks.find(block => block.id === sample.blockId)?.crop} /></td>
+              <td role="cell" data-label="Interpretación" className="farm-record-full"><AnalysisInterpretation analysis={sample} crop={data.blocks.find(block => block.id === sample.blockId)?.crop} demo={demo} /></td>
               <td role="cell"><button className="outline-action" aria-label={`Ver análisis ${sample.id}`} onClick={() => viewRecord(sample)}>Ver análisis</button></td>
             </tr>)}
             {tab === 'plans' && visiblePlans.map(plan => <tr role="row" key={plan.id}>
@@ -456,7 +457,7 @@ export default function Fertilization({ onHistory }: { onHistory: () => void }) 
         </aside>
       </div>}
       {agronomic && !loading && !demo && <aside className="fertilization-catalogs"><Panel title="Perfiles de referencia activos" action={<button className="button small secondary" onClick={() => open({ kind: 'profile' })}>Nuevo perfil</button>}><p className="muted">Los perfiles se aplican por finca, cultivo, variedad y tipo de muestra. La variedad vacía funciona como perfil general del cultivo.</p>{referenceProfiles.length ? <div className="stack-list">{referenceProfiles.map(item => <div className="list-card" key={item.id}><strong>{item.name}</strong><small>{item.crop}{item.variety ? ` · ${item.variety}` : ''} · {item.sampleType} · {item.version} · {item.ranges.length} rangos</small><small>{item.source}</small></div>)}</div> : <p className="muted">No hay perfiles configurados; los análisis aparecerán sin interpretar.</p>}</Panel><Panel title="Catálogo de fertilizantes" action={<button className="button small secondary" onClick={() => open({ kind: 'product' })}>Nuevo producto</button>}><p className="muted">Productos activos con composición y unidad estándar para planes repetibles.</p>{products.length ? <div className="stack-list">{products.map(product => <div className="list-card" key={product.id}><strong>{product.code} · {product.name}</strong><small>{product.composition} · {doseUnits[product.defaultDoseUnit]}</small>{product.notes && <small>{product.notes}</small>}</div>)}</div> : <p className="muted">No hay productos configurados; los planes pueden usar captura libre.</p>}</Panel></aside>}
-      {tab !== 'applications' && <Notice>La cartilla ICA orienta el manejo integrado. El perfil base clasifica los resultados para que el responsable técnico confirme el diagnóstico y defina las dosis. {demo && 'Los datos iniciales son de demostración.'}</Notice>}
+      {tab !== 'applications' && <Notice>{demo ? 'Los datos iniciales y el perfil de referencia son de demostración.' : 'La interpretación requiere un perfil de referencia activo para el cultivo y el tipo de muestra.'}</Notice>}
       </>}
     </section>
     {choosingApplication && <Modal className="farm-work-modal fertilization-modal" title="Seleccionar plan de aplicación" onClose={() => setChoosingApplication(false)}>
@@ -601,7 +602,7 @@ export default function Fertilization({ onHistory }: { onHistory: () => void }) 
               <tbody>{detail.results.map(result => <tr key={result.nutrient}><td>{nutrientNames[result.nutrient]}</td><td>{result.value}</td><td>{units[result.unit]}</td><td>{result.method}</td></tr>)}</tbody>
             </table></div>
           </Panel>
-          <AnalysisInterpretationDetails analysis={detail} crop={detailBlock?.crop} canReview={agronomic && !demo} onReview={() => open({ kind: 'review', analysis: detail })} />
+          <AnalysisInterpretationDetails analysis={detail} crop={detailBlock?.crop} demo={demo} canReview={agronomic && !demo} onReview={() => open({ kind: 'review', analysis: detail })} />
         </> : 'product' in detail ? <>
           <RecordContext icon={ClipboardList} title={detail.product}
             subtitle={[blockLabel(detail.blockId), detailBlock?.crop, detailBlock?.variety, detail.growthStage].filter(Boolean).join(' · ')}>

@@ -14,6 +14,7 @@ export default function PreventiveMeasures() {
   const [templates, setTemplates] = useState<PreventiveMeasureTemplate[]>([]);
   const [assignments, setAssignments] = useState<PreventiveAssignment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [error, setError] = useState('');
   const [templateForm, setTemplateForm] = useState(false);
   const [assignmentForm, setAssignmentForm] = useState(false);
@@ -22,12 +23,12 @@ export default function PreventiveMeasures() {
 
   useEffect(() => {
     let active = true;
-    setLoading(true); setError(''); setSelected(null);
+    setLoading(true); setError(''); setLoadError(''); setSelected(null); setTemplates([]); setAssignments([]);
     const load = mode === 'demo'
       ? Promise.resolve(readDemo<PreventiveData>(preventiveDemoKey, demoPreventiveData()))
       : Promise.all([api.preventiveMeasures(farmId), api.preventiveAssignments(farmId)]).then(([loadedTemplates, loadedAssignments]) => ({ templates: loadedTemplates, assignments: loadedAssignments }));
     load.then(value => { if (active) { setTemplates(value.templates.filter(template => template.farmId === farmId)); setAssignments(value.assignments.filter(assignment => assignment.farmId === farmId)); } })
-      .catch(failure => { if (active) setError(failure instanceof Error ? failure.message : 'No se pudo cargar la prevención.'); })
+      .catch(failure => { if (active) setLoadError(failure instanceof Error ? failure.message : 'No se pudo cargar la prevención.'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [farmId, mode]);
@@ -105,7 +106,7 @@ export default function PreventiveMeasures() {
   async function openAssignment(assignment: PreventiveAssignment) {
     setError(''); setSelected(assignment);
     if (mode === 'live') {
-      try { const evidence = await api.preventiveEvidence(assignment.id); setSelected({ ...assignment, evidence }); }
+      try { const evidence = await api.preventiveEvidence(assignment.id); setSelected(current => current?.id === assignment.id ? { ...current, evidence } : current); }
       catch (failure) { setError(failure instanceof Error ? failure.message : 'No se pudo cargar la evidencia.'); }
     }
   }
@@ -125,6 +126,8 @@ export default function PreventiveMeasures() {
   const activeTemplates = templates.filter(template => template.active);
   const pendingCount = assignments.filter(assignment => assignment.status !== 'COMPLETED').length;
   const completedCount = assignments.filter(assignment => assignment.status === 'COMPLETED').length;
+
+  if (loadError) return <Panel title="Medidas preventivas"><p className="form-error" role="alert">{loadError}</p></Panel>;
 
   return <>
     <div className="page-heading"><div><span className="eyebrow">PREVENCIÓN FITOSANITARIA</span><h1>Medidas preventivas</h1><p>Convierte las buenas prácticas en trabajo programado y trazable.</p></div><div className="heading-buttons"><button className="button secondary" disabled={!filtered.length} onClick={exportCsv}><Download size={16} />Exportar CSV</button><button className="button" disabled={!activeTemplates.length || !data.blocks.length} onClick={() => { setError(''); setAssignmentForm(true); }}><Plus size={16} />Asignar medida</button></div></div>
